@@ -29,7 +29,7 @@ the SRS is settled.
 
 | # | Document | Status | Purpose |
 |---|----------|--------|---------|
-| 00 | `README.md` (this file) | ✅ Draft | Index, conventions, status |
+| 00 | `docs/README.md` (this file) | ✅ Draft | Index, conventions, status |
 | 01 | `01-vision-and-scope.md` | ✅ Draft | Why we build, for whom, what's in/out of V1 |
 | 02 | `02-srs.md` | ✅ Draft | Detailed functional (FR) & non-functional (NFR) requirements + traceability |
 | 03 | `03-architecture.md` | ✅ Draft | C4 views, component boundaries, deployment topology |
@@ -37,6 +37,8 @@ the SRS is settled.
 | 05 | `05-qa-and-test-strategy.md` | ✅ Draft | Test pyramid, coverage targets that mean something, compliance test cases |
 | 06 | `06-delivery-plan.md` | ✅ Draft | SDLC model, phases, sprint plan, definition of done |
 | — | `adr/` | ✅ Draft | Architecture Decision Records (binding decisions + rationale) |
+| — | `engineering/` | ✅ Draft | How to build it: repo layout, local setup, workflow, CI/CD |
+| — | `prototype/index.html` | ✅ Draft | Visual/UX prototype (27 screens). **Look only — no logic.** Behaviour is defined by `02`/`04`. |
 
 Status legend: ✅ Draft · ⏳ Next up · 🔜 Planned · 🔒 Frozen (change requires an ADR)
 
@@ -59,6 +61,7 @@ answer, permanently.
 | [ADR-007](adr/ADR-007-persistence-and-rls-enforcement.md) | Persistence via TypeORM with per-request Postgres RLS | Accepted |
 | [ADR-008](adr/ADR-008-risk-tiered-testing.md) | Risk-tiered testing; guardian invariant suites are the CI gate | Accepted |
 | [ADR-009](adr/ADR-009-sync-backward-compatibility.md) | Sync API backward-compatibility window for offline clients | Accepted |
+| [ADR-010](adr/ADR-010-repository-layout-and-tooling.md) | Single polyglot repository, pnpm workspaces, generated contract types | Accepted |
 
 ---
 
@@ -75,11 +78,15 @@ answer, permanently.
 
 ## Current status (V1)
 
-Phase: **Design track complete.** The full documentation suite (`01`–`06`) and ADR-001–009
-are drafted, cross-referenced, and traceable. No production code yet. The next action is
-**Phase 0** (`06-delivery-plan.md` §2): stand up CI/CD and environments and build the
-walking-skeleton spike — one tenant/branch/terminal, receive→sell→decrement→sync→dashboard —
-to its guardian gate (G1, G2, G4, G7) before any breadth features begin.
+Phase: **Phase 0 — Foundations + Walking Skeleton, in progress.**
+The documentation suite (`01`–`06`) and ADR-001–010 are drafted, cross-referenced, and
+traceable. The repository is scaffolded (`apps/api`, `apps/dashboard`, `apps/mobile`,
+`packages/contracts`) and the walking-skeleton slice is being built to its guardian gate
+(G1, G2, G4, G7) — one tenant/branch/terminal, receive→sell→decrement→sync→dashboard —
+before any breadth features begin.
+
+See **`engineering/`** for repo layout, local setup, and the contribution workflow, and
+`06-delivery-plan.md` §2 for the phase gates.
 
 **Open blocker before compliance work (Phase 2):** `[ASSUMPTION]` A-1 — EFDA directive
 1121/2025 retention and psychotropic-dispensing rules must be verified by compliance review.

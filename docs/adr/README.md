@@ -17,5 +17,6 @@ quietly work around an accepted ADR in code.
 | [ADR-007](ADR-007-persistence-and-rls-enforcement.md) | Persistence via TypeORM with per-request Postgres RLS | Accepted |
 | [ADR-008](ADR-008-risk-tiered-testing.md) | Risk-tiered testing; guardian invariant suites are the CI gate | Accepted |
 | [ADR-009](ADR-009-sync-backward-compatibility.md) | Sync API backward-compatibility window for offline clients | Accepted |
+| [ADR-010](ADR-010-repository-layout-and-tooling.md) | Repository layout, workspace tooling & contract codegen | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated
