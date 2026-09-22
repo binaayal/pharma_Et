@@ -809,28 +809,32 @@ class StockBatchRef {
 
 class LoginRequest {
   const LoginRequest({
+    required this.tenantCode,
     required this.username,
     required this.secret,
     required this.terminalId,
   });
 
+  final String tenantCode;
   final String username;
   final String secret;
   final String terminalId;
 
   factory LoginRequest.fromJson(Map<String, dynamic> json) => LoginRequest(
+        tenantCode: json['tenantCode'] as String,
         username: json['username'] as String,
         secret: json['secret'] as String,
         terminalId: json['terminalId'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
+        'tenantCode': tenantCode,
         'username': username,
         'secret': secret,
         'terminalId': terminalId,
       };
 
-  List<Object?> get _props => <Object?>[username, secret, terminalId];
+  List<Object?> get _props => <Object?>[tenantCode, username, secret, terminalId];
 
   @override
   bool operator ==(Object other) =>

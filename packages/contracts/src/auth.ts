@@ -12,6 +12,14 @@ export const role = z.enum(['owner', 'branch_manager', 'cashier']);
 export type Role = z.infer<typeof role>;
 
 export const loginRequest = z.object({
+  /**
+   * The pharmacy's short code, issued at onboarding.
+   *
+   * Authentication is inherently pre-tenant: usernames are unique per tenant, not globally
+   * (two pharmacies may both employ a cashier called "abebe"), so the request must say
+   * which tenant it is authenticating against before any tenant-scoped lookup can happen.
+   */
+  tenantCode: z.string().min(2).max(32),
   /** Tenant-scoped username; PIN login is for the counter, password for back office. */
   username: z.string().min(1).max(64),
   secret: z.string().min(4).max(128),

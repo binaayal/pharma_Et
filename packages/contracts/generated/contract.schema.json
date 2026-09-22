@@ -669,6 +669,11 @@
     "LoginRequest": {
       "type": "object",
       "properties": {
+        "tenantCode": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 32
+        },
         "username": {
           "type": "string",
           "minLength": 1,
@@ -684,6 +689,7 @@
         }
       },
       "required": [
+        "tenantCode",
         "username",
         "secret",
         "terminalId"

@@ -176,9 +176,16 @@ export const pullResponse = z.object({
 });
 export type PullResponse = z.infer<typeof pullResponse>;
 
+/**
+ * GET /sync/pull query parameters.
+ *
+ * Coerced, because a query string carries everything as text: `?cursor=42` arrives as the
+ * string "42". The coercion lives in the contract rather than in a controller so the client
+ * and the server agree on what a cursor is, instead of each side patching it up its own way.
+ */
 export const pullQuery = z.object({
-  cursor: changeSeq.default(0),
+  cursor: z.coerce.number().int().nonnegative().default(0),
   branchId: uuidv7.optional(),
-  limit: z.number().int().min(1).max(1000).default(500),
+  limit: z.coerce.number().int().min(1).max(1000).default(500),
 });
 export type PullQuery = z.infer<typeof pullQuery>;
