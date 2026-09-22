@@ -1,0 +1,758 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PharmaEt sync & API contract",
+  "description": "Generated from packages/contracts/src by `pnpm gen:contracts`. Do not hand-edit. This is a controlled artifact — see docs/06-delivery-plan.md §7.",
+  "contractVersion": "1.0.0",
+  "definitions": {
+    "Operation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "Client-generated UUIDv7 identifier"
+            },
+            "terminalId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalSeq": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Monotonic per-terminal sequence number; the ordering key"
+            },
+            "entityId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "opType": {
+              "type": "string",
+              "enum": [
+                "create",
+                "update",
+                "tombstone"
+              ]
+            },
+            "baseVersion": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tenantId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "branchId": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Client-generated UUIDv7 identifier"
+            },
+            "actorId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "clientTs": {
+              "type": "string",
+              "format": "date-time",
+              "description": "UTC ISO-8601 timestamp"
+            },
+            "entityType": {
+              "type": "string",
+              "const": "sale"
+            },
+            "payload": {
+              "$ref": "#/definitions/SalePayload"
+            }
+          },
+          "required": [
+            "opId",
+            "terminalId",
+            "terminalSeq",
+            "entityId",
+            "opType",
+            "baseVersion",
+            "tenantId",
+            "branchId",
+            "actorId",
+            "clientTs",
+            "entityType",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalSeq": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/terminalSeq"
+            },
+            "entityId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "opType": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opType"
+            },
+            "baseVersion": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/baseVersion"
+            },
+            "tenantId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "branchId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/branchId"
+            },
+            "actorId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "clientTs": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            "entityType": {
+              "type": "string",
+              "const": "goods_receipt"
+            },
+            "payload": {
+              "$ref": "#/definitions/GoodsReceiptPayload"
+            }
+          },
+          "required": [
+            "opId",
+            "terminalId",
+            "terminalSeq",
+            "entityId",
+            "opType",
+            "baseVersion",
+            "tenantId",
+            "branchId",
+            "actorId",
+            "clientTs",
+            "entityType",
+            "payload"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Ack": {
+      "type": "object",
+      "properties": {
+        "opId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "duplicate",
+            "rejected"
+          ]
+        },
+        "serverVersion": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "opId",
+        "status",
+        "serverVersion",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "PushRequest": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "default": "1.0.0"
+        },
+        "terminalId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Operation"
+          },
+          "maxItems": 500
+        }
+      },
+      "required": [
+        "terminalId",
+        "operations"
+      ],
+      "additionalProperties": false
+    },
+    "PushResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string"
+        },
+        "acks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Ack"
+          }
+        },
+        "changeSeq": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Server-assigned monotonic per-tenant change sequence"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "acks",
+        "changeSeq"
+      ],
+      "additionalProperties": false
+    },
+    "PullResponse": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "type": "string"
+        },
+        "cursor": {
+          "$ref": "#/definitions/PushResponse/properties/changeSeq"
+        },
+        "hasMore": {
+          "type": "boolean"
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProductRef"
+          }
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BranchRef"
+          }
+        },
+        "users": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/UserRef"
+          }
+        },
+        "stockBatches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StockBatchRef"
+          }
+        },
+        "serverTime": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "cursor",
+        "hasMore",
+        "products",
+        "branches",
+        "users",
+        "stockBatches",
+        "serverTime"
+      ],
+      "additionalProperties": false
+    },
+    "ProductRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "isControlled": {
+          "type": "boolean"
+        },
+        "psychotropicClass": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "currentPriceSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "changeSeq": {
+          "$ref": "#/definitions/PushResponse/properties/changeSeq"
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "UTC ISO-8601 timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "unit",
+        "isControlled",
+        "psychotropicClass",
+        "currentPriceSantim",
+        "changeSeq",
+        "deletedAt"
+      ],
+      "additionalProperties": false
+    },
+    "BranchRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changeSeq": {
+          "$ref": "#/definitions/PushResponse/properties/changeSeq"
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "UTC ISO-8601 timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "address",
+        "changeSeq",
+        "deletedAt"
+      ],
+      "additionalProperties": false
+    },
+    "UserRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "owner",
+            "branch_manager",
+            "cashier"
+          ]
+        },
+        "branchIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+          }
+        },
+        "changeSeq": {
+          "$ref": "#/definitions/PushResponse/properties/changeSeq"
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "UTC ISO-8601 timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "displayName",
+        "role",
+        "branchIds",
+        "changeSeq",
+        "deletedAt"
+      ],
+      "additionalProperties": false
+    },
+    "StockBatchRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "branchId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "productId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "lotNo": {
+          "type": "string"
+        },
+        "expiryDate": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "ISO-8601 calendar date"
+        },
+        "qtyOnHand": {
+          "type": "integer",
+          "description": "Integer quantity in the base unit"
+        },
+        "changeSeq": {
+          "$ref": "#/definitions/PushResponse/properties/changeSeq"
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "UTC ISO-8601 timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "branchId",
+        "productId",
+        "lotNo",
+        "expiryDate",
+        "qtyOnHand",
+        "changeSeq",
+        "deletedAt"
+      ],
+      "additionalProperties": false
+    },
+    "SalePayload": {
+      "type": "object",
+      "properties": {
+        "shiftId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Client-generated UUIDv7 identifier"
+        },
+        "cashierId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "soldAt": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        },
+        "totalSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/SaleLinePayload"
+          },
+          "minItems": 1
+        },
+        "payments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PaymentPayload"
+          }
+        }
+      },
+      "required": [
+        "shiftId",
+        "cashierId",
+        "soldAt",
+        "totalSantim",
+        "lines",
+        "payments"
+      ],
+      "additionalProperties": false
+    },
+    "SaleLinePayload": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "productId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "batchId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Client-generated UUIDv7 identifier"
+        },
+        "qty": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Integer quantity in the base unit"
+        },
+        "unitPriceSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "lineTotalSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        }
+      },
+      "required": [
+        "id",
+        "productId",
+        "batchId",
+        "qty",
+        "unitPriceSantim",
+        "lineTotalSantim"
+      ],
+      "additionalProperties": false
+    },
+    "PaymentPayload": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "cash",
+            "other_recorded"
+          ]
+        },
+        "amountSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        }
+      },
+      "required": [
+        "id",
+        "method",
+        "amountSantim"
+      ],
+      "additionalProperties": false
+    },
+    "GoodsReceiptPayload": {
+      "type": "object",
+      "properties": {
+        "supplierName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "receivedAt": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GoodsReceiptLinePayload"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "supplierName",
+        "receivedAt",
+        "lines"
+      ],
+      "additionalProperties": false
+    },
+    "GoodsReceiptLinePayload": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "productId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "lotNo": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "expiryDate": {
+          "$ref": "#/definitions/StockBatchRef/properties/expiryDate"
+        },
+        "qty": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Integer quantity in the base unit"
+        },
+        "costSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        }
+      },
+      "required": [
+        "id",
+        "productId",
+        "lotNo",
+        "expiryDate",
+        "qty",
+        "costSantim"
+      ],
+      "additionalProperties": false
+    },
+    "LoginRequest": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "secret": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 128
+        },
+        "terminalId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        }
+      },
+      "required": [
+        "username",
+        "secret",
+        "terminalId"
+      ],
+      "additionalProperties": false
+    },
+    "LoginResponse": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string"
+        },
+        "refreshToken": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        },
+        "scope": {
+          "$ref": "#/definitions/AuthScope"
+        },
+        "offlineValidUntil": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        }
+      },
+      "required": [
+        "accessToken",
+        "refreshToken",
+        "expiresAt",
+        "scope",
+        "offlineValidUntil"
+      ],
+      "additionalProperties": false
+    },
+    "AuthScope": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "tenantId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "owner",
+            "branch_manager",
+            "cashier"
+          ]
+        },
+        "branchIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+          }
+        },
+        "displayName": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "userId",
+        "tenantId",
+        "role",
+        "branchIds",
+        "displayName"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

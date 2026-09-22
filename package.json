@@ -1,0 +1,29 @@
+{
+  "name": "pharmaet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant, offline-first pharmacy system for independent Ethiopian pharmacies",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"@pharmaet/api\" --filter \"@pharmaet/dashboard\" dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "test:integration": "pnpm --filter @pharmaet/api test:integration",
+    "test:guardian": "pnpm --filter @pharmaet/api test:guardian",
+    "gen:contracts": "pnpm --filter @pharmaet/contracts generate",
+    "gen:contracts:check": "pnpm gen:contracts && git diff --exit-code -- packages/contracts/generated apps/mobile/lib/contracts",
+    "db:up": "./scripts/dev-db.sh up",
+    "db:reset": "./scripts/dev-db.sh reset",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  }
+}
