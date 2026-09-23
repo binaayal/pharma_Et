@@ -155,6 +155,25 @@ describe('G2 — sync integrity', () => {
     expect(await saleCount()).toBe(0);
   });
 
+  it("accepts a batch at the contract's maximum size (NFR-1.1)", async () => {
+    // Express defaults to a 100 KB body, which rejects any push past roughly 60 operations
+    // with a 413. A terminal returning from the guaranteed 72-hour outage pushes exactly
+    // such a batch; it would be refused, keep everything in its outbox because nothing was
+    // acknowledged, and fail identically on every retry forever. The product's central
+    // promise would break precisely in the situation it exists for.
+    //
+    // 500 is the contract's cap (`pushRequest`), so this is the largest legal request and
+    // the server must always accept it.
+    const ops = Array.from({ length: 500 }, (_, i) =>
+      saleOp(tenant, { terminalSeq: i + 1, qty: 3, batchId: null }),
+    );
+
+    const response = await push(ops).expect(201);
+    expect(response.body.acks).toHaveLength(500);
+    expect(response.body.acks.every((a: { status: string }) => a.status === 'applied')).toBe(true);
+    expect(await saleCount()).toBe(500);
+  });
+
   it('advances the pull cursor monotonically as stock changes', async () => {
     const before = await request(server())
       .get('/api/sync/pull?cursor=0')

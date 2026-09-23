@@ -29,6 +29,20 @@ module.exports = {
     },
     {
       ...base,
+      displayName: 'e2e',
+      testMatch: ['<rootDir>/test/e2e/**/*.e2e-spec.ts'],
+      setupFilesAfterEnv: ['<rootDir>/test/setup-env.ts'],
+      globalSetup: '<rootDir>/test/global-setup.ts',
+    },
+    {
+      ...base,
+      displayName: 'perf',
+      testMatch: ['<rootDir>/test/perf/**/*.perf-spec.ts'],
+      setupFilesAfterEnv: ['<rootDir>/test/setup-env.ts'],
+      globalSetup: '<rootDir>/test/global-setup.ts',
+    },
+    {
+      ...base,
       displayName: 'guardian',
       testMatch: ['<rootDir>/test/guardian/**/*.spec.ts'],
       setupFilesAfterEnv: ['<rootDir>/test/setup-env.ts'],

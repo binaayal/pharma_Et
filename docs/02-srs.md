@@ -354,7 +354,9 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-9 single-writer sync | §7, §10 | `api/src/modules/sync/`, `mobile/lib/{sync,data/outbox.dart}` | `api/test/guardian/g2-sync-integrity.spec.ts`, `mobile/test/guardian/g2_sync_integrity_test.dart` | Skeleton |
 | FR-10 localization | §3 | calendar: `packages/contracts/src/ethiopian-calendar.ts` + `mobile/lib/core/ethiopian_date.dart` (two implementations, one shared vector table) · strings: `mobile/lib/l10n/` · console toggle: `dashboard/src/lib/format.ts` | `ethiopian_date_test.dart` (19), `strings_test.dart` (7), `calendar.spec.ts` (16), `g4-utc-storage.spec.ts` (5) | **Done** — AC-10.1 Amharic + Ethiopian calendar, AC-10.2 UTC storage asserted at the schema level |
 | NFR-1 offline window | §7, §8 | `mobile/lib/data/local_db.dart`, `outbox.dart` | `mobile/test/guardian/g7_offline_durability_test.dart`; field UAT is the release gate | Skeleton — 72h harness is Phase 1 |
-| NFR-3.2 local op < 100 ms | §7 | single local transaction, no network on the sale path | `g7` timing guard; real figure comes from the device matrix | Skeleton |
+| NFR-3.2 local op < 100 ms | §7 | single local transaction, no network on the sale path | `g7` timing guard; real figure comes from the device matrix | Partial — shape guarded, device figure outstanding (GA gate) |
+| NFR-3.3 sync < 10s after 72h | §7 | `api/src/modules/sync/`, 2 MB body limit derived from the contract cap | `test/perf/nfr3.perf-spec.ts` | **Met** — 3.4 s for 186 ops |
+| NFR-3.4 API p95 | §7, §9 | one query per report; lateral aggregates, no N+1 | `test/perf/nfr3.perf-spec.ts` | **Met** — sync 33 ms / 500, dashboard ≤ 36 ms / 1000 |
 | NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
 | NFR-5 retention | §5.6, §5.8 | no `DELETE` grant to the app role; `deleted_at` on every table | schema-level; ledger retention is Phase 2 | Partial |
 

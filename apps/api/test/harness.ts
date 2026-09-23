@@ -1,4 +1,5 @@
 import { INestApplication } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { Test } from '@nestjs/testing';
 import { getDataSourceToken } from '@nestjs/typeorm';
@@ -50,8 +51,12 @@ export class TestHarness {
   static async start(): Promise<TestHarness> {
     const harness = new TestHarness();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    harness.app = moduleRef.createNestApplication();
+    harness.app = moduleRef.createNestApplication<NestExpressApplication>();
     harness.app.setGlobalPrefix('api');
+    // The same body limit main.ts applies. Without it the harness would accept batches the
+    // real server rejects, and the guardian assertion about a maximum-size push would pass
+    // against a server that does not exist.
+    (harness.app as NestExpressApplication).useBodyParser('json', { limit: '2mb' });
     await harness.app.init();
     harness.platform = harness.app.get<DataSource>(getDataSourceToken(PLATFORM_DATA_SOURCE));
     return harness;

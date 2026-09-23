@@ -83,8 +83,8 @@ answer, permanently.
 
 ## Current status (V1)
 
-Phase: **Phase 1 — Core loop, in progress.** Phase 0 is built and verified; staging
-deployment is deferred until Phase 1 completes (owner's call).
+Phase: **Phase 1 — Core loop: CLOSED** (2026-09-23). Phase 2 has begun on the subset that
+does not depend on `[ASSUMPTION]` A-1.
 
 The documentation suite (`01`–`06`) and ADR-001–010 are drafted, cross-referenced, and
 traceable. The repository is built out — `apps/api` (NestJS + RLS), `apps/dashboard`
@@ -121,10 +121,11 @@ into Dart, so the app and the API enforce one table (AC-2.1). ✅ **FR-10 comple
 Amharic and English switchable per user, Ethiopian calendar on both clients, with UTC
 storage asserted at the schema level (AC-10.2).
 
-**Phase 1's requirements are complete** apart from what `[ASSUMPTION]` A-1 gates. Closing
-the phase needs the exit-gate work — core e2e journeys and NFR-3 performance on staging and
-on a low-end Android device matrix — which waits on the staging environment
-(`engineering/staging.md` §3). **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
+**Phase 1 is closed.** Guardian suites full (110 API, 75 mobile), six core e2e journeys
+green, and every NFR-3 budget met with wide margin against the production-like container
+stack. Hosted staging is deferred by owner decision; what that leaves outstanding — real
+network latency and NFR-3.2's device figure — is on the GA checklist (`06` §11), not on a
+Phase 1 gate. See `06-delivery-plan.md` §2 for the recorded closure note. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
 `compliance-sign-off.md`.
 
 See **`engineering/`** for repo layout, local setup, the contribution workflow, and staging.
