@@ -13,6 +13,9 @@ const base = {
   rootDir: '.',
   testEnvironment: 'node',
 };
+// Timeouts are set in test/setup-env.ts, not here: `testTimeout` is not a valid key inside
+// a `projects` entry and Jest only warns about it, so a config that looks correct would
+// silently leave the real-database suites on the 5s default.
 
 module.exports = {
   projects: [
@@ -22,14 +25,14 @@ module.exports = {
       displayName: 'integration',
       testMatch: ['<rootDir>/test/integration/**/*.spec.ts'],
       setupFilesAfterEnv: ['<rootDir>/test/setup-env.ts'],
-      testTimeout: 30000,
+      globalSetup: '<rootDir>/test/global-setup.ts',
     },
     {
       ...base,
       displayName: 'guardian',
       testMatch: ['<rootDir>/test/guardian/**/*.spec.ts'],
       setupFilesAfterEnv: ['<rootDir>/test/setup-env.ts'],
-      testTimeout: 60000,
+      globalSetup: '<rootDir>/test/global-setup.ts',
     },
   ],
   collectCoverageFrom: ['src/**/*.ts', '!src/migrations/**', '!src/seed.ts'],

@@ -98,6 +98,10 @@ jobs:
 
     env:
       DATABASE_URL: postgres://pharmaet:pharmaet_ci@localhost:5432/pharmaet_ci
+      # The suites truncate between runs, so locally they derive a sibling `_test` database
+      # rather than wiping a developer's seed. In CI the container is ephemeral, so they are
+      # pointed straight at it.
+      TEST_DATABASE_URL: postgres://pharmaet:pharmaet_ci@localhost:5432/pharmaet_ci
       DATABASE_APP_USER: pharmaet_app
       DATABASE_APP_PASSWORD: pharmaet_app_ci
       JWT_SECRET: ci-only-secret-not-used-anywhere-else
