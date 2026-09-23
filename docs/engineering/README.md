@@ -93,6 +93,7 @@ by construction.
 | Run dashboard alone | `pnpm --filter @pharmaet/dashboard dev` (http://localhost:5173) |
 | Run the mobile app | `cd apps/mobile && flutter run` |
 | Regenerate contracts | `pnpm gen:contracts` (then commit the diff) — pure Node, no Dart SDK needed |
+| Format Dart | `pnpm format:dart` — **not** `dart format lib`, which reformats generated code |
 | Unit tests | `pnpm test` · `cd apps/mobile && flutter test` |
 | Guardian suites | `pnpm test:guardian` — **the merge gate** |
 | Integration tests | `pnpm test:integration` (needs the dev database up) |

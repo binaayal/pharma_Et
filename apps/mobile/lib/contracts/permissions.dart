@@ -36,8 +36,7 @@ abstract final class Capability {
   static const String settingsConfigure = 'settings.configure';
 }
 
-const Map<String, Map<String, Grant>> kPermissionMatrix =
-    <String, Map<String, Grant>>{
+const Map<String, Map<String, Grant>> kPermissionMatrix = <String, Map<String, Grant>>{
   'owner': <String, Grant>{
     'tenant.manage': Grant.denied,
     'payment.verify': Grant.denied,
@@ -89,5 +88,4 @@ Grant grantFor(String role, String capability) =>
     kPermissionMatrix[role]?[capability] ?? Grant.denied;
 
 /// Whether a role may do something at all. Use [grantFor] when the scope matters.
-bool isAllowed(String role, String capability) =>
-    grantFor(role, capability) != Grant.denied;
+bool isAllowed(String role, String capability) => grantFor(role, capability) != Grant.denied;
