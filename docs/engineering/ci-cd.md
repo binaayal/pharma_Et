@@ -15,7 +15,8 @@ job that runs must be green to merge.
 changed paths ────┼── api ─── lint ── typecheck ── unit ── integration (real Postgres)
                   │             └── guardian G1–G7 ── no-unscoped-access ── migration + RLS check
                   ├── dashboard ─ lint ── typecheck ── unit ── build
-                  └── mobile ──── analyze ── format ── flutter test (incl. guardian G2/G4/G7)
+                  ├── mobile ──── analyze ── format ── flutter test (incl. guardian G2/G4/G7)
+                  └── migrations ─ rollback safety: previous code on the NEW schema
 ```
 
 | Gate | Job | Why it blocks |
@@ -29,6 +30,23 @@ changed paths ────┼── api ─── lint ── typecheck ── u
 | **NFR-3 budgets** | `api` | Sync p95, dashboard p95, a 72h backlog, and an index behind every tenant predicate. Measured, and printed with margins. |
 | **Per-tier coverage** | `api`, `mobile` | T1 ≥ 90% branch, T2 ≥ 80% line (`../05-qa` §3). Trend, not vanity. |
 | **Dependency scan** | `security` | No high-severity advisories. |
+| **Rollback safety** | `rollback_safety` | Migrations are forward-only, so a rollback is "redeploy the previous image" against a database that has *already* migrated. The job checks the only thing that then matters — see §1.1. |
+
+### 1.1 Rollback safety
+
+Runs when a migration changes (or when the job's own definition does). It applies the PR's
+migrations, puts the **base branch's** application code back over the top — keeping the new
+migration files — and runs that older code's guardian suites against the newer schema.
+
+The question it asks is the only one production ever asks. `../06` §6.2 makes migrations
+**forward-only**, so rolling back means redeploying the previous image onto a database that
+has already moved forward. Testing `down()` would answer a question nobody asks; `down()`
+exists for local iteration and says so in `InitialSchema`. **Expand-then-contract** is the
+rule, and this job is what makes the rule true rather than merely intended: add the new
+shape now, remove the old one in a later release, once nothing is running on it.
+
+A failure here means the PR's migration would turn a rollback — the thing you reach for when
+something is already wrong — into a second outage.
 
 Integration jobs run a **real PostgreSQL 16 service container**. Mocked-database tests cannot
 validate RLS, so they are not accepted as evidence for anything isolation-related.
