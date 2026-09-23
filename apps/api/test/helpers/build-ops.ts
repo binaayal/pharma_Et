@@ -14,6 +14,9 @@ export function saleOp(
     opId?: string;
     entityId?: string;
     totalOverride?: number;
+    /** For the concurrency suite: a pharmacy's second branch has its own terminal. */
+    branchId?: string;
+    terminalId?: string;
   },
 ) {
   const qty = options.qty ?? 1;
@@ -21,13 +24,13 @@ export function saleOp(
   const lineTotal = qty * unit;
   return {
     opId: options.opId ?? uuidv7(),
-    terminalId: TERMINAL,
+    terminalId: options.terminalId ?? TERMINAL,
     terminalSeq: options.terminalSeq,
     entityId: options.entityId ?? uuidv7(),
     opType: 'create' as const,
     baseVersion: null,
     tenantId: tenant.id,
-    branchId: tenant.branchIds[0],
+    branchId: options.branchId ?? tenant.branchIds[0],
     actorId: tenant.users.cashier.id,
     clientTs: new Date(Date.UTC(2026, 8, 22, 8, 0, options.terminalSeq % 60)).toISOString(),
     entityType: 'sale' as const,
