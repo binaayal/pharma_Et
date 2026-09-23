@@ -78,15 +78,22 @@ answer, permanently.
 
 ## Current status (V1)
 
-Phase: **Phase 0 — Foundations + Walking Skeleton, in progress.**
-The documentation suite (`01`–`06`) and ADR-001–010 are drafted, cross-referenced, and
-traceable. The repository is scaffolded (`apps/api`, `apps/dashboard`, `apps/mobile`,
-`packages/contracts`) and the walking-skeleton slice is being built to its guardian gate
-(G1, G2, G4, G7) — one tenant/branch/terminal, receive→sell→decrement→sync→dashboard —
-before any breadth features begin.
+Phase: **Phase 0 — Foundations + Walking Skeleton, mostly done.**
 
-See **`engineering/`** for repo layout, local setup, and the contribution workflow, and
-`06-delivery-plan.md` §2 for the phase gates.
+The documentation suite (`01`–`06`) and ADR-001–010 are drafted, cross-referenced, and
+traceable. The repository is built out — `apps/api` (NestJS + RLS), `apps/dashboard`
+(React), `apps/mobile` (Flutter + SQLite outbox), `packages/contracts` — and the
+walking-skeleton slice runs end to end: pull catalog → sell offline → reconnect → sync →
+visible on the dashboard, exactly once, with the second tenant seeing none of it.
+
+**Guardian gate G1, G2, G4, G7 is green** (see `engineering/walking-skeleton.md` §6), and
+the RTM (`02-srs.md` §6) records what is implemented against each requirement.
+
+**What is not done:** staging is not provisioned, so `cd.yml` cannot promote to it. Until
+that is true the Phase 0 exit gate in `06-delivery-plan.md` §2 is not met and Phase 1
+breadth work should not begin.
+
+See **`engineering/`** for repo layout, local setup, and the contribution workflow.
 
 **Open blocker before compliance work (Phase 2):** `[ASSUMPTION]` A-1 — EFDA directive
 1121/2025 retention and psychotropic-dispensing rules must be verified by compliance review.

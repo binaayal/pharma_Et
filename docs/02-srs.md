@@ -336,21 +336,32 @@ Amharic/English + Ethiopian calendar (FR-10); counter workflows optimized for sp
 
 Filled as design and tests land. Every M-priority FR/NFR must trace to a design element and ≥ 1 test before it is "done." Controlled-substance requirements (FR-4 psychotropic rules, FR-6, NFR-5.1) are the highest-priority traceability targets.
 
-| Req ID | Design ref (`04-system-design.md`) | Test ref (`05-qa`) | Status |
-|---|---|---|---|
-| FR-1 | TBD | TBD | Open |
-| FR-2 (+ matrix) | TBD | TBD | Open |
-| FR-3 | TBD | TBD | Open |
-| FR-4 (+ psychotropic rules) | TBD | TBD | Open |
-| FR-6 (ledger) | TBD | TBD | Open |
-| FR-7 (base) | TBD | TBD | Open |
-| FR-8 (+ cash-up) | TBD | TBD | Open |
-| FR-9 (single-writer sync) | TBD | TBD | Open |
-| FR-10 | TBD | TBD | Open |
-| NFR-1 (offline window) | TBD | TBD | Open |
-| NFR-3 (scale/perf) | TBD | TBD | Open |
-| NFR-4 (security/isolation) | TBD | TBD | Open |
-| NFR-5 (retention) | TBD | TBD | Open |
+*Last updated: 2026-09-23, at the close of the Phase 0 walking skeleton.*
+
+Status legend: **Skeleton** — the Phase 0 slice of this requirement is implemented and
+tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
+
+| Req ID | Design ref (`04-system-design.md`) | Implementation | Test ref | Status |
+|---|---|---|---|---|
+| FR-1 tenant/branch | §5.1 | `api/src/entities/{tenant,branch}.entity.ts`, `migrations/InitialSchema` | `api/test/guardian/g1-tenant-isolation.spec.ts` | Skeleton |
+| FR-2 (+ matrix) | §8, §5.1 | `api/src/modules/auth/`, `common/auth/{jwt-auth,roles}.guard.ts`, `mobile/lib/auth/session.dart` | G1 suite; role-denial asserted end-to-end | Skeleton — full role × capability matrix is Phase 1 |
+| FR-3 inventory (FEFO, negative stock) | §5.3, §10 | `api/src/modules/inventory/inventory.service.ts`, `mobile/lib/data/catalog_repository.dart` | `api/test/guardian/g5-oversell-detected.spec.ts`, `mobile/test/unit/fefo_test.dart` | Skeleton |
+| FR-4 POS (standard sale) | §5.4 | `mobile/lib/data/sale_repository.dart`, `api/src/modules/sync/sync.service.ts` | `mobile/test/guardian/g7_offline_durability_test.dart` | Skeleton |
+| FR-4 psychotropic rules | §6.4 | — | — | **Gated on A-1** (Phase 2) |
+| FR-6 controlled ledger + audit | §5.6, §6 | — | — | **Gated on A-1** (Phase 2) |
+| FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`) | `api/test/guardian/g7-offline-resilience.spec.ts` | Skeleton |
+| FR-8 reporting + cash-up | §5.4, §9 | `api/src/modules/reporting/`, `dashboard/src/pages/SalesPage.tsx` | `g5` (oversell report) | Skeleton — **cash-up/Z-report is Phase 1** |
+| FR-9 single-writer sync | §7, §10 | `api/src/modules/sync/`, `mobile/lib/{sync,data/outbox.dart}` | `api/test/guardian/g2-sync-integrity.spec.ts`, `mobile/test/guardian/g2_sync_integrity_test.dart` | Skeleton |
+| FR-10 localization | §3 | UTC storage + edge formatting seams (`mobile/lib/core/money.dart`, `dashboard/src/lib/format.ts`) | `g4` suites | Open — Amharic + Ethiopian calendar is Phase 1 |
+| NFR-1 offline window | §7, §8 | `mobile/lib/data/local_db.dart`, `outbox.dart` | `mobile/test/guardian/g7_offline_durability_test.dart`; field UAT is the release gate | Skeleton — 72h harness is Phase 1 |
+| NFR-3.2 local op < 100 ms | §7 | single local transaction, no network on the sale path | `g7` timing guard; real figure comes from the device matrix | Skeleton |
+| NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
+| NFR-5 retention | §5.6, §5.8 | no `DELETE` grant to the app role; `deleted_at` on every table | schema-level; ledger retention is Phase 2 | Partial |
+
+**Not yet traced, and deliberately so:** FR-5 (inter-branch transfer, V1.x), FR-7a/7b and
+FR-8a (deferred), NFR-2 (V2 multi-writer). G3 (ledger immutability) and G6 (psychotropic
+rules) have no suites yet because the code they would guard does not exist — both arrive
+with Phase 2, behind A-1.
 
 ---
 

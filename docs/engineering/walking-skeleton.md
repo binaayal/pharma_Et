@@ -76,7 +76,28 @@ cd apps/mobile && flutter run
 
 If step 4 or step 7 fails, the spine is not proven and no breadth work starts.
 
-## 6. What "green" unlocks
+## 6. Where it stands today
+
+*As of 2026-09-23.*
+
+| Gate | State |
+|---|---|
+| **G1 — tenant isolation** | ✅ 5 assertions, including RLS denying a deliberately unscoped query and refusing a cross-tenant write |
+| **G2 — sync integrity** | ✅ server (8 assertions) and client (8 assertions): exactly-once, partial acks, ordering, per-op isolation |
+| **G4 — money integrity** | ✅ server (7) and device (9): integer santim end to end, totals reconcile, database constraint as the last line of defence |
+| **G7 — offline resilience** | ✅ server (5) and device (6): 60 offline sales and the sequence counter survive a real close-and-reopen of the database file |
+| **no-unscoped-access** | ✅ static check over `apps/api/src` |
+| **End-to-end slice** | ✅ real Flutter stack → API → PostgreSQL: pull → 3 offline sales → reconnect → sync → 0 pending; a second sync sends nothing |
+| **CI/CD to staging** | ⛔ pipelines written; **staging is not provisioned** — this is the remaining Phase 0 work |
+
+Totals: 37 API guardian/unit-gate tests, 26 mobile tests, 13 contract tests, 3 dashboard
+tests. The manual walkthrough in §5 was run and passed.
+
+**So Phase 0 is not finished.** The spine is proven; the environment it deploys into is
+not. Until `cd.yml` actually promotes to a reachable staging environment, the Phase 0 exit
+gate in `../06-delivery-plan.md` §2 is not met, and Phase 1 breadth work should not start.
+
+## 7. What "green" unlocks
 
 Phase 1 (`../06-delivery-plan.md` §2): the full core loop for standard drugs — FR-1, FR-2,
 FR-3, FR-4, FR-7 base, FR-8 with cash-up, FR-9 single-writer, FR-10. Each of those bolts onto
