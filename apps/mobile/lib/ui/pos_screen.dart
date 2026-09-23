@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/session.dart';
 import '../core/money.dart';
+import '../core/permissions.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../data/sale_repository.dart';
@@ -52,6 +53,13 @@ class _PosScreenState extends State<PosScreen> {
   bool _syncing = false;
 
   String get _branchId => widget.session.primaryBranchId ?? '';
+
+  /// The FR-2 matrix, read from the generated table the server enforces (AC-2.1).
+  ///
+  /// Controls for a denied capability are **not rendered at all**. A disabled button just
+  /// teaches people to hunt for the way to enable it, and an action the server will refuse
+  /// reads to a user as the product being broken.
+  bool _can(String capability) => widget.session.scope.role.can(capability);
 
   @override
   void initState() {
@@ -173,6 +181,10 @@ class _PosScreenState extends State<PosScreen> {
   }
 
   Future<void> _addToCart(LocalProduct product) async {
+    // Belt and braces with the matrix: a role that cannot sell should not reach a cart in
+    // the first place, but the check costs nothing and the server enforces it regardless.
+    if (!_can(Capability.saleCreate)) return;
+
     // Controlled substances route through the immutable ledger and carry dispensing rules
     // that arrive in Phase 2, behind the A-1 compliance gate. Refusing here is honest;
     // selling one through the standard path would put an unauditable record in the system.
@@ -252,7 +264,7 @@ class _PosScreenState extends State<PosScreen> {
       appBar: AppBar(
         title: const Text('Sell'),
         actions: [
-          if (_shift != null)
+          if (_shift != null && _can(Capability.cashupPerform))
             IconButton(
               icon: const Icon(Icons.calculate_outlined),
               onPressed: _cashUp,
@@ -271,7 +283,7 @@ class _PosScreenState extends State<PosScreen> {
       ),
       body: Column(
         children: [
-          if (_shift == null)
+          if (_shift == null && _can(Capability.saleCreate))
             Material(
               color: PharmaColors.amberTint,
               child: InkWell(

@@ -113,8 +113,9 @@ a local pre-push hook rather than an enforced rule. See `engineering/workflow.md
 **Phase 1 so far:** ✅ **FR-8 complete for the V1 base report set** — per-shift cash
 reconciliation (the owner's primary anti-shrinkage control, Vision §2.1.1), consolidated
 and per-branch sales summary, and stock with expiry alerting. Cash-up works end to end
-offline on contract v1.1.0 (ADR-012); reports are branch-scoped by role. Next: the full
-FR-2 permission matrix, then FR-10 localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
+offline on contract v1.1.0 (ADR-012); reports are branch-scoped by role. ✅ **FR-2 complete
+for tenant roles** — the permission matrix lives in `packages/contracts` and is generated
+into Dart, so the app and the API enforce one table (AC-2.1). Next: FR-10 localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
 `compliance-sign-off.md`.
 
 See **`engineering/`** for repo layout, local setup, the contribution workflow, and staging.

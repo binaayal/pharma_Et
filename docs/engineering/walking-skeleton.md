@@ -117,10 +117,10 @@ The first three, in the order the docs argue for:
 1b. ~~**The rest of FR-8's base reports.**~~ ✅ **Done.** Consolidated and per-branch sales
    summary (AC-8.2) and stock with expiry alerting (BR-3.4), both branch-scoped by role.
    17 further assertions.
-2. **The full FR-2 permission matrix**, every role × capability cell tested at both layers
-   (`../05-qa-and-test-strategy.md` §10). Branch scoping (**T** vs **B**) is now enforced
-   and tested; what remains is the write-side capabilities — managing branches, staff,
-   products and pricing — which have no endpoints yet.
+2. ~~**The full FR-2 permission matrix**~~ ✅ **Done.** The matrix lives in
+   `packages/contracts/src/permissions.ts` and is generated into Dart, so the app and the
+   API read one table (AC-2.1 requires the denial at both layers). Branch, staff, catalog
+   and pricing endpoints added; every cell tested at both layers. 32 assertions.
 3. **FR-10 localization** — Amharic and the Ethiopian calendar. Table stakes for adoption,
    and the presentation-layer seams for it already exist (`money.dart`, `format.ts`).
 

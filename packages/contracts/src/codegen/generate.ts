@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION } from '../version.js';
 import { emitDart } from './dart.js';
 import { buildContractJsonSchema } from './json-schema.js';
+import { emitPermissionsDart } from './permissions-dart.js';
 
 /**
  * `pnpm gen:contracts`
@@ -21,16 +22,20 @@ const repoRoot = resolve(here, '../../../..');
 const targets = {
   jsonSchema: resolve(repoRoot, 'packages/contracts/generated/contract.schema.json'),
   dart: resolve(repoRoot, 'apps/mobile/lib/contracts/contracts.dart'),
+  permissions: resolve(repoRoot, 'apps/mobile/lib/contracts/permissions.dart'),
 };
 
 const schema = buildContractJsonSchema();
-const dart = emitDart(schema, CONTRACT_VERSION);
+const outputs: Record<keyof typeof targets, string> = {
+  jsonSchema: `${JSON.stringify(schema, null, 2)}\n`,
+  dart: emitDart(schema, CONTRACT_VERSION),
+  permissions: emitPermissionsDart(CONTRACT_VERSION),
+};
 
 for (const [label, path] of Object.entries(targets)) {
   mkdirSync(dirname(path), { recursive: true });
-  const content = label === 'jsonSchema' ? `${JSON.stringify(schema, null, 2)}\n` : dart;
-  writeFileSync(path, content, 'utf8');
-  console.log(`  ✓ ${label.padEnd(10)} ${path.replace(`${repoRoot}/`, '')}`);
+  writeFileSync(path, outputs[label as keyof typeof targets], 'utf8');
+  console.log(`  ✓ ${label.padEnd(11)} ${path.replace(`${repoRoot}/`, '')}`);
 }
 
 // Deliberately NOT run through `dart format`.

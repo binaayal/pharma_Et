@@ -15,3 +15,6 @@ export * from './primitives.js';
 export * from './entities.js';
 export * from './sync.js';
 export * from './auth.js';
+// The FR-2 permission matrix. Here rather than in the API because AC-2.1 requires the
+// denial at both the app and the API layer, and two copies of a permission table drift.
+export * from './permissions.js';
