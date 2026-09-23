@@ -36,6 +36,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Runs a test ON the device rather than on the build machine. NFR-3.2 is a device figure —
+  # cheap Android eMMC does not fsync like a CI runner — so the only honest measurement is
+  # one taken on the handset (docs/05-qa §7).
+  integration_test:
+    sdk: flutter
   flutter_lints: ^4.0.0
   # In-memory/on-disk SQLite for the Dart VM, so the offline suites run in CI without a
   # device or emulator.
