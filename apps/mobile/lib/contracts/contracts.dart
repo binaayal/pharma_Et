@@ -71,15 +71,18 @@ class OperationSale extends Operation {
   /// Client-generated UUIDv7 identifier
   final String opId;
   final String terminalId;
+
   /// Monotonic per-terminal sequence number; the ordering key
   final int terminalSeq;
   final String entityId;
   final String opType;
   final int? baseVersion;
   final String tenantId;
+
   /// Client-generated UUIDv7 identifier
   final String? branchId;
   final String actorId;
+
   /// UTC ISO-8601 timestamp
   final String clientTs;
   final String entityType;
@@ -116,7 +119,20 @@ class OperationSale extends Operation {
         'payload': payload.toJson(),
       };
 
-  List<Object?> get _props => <Object?>[opId, terminalId, terminalSeq, entityId, opType, baseVersion, tenantId, branchId, actorId, clientTs, entityType, payload];
+  List<Object?> get _props => <Object?>[
+        opId,
+        terminalId,
+        terminalSeq,
+        entityId,
+        opType,
+        baseVersion,
+        tenantId,
+        branchId,
+        actorId,
+        clientTs,
+        entityType,
+        payload
+      ];
 
   @override
   bool operator ==(Object other) =>
@@ -143,6 +159,7 @@ class SalePayload {
   final String? shiftId;
   final String cashierId;
   final String soldAt;
+
   /// Money in santim (1 ETB = 100 santim)
   final int totalSantim;
   final List<SaleLinePayload> lines;
@@ -153,8 +170,12 @@ class SalePayload {
         cashierId: json['cashierId'] as String,
         soldAt: json['soldAt'] as String,
         totalSantim: json['totalSantim'] as int,
-        lines: (json['lines'] as List<dynamic>).map((e) => SaleLinePayload.fromJson(e as Map<String, dynamic>)).toList(),
-        payments: (json['payments'] as List<dynamic>).map((e) => PaymentPayload.fromJson(e as Map<String, dynamic>)).toList(),
+        lines: (json['lines'] as List<dynamic>)
+            .map((e) => SaleLinePayload.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        payments: (json['payments'] as List<dynamic>)
+            .map((e) => PaymentPayload.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -191,12 +212,16 @@ class SaleLinePayload {
 
   final String id;
   final String productId;
+
   /// Client-generated UUIDv7 identifier
   final String? batchId;
+
   /// Integer quantity in the base unit
   final int qty;
+
   /// Money in santim (1 ETB = 100 santim)
   final int unitPriceSantim;
+
   /// Money in santim (1 ETB = 100 santim)
   final int lineTotalSantim;
 
@@ -218,7 +243,8 @@ class SaleLinePayload {
         'lineTotalSantim': lineTotalSantim,
       };
 
-  List<Object?> get _props => <Object?>[id, productId, batchId, qty, unitPriceSantim, lineTotalSantim];
+  List<Object?> get _props =>
+      <Object?>[id, productId, batchId, qty, unitPriceSantim, lineTotalSantim];
 
   @override
   bool operator ==(Object other) =>
@@ -240,6 +266,7 @@ class PaymentPayload {
 
   final String id;
   final String method;
+
   /// Money in santim (1 ETB = 100 santim)
   final int amountSantim;
 
@@ -328,11 +355,25 @@ class OperationGoodsReceipt extends Operation {
         'payload': payload.toJson(),
       };
 
-  List<Object?> get _props => <Object?>[opId, terminalId, terminalSeq, entityId, opType, baseVersion, tenantId, branchId, actorId, clientTs, entityType, payload];
+  List<Object?> get _props => <Object?>[
+        opId,
+        terminalId,
+        terminalSeq,
+        entityId,
+        opType,
+        baseVersion,
+        tenantId,
+        branchId,
+        actorId,
+        clientTs,
+        entityType,
+        payload
+      ];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is OperationGoodsReceipt && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is OperationGoodsReceipt && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -355,7 +396,9 @@ class GoodsReceiptPayload {
   factory GoodsReceiptPayload.fromJson(Map<String, dynamic> json) => GoodsReceiptPayload(
         supplierName: json['supplierName'] as String,
         receivedAt: json['receivedAt'] as String,
-        lines: (json['lines'] as List<dynamic>).map((e) => GoodsReceiptLinePayload.fromJson(e as Map<String, dynamic>)).toList(),
+        lines: (json['lines'] as List<dynamic>)
+            .map((e) => GoodsReceiptLinePayload.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -391,8 +434,10 @@ class GoodsReceiptLinePayload {
   final String productId;
   final String lotNo;
   final String expiryDate;
+
   /// Integer quantity in the base unit
   final int qty;
+
   /// Money in santim (1 ETB = 100 santim)
   final int costSantim;
 
@@ -418,7 +463,8 @@ class GoodsReceiptLinePayload {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is GoodsReceiptLinePayload && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is GoodsReceiptLinePayload && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -481,7 +527,9 @@ class PushRequest {
   factory PushRequest.fromJson(Map<String, dynamic> json) => PushRequest(
         contractVersion: json['contractVersion'] == null ? null : json['contractVersion'] as String,
         terminalId: json['terminalId'] as String,
-        operations: (json['operations'] as List<dynamic>).map((e) => Operation.fromJson(e as Map<String, dynamic>)).toList(),
+        operations: (json['operations'] as List<dynamic>)
+            .map((e) => Operation.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -512,12 +560,15 @@ class PushResponse {
 
   final String contractVersion;
   final List<Ack> acks;
+
   /// Server-assigned monotonic per-tenant change sequence
   final int changeSeq;
 
   factory PushResponse.fromJson(Map<String, dynamic> json) => PushResponse(
         contractVersion: json['contractVersion'] as String,
-        acks: (json['acks'] as List<dynamic>).map((e) => Ack.fromJson(e as Map<String, dynamic>)).toList(),
+        acks: (json['acks'] as List<dynamic>)
+            .map((e) => Ack.fromJson(e as Map<String, dynamic>))
+            .toList(),
         changeSeq: json['changeSeq'] as int,
       );
 
@@ -565,10 +616,18 @@ class PullResponse {
         contractVersion: json['contractVersion'] as String,
         cursor: json['cursor'] as int,
         hasMore: json['hasMore'] as bool,
-        products: (json['products'] as List<dynamic>).map((e) => ProductRef.fromJson(e as Map<String, dynamic>)).toList(),
-        branches: (json['branches'] as List<dynamic>).map((e) => BranchRef.fromJson(e as Map<String, dynamic>)).toList(),
-        users: (json['users'] as List<dynamic>).map((e) => UserRef.fromJson(e as Map<String, dynamic>)).toList(),
-        stockBatches: (json['stockBatches'] as List<dynamic>).map((e) => StockBatchRef.fromJson(e as Map<String, dynamic>)).toList(),
+        products: (json['products'] as List<dynamic>)
+            .map((e) => ProductRef.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        branches: (json['branches'] as List<dynamic>)
+            .map((e) => BranchRef.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        users: (json['users'] as List<dynamic>)
+            .map((e) => UserRef.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        stockBatches: (json['stockBatches'] as List<dynamic>)
+            .map((e) => StockBatchRef.fromJson(e as Map<String, dynamic>))
+            .toList(),
         serverTime: json['serverTime'] as String,
       );
 
@@ -583,7 +642,16 @@ class PullResponse {
         'serverTime': serverTime,
       };
 
-  List<Object?> get _props => <Object?>[contractVersion, cursor, hasMore, products, branches, users, stockBatches, serverTime];
+  List<Object?> get _props => <Object?>[
+        contractVersion,
+        cursor,
+        hasMore,
+        products,
+        branches,
+        users,
+        stockBatches,
+        serverTime
+      ];
 
   @override
   bool operator ==(Object other) =>
@@ -613,9 +681,11 @@ class ProductRef {
   final String unit;
   final bool isControlled;
   final String? psychotropicClass;
+
   /// Money in santim (1 ETB = 100 santim)
   final int currentPriceSantim;
   final int changeSeq;
+
   /// UTC ISO-8601 timestamp
   final String? deletedAt;
 
@@ -624,7 +694,8 @@ class ProductRef {
         name: json['name'] as String,
         unit: json['unit'] as String,
         isControlled: json['isControlled'] as bool,
-        psychotropicClass: json['psychotropicClass'] == null ? null : json['psychotropicClass'] as String,
+        psychotropicClass:
+            json['psychotropicClass'] == null ? null : json['psychotropicClass'] as String,
         currentPriceSantim: json['currentPriceSantim'] as int,
         changeSeq: json['changeSeq'] as int,
         deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
@@ -641,7 +712,16 @@ class ProductRef {
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props => <Object?>[id, name, unit, isControlled, psychotropicClass, currentPriceSantim, changeSeq, deletedAt];
+  List<Object?> get _props => <Object?>[
+        id,
+        name,
+        unit,
+        isControlled,
+        psychotropicClass,
+        currentPriceSantim,
+        changeSeq,
+        deletedAt
+      ];
 
   @override
   bool operator ==(Object other) =>
@@ -667,6 +747,7 @@ class BranchRef {
   final String name;
   final String? address;
   final int changeSeq;
+
   /// UTC ISO-8601 timestamp
   final String? deletedAt;
 
@@ -714,6 +795,7 @@ class UserRef {
   final String role;
   final List<String> branchIds;
   final int changeSeq;
+
   /// UTC ISO-8601 timestamp
   final String? deletedAt;
 
@@ -764,11 +846,14 @@ class StockBatchRef {
   final String branchId;
   final String productId;
   final String lotNo;
+
   /// ISO-8601 calendar date
   final String expiryDate;
+
   /// Integer quantity in the base unit
   final int qtyOnHand;
   final int changeSeq;
+
   /// UTC ISO-8601 timestamp
   final String? deletedAt;
 
@@ -794,7 +879,8 @@ class StockBatchRef {
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props => <Object?>[id, branchId, productId, lotNo, expiryDate, qtyOnHand, changeSeq, deletedAt];
+  List<Object?> get _props =>
+      <Object?>[id, branchId, productId, lotNo, expiryDate, qtyOnHand, changeSeq, deletedAt];
 
   @override
   bool operator ==(Object other) =>
@@ -878,7 +964,8 @@ class LoginResponse {
         'offlineValidUntil': offlineValidUntil,
       };
 
-  List<Object?> get _props => <Object?>[accessToken, refreshToken, expiresAt, scope, offlineValidUntil];
+  List<Object?> get _props =>
+      <Object?>[accessToken, refreshToken, expiresAt, scope, offlineValidUntil];
 
   @override
   bool operator ==(Object other) =>

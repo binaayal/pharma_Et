@@ -7,7 +7,10 @@ cd "$(dirname "$0")/.."
 PORT=${PORT:-3000}
 PID=$(ss -lptn "sport = :${PORT}" 2>/dev/null | grep -oP 'pid=\K[0-9]+' | head -1 || true)
 [ -n "${PID}" ] && kill "${PID}" && sleep 1
-(cd apps/api && npx nest build >/dev/null)
+# Build through the workspace script, not `npx nest build` from here: the Nest CLI
+# resolves nest-cli.json relative to the current directory and silently exits 0 having
+# built nothing when it cannot find one.
+pnpm --filter @pharmaet/api build >/dev/null
 LOG=${API_LOG:-/tmp/pharmaet-api.log}
 (cd apps/api && setsid node dist/main.js > "${LOG}" 2>&1 < /dev/null &)
 for _ in $(seq 1 30); do
