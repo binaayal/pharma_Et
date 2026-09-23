@@ -79,16 +79,18 @@ class SyncService {
     final pending = await _outbox.pending();
 
     if (pending.isNotEmpty) {
+      // Every queued entry goes, in terminal_seq order — not just sales. Filtering by type
+      // here is how a shift close or a cash-up would sit in the outbox forever while the
+      // chip cheerfully reported everything synced.
       final operations = <Operation>[
         for (final entry in pending)
-          if (entry.entityType == 'sale')
-            _sales.toOperation(
-              entry,
-              tenantId: tenantId,
-              branchId: branchId,
-              actorId: actorId,
-              terminalId: terminalId,
-            ),
+          _sales.toOperation(
+            entry,
+            tenantId: tenantId,
+            branchId: branchId,
+            actorId: actorId,
+            terminalId: terminalId,
+          ),
       ];
 
       try {

@@ -69,6 +69,28 @@ export interface OversellRow {
   observedAt: string;
 }
 
+/** One shift's reconciliation, as the Z-report returns it (FR-8, AC-8.1). */
+export interface ShiftReconciliation {
+  shiftId: string;
+  branchId: string;
+  userId: string;
+  openedAt: string;
+  closedAt: string | null;
+  openingFloatSantim: number;
+  cashTakenSantim: number;
+  /** Recomputed by the server from sales that have actually synced. */
+  serverExpectedSantim: number;
+  saleCount: number;
+  countedSantim: number | null;
+  /** What the terminal showed the cashier at count time. Never recomputed (ADR-012 §3). */
+  terminalExpectedSantim: number | null;
+  varianceSantim: number | null;
+  /** serverExpected − terminalExpected. Non-zero means sales were still queued. */
+  expectationGapSantim: number | null;
+  countedAt: string | null;
+  note: string | null;
+}
+
 export const api = {
   login: (body: LoginRequest) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
@@ -76,6 +98,8 @@ export const api = {
   sales: (token: string) => request<SyncedSale[]>('/reports/sales', {}, token),
 
   oversells: (token: string) => request<OversellRow[]>('/reports/oversells', {}, token),
+
+  cashUps: (token: string) => request<ShiftReconciliation[]>('/reports/cash-up', {}, token),
 
   health: () => request<{ status: string; contractVersion: string }>('/health'),
 };
