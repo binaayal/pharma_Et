@@ -14,15 +14,26 @@ COPY apps/dashboard/package.json    apps/dashboard/
 COPY packages/contracts/package.json packages/contracts/
 
 # --frozen-lockfile: the image must be built from exactly the dependency set that CI tested.
-RUN pnpm install --frozen-lockfile --filter @pharmaet/api... --filter @pharmaet/contracts...
+# The dashboard is built into the same image and served by the API (docs/03 §7), so its
+# workspace is installed here too.
+RUN pnpm install --frozen-lockfile \
+      --filter @pharmaet/api... \
+      --filter @pharmaet/dashboard... \
+      --filter @pharmaet/contracts...
 
 # --------------------------------------------------------------------------- build
 FROM deps AS build
 WORKDIR /app
 COPY packages/contracts packages/contracts
 COPY apps/api apps/api
+COPY apps/dashboard apps/dashboard
 RUN pnpm --filter @pharmaet/contracts build \
- && pnpm --filter @pharmaet/api exec nest build
+ && pnpm --filter @pharmaet/api exec nest build \
+ && pnpm --filter @pharmaet/dashboard build \
+ && cp -r apps/dashboard/dist apps/api/public
+
+# No VITE_API_BASE_URL and no BASE_PATH: the bundle is served from the same origin as the
+# API, so the default relative '/api' is correct and there is no CORS to configure.
 
 # Strip dev dependencies from the tree that ships.
 RUN pnpm install --frozen-lockfile --prod --filter @pharmaet/api... --filter @pharmaet/contracts...
@@ -45,6 +56,7 @@ COPY --from=build --chown=pharmaet:pharmaet /app/packages/contracts/node_modules
 COPY --from=build --chown=pharmaet:pharmaet /app/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=pharmaet:pharmaet /app/apps/api/package.json ./apps/api/
 COPY --from=build --chown=pharmaet:pharmaet /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build --chown=pharmaet:pharmaet /app/apps/api/public ./apps/api/public
 COPY --chown=pharmaet:pharmaet apps/api/docker-entrypoint.sh /usr/local/bin/entrypoint
 RUN chmod +x /usr/local/bin/entrypoint
 

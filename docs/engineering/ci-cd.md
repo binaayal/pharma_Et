@@ -36,11 +36,11 @@ validate RLS, so they are not accepted as evidence for anything isolation-relate
 `cd.yml`:
 
 ```
-build & publish image (GHCR, immutable sha-<commit> tag)
+build & publish image (API + dashboard, GHCR, immutable sha-<commit> tag)
   └─ verify: stand THAT image up against a real Postgres, migrate, seed,
-             run scripts/smoke.sh over HTTP, re-run the migration to prove it no-ops
-       ├─ deploy API to Fly.io   → release command migrates → rolling → smoke the live URL
-       └─ deploy dashboard to GitHub Pages
+             run scripts/smoke.sh over HTTP, confirm the dashboard is served and
+             /api still 404s, re-run the migration to prove it no-ops
+       └─ deploy to Fly.io → release command migrates → rolling → smoke the live URL
             └─ production: manual dispatch only, and currently refuses (GA checklist unmet)
 ```
 
@@ -56,9 +56,10 @@ it, and the API actually serves the walking skeleton over HTTP.
 - **Backend** deploys rolling, and must keep **serving the N-1 sync contract** throughout
   (ADR-009). Rollback is redeploying the previous sha-tagged image; the schema is never
   reversed.
-- **Dashboard** publishes a static bundle to Pages with the API base URL and the `/pharmaEt/`
-  path baked in at build time. `CORS_ORIGINS` on the API must name the Pages origin, or the
-  console loads perfectly and every request is blocked.
+- **Dashboard** is built into the API image and served by it (`docs/03` §7). One artifact,
+  one origin: no CORS, and a console can never be live against a server it was not built
+  for. Vite's `assets/` output is cached `immutable` for a year; `index.html` is `no-cache`,
+  because caching it means a deploy never reaches anyone holding the old copy.
 - **Mobile** clients update out-of-band. **The server never assumes a client has updated.**
 
 Setup, rollback and running the whole thing locally: [`staging.md`](staging.md).

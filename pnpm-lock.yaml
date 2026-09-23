@@ -51,6 +51,9 @@ importers:
       dotenv:
         specifier: ^18.0.3
         version: 18.0.3
+      express:
+        specifier: ^4.22.1
+        version: 4.22.1
       pg:
         specifier: ^8.13.0
         version: 8.23.0
