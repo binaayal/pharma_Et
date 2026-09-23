@@ -135,6 +135,7 @@ Four things break catastrophically and quietly, so they carry heavier process
 | The sync envelope (`../04-system-design.md` §7) | `packages/contracts/` | silently dropped or duplicated real transactions |
 | The event / ledger schema (`../04-system-design.md` §5.6) | `apps/api/src/modules/ledger/` | an unauditable, legally exposed record |
 | RLS policies (ADR-007) | `apps/api/src/migrations/` | cross-tenant data leakage |
+| The FR-2 permission matrix (ADR-013) | `packages/contracts/src/permissions.ts` | a cell that quietly became more permissive; nobody notices an over-grant |
 | Compliance rules (FR-4 / FR-6) | `apps/api/src/modules/pos/`, `apps/mobile/lib/domain/` | dispensing that violates the directive |
 
 Touching one of these is not a normal PR. It needs an ADR, both-side contract tests, a

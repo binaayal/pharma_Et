@@ -153,7 +153,10 @@ Most changes flow through the normal PR path. **Controlled artifacts** carry str
 process because breaking them is an S1:
 
 **Controlled artifacts:** the sync envelope (`04`§7), the event/ledger schema (`04`§5.6),
-RLS policies (ADR-007), and compliance rules (FR-4/FR-6).
+RLS policies (ADR-007), compliance rules (FR-4/FR-6), and the **FR-2 permission matrix**
+(`packages/contracts/src/permissions.ts`, ADR-013) — it decides who may change a price, it
+breaks quietly, and no ordinary test notices a cell that became more permissive than it
+should be.
 
 **Required for any change to a controlled artifact:**
 1. A new or updated **ADR**.
