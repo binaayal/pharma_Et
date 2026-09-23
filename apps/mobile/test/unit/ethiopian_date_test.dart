@@ -50,7 +50,8 @@ void main() {
         expect(ethiopianMonthLength(2018, m), 30);
       }
       expect(ethiopianMonthLength(2018, 13), 5);
-      expect(ethiopianMonthLength(2019, 13), 6, reason: '2019 % 4 == 3, so it is leap');
+      expect(ethiopianMonthLength(2019, 13), 6,
+          reason: '2019 % 4 == 3, so it is leap');
     });
 
     test('Pagume gains a sixth day every fourth year', () {
