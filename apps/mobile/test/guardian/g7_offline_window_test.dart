@@ -92,6 +92,60 @@ void main() {
     });
   });
 
+  group('the boundary itself (docs/05 §10)', () {
+    // §10 asks for offline-cache expiry to be tested **at the window boundary**, not merely
+    // on either side of it. Boundaries are where off-by-one lives, and this one decides
+    // whether a terminal at exactly its deadline can still authorise a manager action.
+    //
+    // A fixed deadline and an explicit clock, because the wall clock moves between building
+    // a session and asking it a question — which is precisely why the boundary could not be
+    // tested before `expiredAt` took the instant as a parameter.
+    final deadline = DateTime.utc(2026, 9, 23, 12, 0, 0);
+    final session = sessionValidUntil(deadline);
+
+    /// The POS gate, evaluated at a chosen instant.
+    bool canAt(DateTime now, String capability) {
+      if (!session.scope.role.can(capability)) return false;
+      return !session.expiredAt(now) || survivesOfflineExpiry(capability);
+    }
+
+    test('a session exactly at its deadline has not expired', () {
+      // `isAfter` is strict, so "now == validUntil" is still valid. That is the forgiving
+      // side, and forgiving is right here: the alternative locks a manager out on the tick
+      // of a deadline they cannot see.
+      expect(session.expiredAt(deadline), isFalse);
+      expect(canAt(deadline, Capability.catalogManage), isTrue);
+    });
+
+    test('one microsecond past it, it has', () {
+      final past = deadline.add(const Duration(microseconds: 1));
+      expect(session.expiredAt(past), isTrue);
+      expect(canAt(past, Capability.catalogManage), isFalse);
+    });
+
+    test('one microsecond before it, it has not', () {
+      final before = deadline.subtract(const Duration(microseconds: 1));
+      expect(session.expiredAt(before), isFalse);
+      expect(canAt(before, Capability.catalogManage), isTrue);
+    });
+
+    test('and selling is unaffected on either side of the boundary', () {
+      // The one property that must have no boundary at all (NFR-1.2). Whatever the clock
+      // says, the counter takes money.
+      for (final offset in [
+        const Duration(days: -365),
+        const Duration(microseconds: -1),
+        Duration.zero,
+        const Duration(microseconds: 1),
+        const Duration(days: 365),
+      ]) {
+        expect(canAt(deadline.add(offset), Capability.saleCreate), isTrue,
+            reason:
+                'a sale was blocked at offset $offset from the window boundary');
+      }
+    });
+  });
+
   group('the exemption list stays honest', () {
     test('only the trading loop survives expiry', () {
       // Pinned deliberately. Widening this set is a security decision, and it should be

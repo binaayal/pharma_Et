@@ -104,8 +104,11 @@ export class AuthService {
     const refreshTtl = this.config.get<string>('JWT_REFRESH_TTL', '30d');
     const offlineHours = this.config.get<number>('OFFLINE_AUTH_TTL_HOURS', 168);
 
+    // Both are stamped with their purpose. The refresh token was already marked; the access
+    // token was not, which left "no marking" meaning "access" by omission rather than by
+    // decision — and a guard cannot enforce a rule that nothing states.
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwt.signAsync(payload, { expiresIn: accessTtl }),
+      this.jwt.signAsync({ ...payload, typ: 'access' }, { expiresIn: accessTtl }),
       this.jwt.signAsync({ ...payload, typ: 'refresh' }, { expiresIn: refreshTtl }),
     ]);
 

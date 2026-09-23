@@ -39,6 +39,21 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('invalid or expired token');
     }
 
+    // Only an access token may authenticate an API call.
+    //
+    // Without this, the refresh token is a second, equivalent credential with a **thirty-day**
+    // life, and the fifteen-minute access TTL protects nothing at all: anyone holding the
+    // refresh token has a month of full access at the user's role. Both are stored on the
+    // device together, so a compromise that yields one yields the other.
+    //
+    // A signature check cannot catch this. It answers "did we issue this?" — and we did. The
+    // question that matters is "did we issue it *for this purpose*", which only a claim can
+    // answer. Tokens minted before this claim existed carry no `typ` and are accepted, so
+    // adding it does not sign every terminal out.
+    if (payload.typ !== undefined && payload.typ !== 'access') {
+      throw new UnauthorizedException('this is not an access token');
+    }
+
     // A token with no tenant is a platform-admin token (see PlatformJwtPayload). It is
     // structurally incapable of naming a pharmacy, so it is refused here rather than allowed
     // to travel on as an undefined scope.
