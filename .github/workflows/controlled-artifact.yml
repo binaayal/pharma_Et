@@ -15,6 +15,12 @@ permissions:
 on:
   pull_request:
     branches: [main]
+    # `edited` matters: this gate's central check reads the PR *body*, and the body that a
+    # run sees is the one captured when the run was triggered. Without this, ticking the
+    # self-review line after a push leaves the gate red against a body that no longer exists,
+    # and the only way to clear it is a no-op commit — which teaches people to push noise to
+    # satisfy a check rather than to do the thing the check is asking for.
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
   gate:
