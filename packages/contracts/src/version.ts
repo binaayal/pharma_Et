@@ -1,0 +1,18 @@
+/**
+ * The sync contract version.
+ *
+ * Versioned INDEPENDENTLY of the apps (ADR-009, docs/06-delivery-plan.md §10). An offline
+ * terminal may reconnect days later still speaking an older contract, so the server must
+ * serve the current version AND at least the previous one (N-1) for a window greater than
+ * the offline ceiling plus margin.
+ *
+ * Bump MINOR for additive, backward-compatible changes. Bump MAJOR only with an ADR, dual
+ * support in the server, and an N-1 compatibility test — see docs/06-delivery-plan.md §7.
+ */
+export const CONTRACT_VERSION = '1.0.0' as const;
+
+/** Contract versions the server must still accept. Never shrink this without an ADR. */
+export const SUPPORTED_CONTRACT_VERSIONS = ['1.0.0'] as const;
+
+/** Sent by clients as `X-Contract-Version`; the server rejects anything unsupported. */
+export const CONTRACT_VERSION_HEADER = 'x-contract-version';

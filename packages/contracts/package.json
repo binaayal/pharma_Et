@@ -1,0 +1,36 @@
+{
+  "name": "@pharmaet/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Single source of truth for the sync envelope and shared API contract (ADR-010)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./src/*": "./src/*"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "generate": "tsx src/codegen/generate.ts",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit && tsc -p tsconfig.codegen.json",
+    "lint": "echo \"(contracts: lint covered by typecheck)\"",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^3.2.6",
+    "zod-to-json-schema": "^3.23.3",
+    "@types/node": "^22.7.5"
+  },
+  "files": [
+    "dist",
+    "generated"
+  ]
+}

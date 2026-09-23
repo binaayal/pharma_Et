@@ -1,0 +1,11 @@
+pnpm-lock.yaml
+dist/
+coverage/
+apps/mobile/
+packages/contracts/generated/
+docs/prototype/
+
+# Markdown is authored prose here — the docs tree, the ADRs, the READMEs. Reformatting it
+# produces enormous diffs that hide the one line that actually changed, so Prettier does
+# not touch it. Dart is formatted by `dart format`, not Prettier.
+*.md

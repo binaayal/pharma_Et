@@ -1,0 +1,90 @@
+name: Controlled artifact
+
+# The mechanical substitute for the second reviewer (ADR-011).
+#
+# docs/06 §7 requires that a change to the sync envelope, the event/ledger schema, the RLS
+# policies or the compliance rules arrives with an ADR, a guardian-suite update and a
+# completed checklist. With one maintainer there is nobody to check that, so this job does —
+# and unlike a reviewer it cannot be forgotten, waved through at the end of a long day, or
+# granted by someone who did not read the diff.
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  gate:
+    name: controlled-artifact requirements
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Decide whether this PR touches a controlled artifact
+        id: touched
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch --no-tags --depth=200 origin "${{ github.base_ref }}"
+          FILES=$(git diff --name-only "$BASE...HEAD")
+          echo "$FILES" | sed 's/^/  /'
+
+          CONTROLLED=$(echo "$FILES" | grep -E \
+            '^(packages/contracts/src/|apps/api/src/migrations/|apps/api/src/common/db/|apps/api/src/modules/sync/|apps/api/src/modules/ledger/|apps/mobile/lib/sync/)' \
+            || true)
+
+          if [ -n "$CONTROLLED" ]; then
+            echo "controlled=true" >> "$GITHUB_OUTPUT"
+            echo "### Controlled artifact touched" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$CONTROLLED" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "controlled=false" >> "$GITHUB_OUTPUT"
+            echo "No controlled artifact in this diff." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          {
+            echo "adr=$(echo "$FILES" | grep -cE '^docs/adr/.*\.md$' || true)"
+            echo "guardian=$(echo "$FILES" | grep -cE '(test/guardian/|_test\.dart$)' || true)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require an ADR
+        if: steps.touched.outputs.controlled == 'true' && steps.touched.outputs.adr == '0'
+        run: |
+          echo "::error::this PR changes a controlled artifact but adds no ADR under docs/adr/."
+          echo "::error::docs/06 §7: a controlled-artifact change needs a written decision. Four honest lines beat routing around the gate."
+          exit 1
+
+      - name: Require a guardian-suite update
+        if: steps.touched.outputs.controlled == 'true' && steps.touched.outputs.guardian == '0'
+        run: |
+          echo "::error::this PR changes a controlled artifact but touches no guardian suite."
+          echo "::error::If the invariants genuinely did not move, say so in the PR body and add an assertion that proves it."
+          exit 1
+
+      - name: Require the checklist to be completed
+        if: steps.touched.outputs.controlled == 'true'
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # The PR template ends with a self-review line. Ticking it is a claim that the
+          # whole diff was read in the Files-changed view — which is the practice ADR-011 §4
+          # asks for, and the only part of the old two-reviewer rule that survives as a
+          # human step.
+          if ! printf '%s' "$BODY" | grep -qiE '^\s*-\s*\[x\]\s*I read the whole diff'; then
+            echo "::error::tick the self-review line in the PR body: '- [x] I read the whole diff in the Files-changed view'"
+            exit 1
+          fi
+          echo "checklist complete"
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.touched.outputs.controlled }}" = "true" ]; then
+            echo "Controlled-artifact requirements satisfied (ADR + guardian suite + self-review)."
+          else
+            echo "Not a controlled-artifact change; ordinary CI gates apply."
+          fi

@@ -1,0 +1,217 @@
+name: CD
+
+# The promotion path (docs/06-delivery-plan.md §6.2):
+#
+#   merge → build artifacts → verify the stack end to end → deploy staging → smoke → [gate] → production
+#
+# The verification step is the part worth pointing at. Before anything reaches a hosted
+# environment, CD stands up the *built image* against a real Postgres, runs the real
+# migrations, and drives scripts/smoke.sh through the whole walking skeleton over HTTP. A
+# deploy that would have failed fails here instead, on a stack nobody depends on.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_production:
+        description: 'Also deploy to production (requires the production environment gate)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository }}/api
+
+jobs:
+  # ---------------------------------------------------------------- build
+  image:
+    name: build & publish API image
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: meta
+        run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          # Immutable sha tag is what gets deployed and what a rollback names; `latest` is a
+          # convenience for humans and is never what a deploy references.
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # --------------------------------------------------- staging verification
+  verify:
+    name: verify the built image end to end
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stand up the staging stack from the published image
+        env:
+          API_IMAGE: ${{ env.IMAGE }}:${{ needs.image.outputs.tag }}
+          JWT_SECRET: ci-verification-secret-not-a-real-one
+        run: |
+          docker compose -f docker-compose.staging.yml up -d --wait
+          docker compose -f docker-compose.staging.yml ps
+
+      - name: Smoke the walking skeleton over HTTP
+        run: ./scripts/smoke.sh http://localhost:3100/api
+
+      - name: Prove the migration is re-runnable (idempotent, forward-only)
+        env:
+          API_IMAGE: ${{ env.IMAGE }}:${{ needs.image.outputs.tag }}
+        run: |
+          # A deploy that retries must not fail on the migration step, and a re-run must not
+          # re-apply. This is the cheapest place to find out.
+          docker compose -f docker-compose.staging.yml run --rm migrate
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.staging.yml logs --no-color | tail -200
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.staging.yml down -v
+
+  # ------------------------------------------------------------ deploy API
+  deploy-staging-api:
+    name: deploy API to staging
+    needs: [image, verify]
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://pharmaet-staging.fly.dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the deploy is configured
+        id: configured
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Staging API not deployed"
+              echo ""
+              echo "\`FLY_API_TOKEN\` is not set, so this job had nothing to deploy to."
+              echo "The image is built, published and verified — only the hosted target is missing."
+              echo ""
+              echo "See \`docs/engineering/staging.md\` for the three commands that fix this."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.configured.outputs.configured == 'true'
+
+      - name: Deploy
+        if: steps.configured.outputs.configured == 'true'
+        working-directory: apps/api
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # The release command runs migrations before the new version takes traffic, from
+          # the same image that will serve it (fly.toml [deploy]). Rolling strategy, so the
+          # N-1 sync contract stays served throughout (ADR-009).
+          flyctl deploy --remote-only --wait-timeout 300
+
+      - name: Seed staging if it is empty
+        if: steps.configured.outputs.configured == 'true'
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          # Synthetic fixtures only (docs/06 §5). The seed refuses to run against a database
+          # that already holds tenants, so re-running it on every deploy is safe.
+          flyctl ssh console -a pharmaet-staging -C "/usr/local/bin/entrypoint seed" || \
+            echo "::notice::seed skipped (already seeded, or ssh unavailable)"
+
+      - name: Post-deploy smoke against the live URL
+        if: steps.configured.outputs.configured == 'true'
+        run: ./scripts/smoke.sh https://pharmaet-staging.fly.dev/api
+
+  # ------------------------------------------------------ deploy dashboard
+  deploy-staging-dashboard:
+    name: deploy dashboard to GitHub Pages
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build for Pages
+        env:
+          # Pages serves a project site under /<repo>/, and the API lives on another origin,
+          # so both are baked in at build time. The API's CORS_ORIGINS must name this origin
+          # or every request from the console is blocked.
+          BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL || 'https://pharmaet-staging.fly.dev/api' }}
+        run: pnpm --filter @pharmaet/dashboard build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: apps/dashboard/dist }
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # ------------------------------------------------------------- production
+  deploy-production:
+    name: deploy to production
+    needs: [image, deploy-staging-api, deploy-staging-dashboard]
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_production
+    runs-on: ubuntu-latest
+    # A protected environment with required reviewers is the manual release gate
+    # (docs/06 §6.2). Production is also gated on the GA checklist in §11 — A-1 verified,
+    # a restore drill, field UAT — none of which is met during Phase 0.
+    environment: production
+    steps:
+      - name: Refuse until the GA checklist is met
+        run: |
+          echo "::error::production is gated on the launch-readiness checklist (docs/06 §11)."
+          echo "::error::Outstanding: A-1 unverified, no restore drill, no field UAT, compliance tests provisional."
+          exit 1

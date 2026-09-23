@@ -1,0 +1,63 @@
+name: Security
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so an advisory published after a PR merged is still found.
+    - cron: '17 4 * * 1'
+
+jobs:
+  dependencies:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - name: Audit (high severity blocks)
+        run: pnpm audit --audit-level high
+
+  secrets:
+    name: no secrets in the diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan for committed credentials
+        # .env is git-ignored and .env.example holds dummy values. This catches the case
+        # where someone commits a real one anyway.
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "::error::a .env file is tracked; secrets belong in the secret store"
+            exit 1
+          fi
+
+          # Database URLs with a LITERAL password. A `${VAR}` or `${VAR:-default}` is a
+          # placeholder resolved from the environment at runtime, not a committed
+          # credential — flagging those trains people to ignore this check, which is how a
+          # real secret eventually walks past it.
+          HITS=$(git grep -nE 'postgres(ql)?://[^ ]*:[^ @]{8,}@' \
+                   -- ':!*.example' ':!*.md' ':!.github/**' ':!scripts/**' \
+                 | grep -vE '\$\{[A-Za-z_][A-Za-z0-9_]*(:-[^}]*)?\}' || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::a database URL with a literal password is committed; it belongs in the secret store"
+            exit 1
+          fi
+          echo "no literal credentials in tracked files"
+
+          # Deploy tokens and API keys, which have no legitimate reason to be in the tree.
+          KEYS=$(git grep -nE '(fly[_-]?api[_-]?token|FlyV1 fm2_|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' \
+                   -- ':!*.md' ':!.github/**' || true)
+          if [ -n "$KEYS" ]; then
+            echo "$KEYS"
+            echo "::error::what looks like a token or private key is committed"
+            exit 1
+          fi
+          echo "no tokens or private keys in tracked files"

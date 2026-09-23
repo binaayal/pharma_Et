@@ -1,0 +1,27 @@
+# A map of which paths are load-bearing.
+#
+# It no longer routes reviews to a second person — there isn't one (ADR-011). What it still
+# does is make GitHub show, on every PR, that the diff has entered a controlled artifact.
+# The enforcement lives in the `controlled-artifact` CI job, which fails the build unless
+# the change brings an ADR, a guardian-suite update, and a completed checklist.
+
+*                                   @binaayal
+
+# --- controlled artifacts (docs/06 §7) ----------------------------------------
+# The sync envelope. Drift here does not raise an error; it silently drops or duplicates
+# real transactions.
+/packages/contracts/                @binaayal
+/apps/mobile/lib/contracts/         @binaayal
+/apps/mobile/lib/sync/              @binaayal
+/apps/api/src/modules/sync/         @binaayal
+
+# RLS policies and the schema that carries them.
+/apps/api/src/migrations/           @binaayal
+/apps/api/src/common/db/            @binaayal
+
+# The guardian suites are the merge gate; weakening one is a decision, not a refactor.
+/apps/api/test/guardian/            @binaayal
+/apps/mobile/test/guardian/         @binaayal
+
+# --- binding decisions --------------------------------------------------------
+/docs/adr/                          @binaayal

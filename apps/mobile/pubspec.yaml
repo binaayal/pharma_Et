@@ -1,0 +1,45 @@
+name: pharmaet_mobile
+description: >
+  PharmaEt counter app — offline-first POS, dispensing and stock for Ethiopian pharmacies.
+  Android is the primary build and test target (ADR-001).
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  # Dart 3 for sealed classes and exhaustive switches — the generated contract union relies
+  # on both (packages/contracts, ADR-010). CI pins Flutter 3.47.5; see docs/engineering.
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Local persistence. The whole product rests on this: a sale is committed to SQLite and
+  # durable BEFORE any network attempt, so a power cut costs nothing (NFR-1.3, ADR-002).
+  sqflite: ^2.3.3
+  path: ^1.9.0
+  path_provider: ^2.1.4
+
+  # Client-generated, time-ordered identifiers, mintable offline (ADR-006).
+  uuid: ^4.5.1
+
+  http: ^1.2.2
+
+  # Cached auth material lives in platform secure storage, never in shared preferences
+  # (NFR-4.2).
+  flutter_secure_storage: ^9.2.2
+
+  connectivity_plus: ^6.0.5
+  intl: ^0.19.0
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  # In-memory/on-disk SQLite for the Dart VM, so the offline suites run in CI without a
+  # device or emulator.
+  sqflite_common_ffi: ^2.3.3
+
+flutter:
+  uses-material-design: true

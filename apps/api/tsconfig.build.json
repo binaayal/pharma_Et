@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    // Incremental is off here on purpose. The Nest CLI deletes dist/ before building, but
+    // tsc's .tsbuildinfo lives outside it — so an incremental build after a delete believes
+    // everything is up to date and emits nothing, exiting non-zero with no message.
+    "incremental": false
+  },
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+}

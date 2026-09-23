@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // The codegen runs under tsx as an ES module and uses import.meta and node: builtins,
+    // while the published package is CommonJS for the NestJS API to require. Two module
+    // targets, one source tree — so each is checked against what actually runs it.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src/codegen"]
+}

@@ -1,86 +1,78 @@
-# Pharmacy System — Documentation
+# PharmaEt — Pharmacy System
 
-Engineering documentation for the **Pharmacy System**: a multi-tenant, offline-first
-SaaS for independent Ethiopian pharmacies, built to run the pharmacy owner's
-managerial workflow (inventory, dispensing, cash control, compliance) across one or
-many branches.
+A multi-tenant, **offline-first** SaaS for independent Ethiopian pharmacies: inventory,
+dispensing, cash control, and controlled-substance compliance across one or many branches.
+Runs through power cuts; the counter never stops selling.
 
-This tree is the single source of truth. It is written to be read by **both engineers
-and Claude Code** — every document is self-contained, states its assumptions, and links
-its dependencies.
-
----
-
-## How to use this documentation
-
-**Read in order.** Each document derives from the one above it. Do not design against
-the SRS before Vision & Scope is settled; do not build against the architecture before
-the SRS is settled.
-
-**For Claude Code specifically:**
-- Start any task by reading `01-vision-and-scope.md` (what and why) and the relevant ADRs (the constraints you must not violate).
-- ADRs are **binding**. If a task appears to require violating an ADR, stop and flag it — do not silently work around it.
-- When a document says a decision is "deferred to V2," do not implement it in V1 code, even opportunistically.
-- Treat everything marked `[ASSUMPTION]` or `[OPEN]` as unverified. Do not build load-bearing logic on it without the owner confirming.
+> **Read the docs before writing code.** [`docs/`](docs/README.md) is the single source of
+> truth. The ADRs in [`docs/adr/`](docs/adr/README.md) are **binding** — if a task seems to
+> require violating one, stop and flag it.
 
 ---
 
-## Document map
+## Repository layout
 
-| # | Document | Status | Purpose |
-|---|----------|--------|---------|
-| 00 | `README.md` (this file) | ✅ Draft | Index, conventions, status |
-| 01 | `01-vision-and-scope.md` | ✅ Draft | Why we build, for whom, what's in/out of V1 |
-| 02 | `02-srs.md` | ✅ Draft | Detailed functional (FR) & non-functional (NFR) requirements + traceability |
-| 03 | `03-architecture.md` | ✅ Draft | C4 views, component boundaries, deployment topology |
-| 04 | `04-system-design.md` | ✅ Draft | Data model, sync protocol, API contract, RBAC model |
-| 05 | `05-qa-and-test-strategy.md` | ✅ Draft | Test pyramid, coverage targets that mean something, compliance test cases |
-| 06 | `06-delivery-plan.md` | ✅ Draft | SDLC model, phases, sprint plan, definition of done |
-| — | `adr/` | ✅ Draft | Architecture Decision Records (binding decisions + rationale) |
+```
+pharmaEt/
+├── docs/                  # The source of truth: vision → SRS → architecture → design → QA → delivery
+│   ├── adr/               # Architecture Decision Records (binding)
+│   ├── engineering/       # Repo layout, local setup, workflow, CI/CD
+│   └── prototype/         # Visual/UX prototype (27 screens) — look only, no logic
+├── apps/
+│   ├── api/               # NestJS + TypeORM + PostgreSQL (RLS) — the one backend for all clients
+│   ├── dashboard/         # React + Vite + TypeScript — web admin dashboard
+│   └── mobile/            # Flutter — Android-primary counter app (local SQLite + outbox)
+├── packages/
+│   └── contracts/         # Sync envelope + API contract: ONE schema, generated TS and Dart types
+└── scripts/               # Dev database, codegen, CI helpers
+```
 
-Status legend: ✅ Draft · ⏳ Next up · 🔜 Planned · 🔒 Frozen (change requires an ADR)
+Why one repository: [ADR-010](docs/adr/ADR-010-repository-layout-and-tooling.md).
 
----
+## Technology stack
 
-## Architecture Decision Records
+| Layer | Choice | Decided in |
+|---|---|---|
+| Mobile | **Flutter** (Dart) — Android primary, iOS from the same codebase; local **SQLite** + append-only outbox | [ADR-001](docs/adr/ADR-001-platform-and-stack.md) |
+| Backend | **NestJS** (Node 22, TypeScript) — modular monolith, one REST API for all clients | [ADR-001](docs/adr/ADR-001-platform-and-stack.md) |
+| Database | **PostgreSQL 16+** — relational state *and* append-only event store, tenant isolation via **RLS** | [ADR-003](docs/adr/ADR-003-multi-tenancy-isolation.md), [ADR-004](docs/adr/ADR-004-controlled-substance-ledger.md) |
+| Persistence layer | **TypeORM** with per-request `SET LOCAL` scoping | [ADR-007](docs/adr/ADR-007-persistence-and-rls-enforcement.md) |
+| Web dashboard | **React 19 + Vite + TypeScript**, shipped as a static bundle against the same API | [ADR-001](docs/adr/ADR-001-platform-and-stack.md), [ADR-010](docs/adr/ADR-010-repository-layout-and-tooling.md) |
+| Contracts | One schema in `packages/contracts` → generated TS + Dart types (anti-drift, `docs/05` §6) | [ADR-010](docs/adr/ADR-010-repository-layout-and-tooling.md) |
+| Desktop | Deferred to V1.x/V2 (Flutter Desktop, Windows-first) | [ADR-001](docs/adr/ADR-001-platform-and-stack.md) |
 
-ADRs record **irreversible-by-default decisions** with their rationale and the
-alternatives we rejected. They exist so that "why did we do it this way?" has one
-answer, permanently.
+Non-negotiables baked into the stack: money is integer **santim** (`bigint`, never float),
+identifiers are **client-generated UUIDv7**, timestamps are **UTC** (the Ethiopian calendar
+is presentation-only), and **nothing is hard-deleted**.
 
-| ADR | Decision | Status |
-|-----|----------|--------|
-| [ADR-001](adr/ADR-001-platform-and-stack.md) | Platform & technology stack | Accepted |
-| [ADR-002](adr/ADR-002-offline-single-writer-first.md) | Single-writer offline in V1; multi-writer deferred | Accepted |
-| [ADR-003](adr/ADR-003-multi-tenancy-isolation.md) | Multi-tenancy isolation model | Accepted |
-| [ADR-004](adr/ADR-004-controlled-substance-ledger.md) | Controlled-substance immutable ledger | Accepted |
-| [ADR-005](adr/ADR-005-sync-protocol.md) | Sync protocol: hand-rolled REST behind a SyncService seam | Accepted |
-| [ADR-006](adr/ADR-006-identifiers-and-offline-writes.md) | Client-generated UUIDv7 identifiers & idempotent offline writes | Accepted |
-| [ADR-007](adr/ADR-007-persistence-and-rls-enforcement.md) | Persistence via TypeORM with per-request Postgres RLS | Accepted |
-| [ADR-008](adr/ADR-008-risk-tiered-testing.md) | Risk-tiered testing; guardian invariant suites are the CI gate | Accepted |
-| [ADR-009](adr/ADR-009-sync-backward-compatibility.md) | Sync API backward-compatibility window for offline clients | Accepted |
+## Quickstart
 
----
+```bash
+pnpm install                 # workspace deps (api, dashboard, contracts)
+./scripts/dev-db.sh up       # PostgreSQL 16 in Docker, on :5433
+pnpm --filter @pharmaet/api migration:run
+pnpm --filter @pharmaet/api seed
+pnpm dev                     # API on :3000, dashboard on :5173
 
-## Conventions
+cd apps/mobile && flutter pub get && flutter run   # Android device/emulator
+```
 
-- **FR-n / NFR-n** — requirement identifiers, stable for the life of the project. Never renumber; deprecate instead.
-- **`[ASSUMPTION]`** — a belief we are building on that has not been verified. Must have an owner and a resolution date.
-- **`[OPEN]`** — an unresolved question blocking a decision.
-- **Tenant** — a pharmacy business (one owner). **Branch** — a physical store belonging to a tenant. **Terminal** — a single device running the app at a branch.
-- Currency is **ETB (Ethiopian Birr)**. Dates in user-facing surfaces support the **Ethiopian calendar**; storage is always UTC ISO-8601.
-- Regulatory references (EFDA) are treated as `[ASSUMPTION]` until confirmed by compliance review — see `01-vision-and-scope.md` §7.
+Full setup, troubleshooting, and the daily workflow: **[`docs/engineering/`](docs/engineering/README.md)**.
 
----
+## Project status
 
-## Current status (V1)
+**Phase 0 — Foundations + Walking Skeleton.** The thin vertical slice (one tenant, one
+branch, one terminal: receive → sell → decrement → sync → dashboard) is being built to its
+guardian gate (G1 isolation, G2 sync integrity, G4 money integrity, G7 offline resilience).
+Breadth features start only after that gate is green — see
+[`docs/06-delivery-plan.md`](docs/06-delivery-plan.md) §2.
 
-Phase: **Design track complete.** The full documentation suite (`01`–`06`) and ADR-001–009
-are drafted, cross-referenced, and traceable. No production code yet. The next action is
-**Phase 0** (`06-delivery-plan.md` §2): stand up CI/CD and environments and build the
-walking-skeleton spike — one tenant/branch/terminal, receive→sell→decrement→sync→dashboard —
-to its guardian gate (G1, G2, G4, G7) before any breadth features begin.
+**Open blocker for Phase 2 (compliance):** `[ASSUMPTION]` A-1 — EFDA directive 1121/2025
+retention and psychotropic-dispensing rules await compliance verification.
 
-**Open blocker before compliance work (Phase 2):** `[ASSUMPTION]` A-1 — EFDA directive
-1121/2025 retention and psychotropic-dispensing rules must be verified by compliance review.
-It gates freezing the controlled-substance data model, not the earlier phases.
+## Contributing
+
+Trunk-based: short-lived branches → PR → protected `main`. All CI gates green, including the
+**guardian invariant suites**, which have no override. Changes to a *controlled artifact*
+(sync envelope, event/ledger schema, RLS policies, compliance rules) additionally require an
+ADR and two reviews. See [`CONTRIBUTING.md`](CONTRIBUTING.md) and `docs/06-delivery-plan.md` §7.
