@@ -25,5 +25,6 @@ quietly work around an accepted ADR in code.
 | [ADR-015](ADR-015-audit-log-before-a1.md) | Event store and audit log built before A-1; the regulated subset is not | Accepted |
 | [ADR-016](ADR-016-what-suspension-blocks.md) | What a suspended subscription blocks — management writes only | Accepted |
 | [ADR-017](ADR-017-login-throttling.md) | Login throttling: slow an attacker without closing a pharmacy | Accepted |
+| [ADR-018](ADR-018-corrupt-local-database.md) | A corrupt local database quarantines and continues, rather than stopping the till | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

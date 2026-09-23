@@ -45,6 +45,13 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
   CachedSession? _session;
   String? _terminalId;
   bool _booting = true;
+
+  /// Set when the local database could not be read and was replaced (ADR-018).
+  ///
+  /// Held until someone acknowledges it on screen. The terminal is usable throughout — this
+  /// gates nothing — but it must not be possible to miss, because it means sales that were
+  /// taken on this device and not yet synced are gone.
+  String? _quarantinedFile;
   LocaleStore? _locales;
   Strings _strings = Strings.en;
 
@@ -68,8 +75,13 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
     final terminalId = await _sessions.terminalId();
     final session = await _sessions.load();
 
+    // Read from the database, not from this launch's flag: a force-close after a corrupt
+    // start must not be a way to never see the warning (ADR-018).
+    final quarantined = await db.pendingQuarantineNotice();
+
     if (!mounted) return;
     setState(() {
+      _quarantinedFile = quarantined;
       _db = db;
       _catalog = catalog;
       _sales = sales;
@@ -119,32 +131,138 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       theme: buildTheme(),
       home: _booting
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : _session == null
-              ? LoginScreen(
-                  client: _client,
-                  terminalId: _terminalId!,
-                  onSignedIn: (response, tenantCode) async {
-                    await _sessions.save(response, tenantCode);
-                    final loaded = await _sessions.load();
-                    if (mounted) setState(() => _session = loaded);
+          : _quarantinedFile != null
+              ? _RecoveryNotice(
+                  quarantinedFile: _quarantinedFile!,
+                  onAcknowledge: () async {
+                    await _db?.acknowledgeQuarantine();
+                    if (mounted) setState(() => _quarantinedFile = null);
                   },
                 )
-              : PosScreen(
-                  session: _session!,
-                  catalog: _catalog!,
-                  sales: _sales!,
-                  shifts: _shifts!,
-                  inventory: _inventory!,
-                  syncService: _syncService!,
-                  terminalId: _terminalId!,
-                  onSignOut: () async {
-                    // Signing out clears the cached scope. It does NOT touch the outbox:
-                    // queued sales belong to the pharmacy, not to the session, and they
-                    // must still reach the server after the next sign-in.
-                    await _sessions.clear();
-                    if (mounted) setState(() => _session = null);
-                  },
-                ),
+              : _session == null
+                  ? LoginScreen(
+                      client: _client,
+                      terminalId: _terminalId!,
+                      onSignedIn: (response, tenantCode) async {
+                        await _sessions.save(response, tenantCode);
+                        final loaded = await _sessions.load();
+                        if (mounted) setState(() => _session = loaded);
+                      },
+                    )
+                  : PosScreen(
+                      session: _session!,
+                      catalog: _catalog!,
+                      sales: _sales!,
+                      shifts: _shifts!,
+                      inventory: _inventory!,
+                      syncService: _syncService!,
+                      terminalId: _terminalId!,
+                      onSignOut: () async {
+                        // Signing out clears the cached scope. It does NOT touch the outbox:
+                        // queued sales belong to the pharmacy, not to the session, and they
+                        // must still reach the server after the next sign-in.
+                        await _sessions.clear();
+                        if (mounted) setState(() => _session = null);
+                      },
+                    ),
+    );
+  }
+}
+
+/// Shown once after the local database was found unreadable and replaced (ADR-018).
+///
+/// It interrupts, and it requires a tap. Both are deliberate. The terminal works perfectly
+/// from this moment on, which is exactly why a passive banner would be scrolled past: the
+/// thing that has gone wrong is invisible in normal use, because a fresh database looks like
+/// a quiet day rather than like missing records.
+///
+/// It does not block trading. The button says so, and it is the only button.
+class _RecoveryNotice extends StatelessWidget {
+  const _RecoveryNotice({
+    required this.quarantinedFile,
+    required this.onAcknowledge,
+  });
+
+  final String quarantinedFile;
+  final Future<void> Function() onAcknowledge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 44, color: PharmaColors.amber),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'This terminal had to start a new local record',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'The data stored on this device could not be read — usually after a '
+                    'power cut or a storage fault. Anything that had already reached the '
+                    'server is safe and will come back when you sync.',
+                    style: TextStyle(fontSize: 14.5, height: 1.45),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Sales taken on this device that had NOT yet synced are not in the new '
+                    'record. Tell the owner, and check the last cash-up against the takings '
+                    'you actually have.',
+                    style: TextStyle(
+                        fontSize: 14.5,
+                        height: 1.45,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: PharmaColors.amberTint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'The old record has been kept, not deleted:',
+                          style: TextStyle(
+                              fontSize: 12.5, color: PharmaColors.amber),
+                        ),
+                        const SizedBox(height: 6),
+                        // Shown in full so it can be read out over the phone to whoever is
+                        // helping. A message that says "a file was kept" without saying
+                        // which one is not help.
+                        SelectableText(
+                          quarantinedFile,
+                          style: const TextStyle(
+                              fontSize: 11.5,
+                              fontFamily: 'monospace',
+                              color: PharmaColors.amber),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  FilledButton(
+                    onPressed: () => unawaited(onAcknowledge()),
+                    child: const Text('I understand — continue selling'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

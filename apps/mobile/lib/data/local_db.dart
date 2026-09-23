@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -13,12 +15,54 @@ import 'package:sqflite/sqflite.dart';
 ///   - locally authored transactions (sales) plus the append-only `outbox`, which is the
 ///     only record that a sale happened until the server acknowledges it.
 class LocalDb {
-  LocalDb._(this.db);
+  LocalDb._(this.db, {this.quarantinedFile});
 
   final Database db;
 
+  /// Set when the previous database could not be opened and was set aside (ADR-018).
+  ///
+  /// Non-null means **this terminal has lost local data**. The counter can trade, which is
+  /// the point, but somebody must be told. Silence here would be the product quietly
+  /// reporting that a pharmacy had no sales.
+  ///
+  /// This field reflects *this* launch only. The notice that must actually reach a human
+  /// survives a restart — see [pendingQuarantineNotice].
+  final String? quarantinedFile;
+
+  bool get recoveredFromCorruption => quarantinedFile != null;
+
+  static const _quarantineKey = 'pharmaet.quarantined_file';
+
+  /// The quarantine the user has not acknowledged yet, or null.
+  ///
+  /// Recorded in the **new** database rather than held in memory, because otherwise the
+  /// warning would be dismissible by force-closing the app — and a force-close is a
+  /// completely ordinary thing to do to a till that has just behaved strangely. The one
+  /// person who most needs to see this is the one most likely to restart their way past it.
+  Future<String?> pendingQuarantineNotice() async {
+    final rows = await db.query('meta',
+        where: 'key = ?', whereArgs: [_quarantineKey], limit: 1);
+    return rows.isEmpty ? null : rows.first['value'] as String;
+  }
+
+  /// Clears the notice, once a human has actually seen it.
+  Future<void> acknowledgeQuarantine() =>
+      db.delete('meta', where: 'key = ?', whereArgs: [_quarantineKey]);
+
   static const _version = 3;
 
+  /// Opens the terminal's database, and **always returns one** (ADR-018).
+  ///
+  /// A corrupt SQLite file is not hypothetical here. The target market has unreliable mains
+  /// power and cheap flash storage, and a write interrupted at the wrong moment is exactly
+  /// how `SQLITE_NOTADB` and `SQLITE_CORRUPT` happen. Before ADR-018 that threw out of
+  /// `open`, so the app could not start — a till that will not open, which this product
+  /// treats as the worst outcome it can produce.
+  ///
+  /// So corruption is handled rather than propagated: the unreadable file is renamed aside
+  /// and a fresh database is created, so the pharmacy opens and trades. The quarantined file
+  /// is **kept**, never deleted — it is the only copy of whatever had not yet synced, and a
+  /// later version may be able to salvage rows from it.
   static Future<LocalDb> open({
     DatabaseFactory? factory,
     String? directory,
@@ -26,8 +70,38 @@ class LocalDb {
   }) async {
     final dbFactory = factory ?? databaseFactory;
     final base = directory ?? await dbFactory.getDatabasesPath();
-    final database = await dbFactory.openDatabase(
-      p.join(base, fileName),
+    final path = p.join(base, fileName);
+
+    try {
+      return LocalDb._(await _openAt(dbFactory, path));
+    } on DatabaseException catch (error) {
+      // Narrow on purpose. A disk-full or permission error must propagate: quarantining on
+      // those would rename away a perfectly good database and *cause* the data loss this is
+      // meant to contain.
+      if (!_isCorruption(error)) rethrow;
+
+      final quarantined = _quarantine(path);
+      final fresh = await _openAt(dbFactory, path);
+      if (quarantined != null) {
+        // Written into the replacement database so the warning outlives a restart. If this
+        // insert itself fails the terminal still opens: a notice is worth less than a till.
+        try {
+          await fresh.insert(
+            'meta',
+            {'key': _quarantineKey, 'value': quarantined},
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        } catch (_) {
+          // Nothing to do. The in-memory flag still shows it for this launch.
+        }
+      }
+      return LocalDb._(fresh, quarantinedFile: quarantined);
+    }
+  }
+
+  static Future<Database> _openAt(DatabaseFactory dbFactory, String path) {
+    return dbFactory.openDatabase(
+      path,
       options: OpenDatabaseOptions(
         version: _version,
         onConfigure: (db) async {
@@ -39,7 +113,51 @@ class LocalDb {
         onUpgrade: _upgradeSchema,
       ),
     );
-    return LocalDb._(database);
+  }
+
+  /// Whether this error means the file is unreadable as a database.
+  ///
+  /// Matched on SQLite's own wording rather than a numeric code: the code is not exposed
+  /// uniformly across the sqflite implementations this runs on (the device plugin and the
+  /// FFI factory the tests use), and a check that worked in one and not the other would make
+  /// the guardian suite assert something the handset does not do.
+  static bool _isCorruption(DatabaseException error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('file is not a database') || // SQLITE_NOTADB (26)
+        message.contains(
+            'database disk image is malformed') || // SQLITE_CORRUPT (11)
+        message.contains('file is encrypted');
+  }
+
+  /// Renames the unreadable file aside and returns where it went.
+  ///
+  /// Renamed, not deleted. It holds whatever this terminal had not yet synced, and deleting
+  /// it would turn a recoverable incident into a certain loss. The timestamp means a second
+  /// corruption cannot overwrite the evidence of the first.
+  static String? _quarantine(String path) {
+    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
+    final target = '$path.corrupt-$stamp';
+    var moved = false;
+
+    for (final suffix in ['', '-journal', '-wal', '-shm']) {
+      final file = File('$path$suffix');
+      if (!file.existsSync()) continue;
+      try {
+        file.renameSync('$target$suffix');
+        if (suffix.isEmpty) moved = true;
+      } catch (_) {
+        // If it cannot even be renamed, delete it: an unopenable file that cannot be moved
+        // would block every future launch, and a till that never opens is the one outcome
+        // worse than losing the unsynced rows it holds.
+        try {
+          file.deleteSync();
+        } catch (_) {
+          // Nothing further to try. The open below will fail and the caller will see it.
+        }
+      }
+    }
+
+    return moved ? target : null;
   }
 
   static Future<void> _createSchema(Database db, int version) async {
