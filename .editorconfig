@@ -10,7 +10,9 @@ indent_size = 2
 
 [*.{dart,kt,java}]
 indent_size = 2
-max_line_length = 100
+# `dart format` defaults to 80 and the repository uses it with no flags, so the editor
+# guide and the formatter agree instead of fighting.
+max_line_length = 80
 
 [*.md]
 trim_trailing_whitespace = false

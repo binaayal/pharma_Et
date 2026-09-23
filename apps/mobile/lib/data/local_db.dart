@@ -134,15 +134,18 @@ class LocalDb {
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
     // database rather than in preferences so that the counter and the operations it
     // numbers commit or roll back together.
-    await db.execute('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    await db.execute(
+        'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
   }
 
   Future<String?> meta(String key) async {
-    final rows = await db.query('meta', where: 'key = ?', whereArgs: [key], limit: 1);
+    final rows =
+        await db.query('meta', where: 'key = ?', whereArgs: [key], limit: 1);
     return rows.isEmpty ? null : rows.first['value'] as String;
   }
 
-  Future<void> setMeta(String key, String value, {DatabaseExecutor? txn}) async {
+  Future<void> setMeta(String key, String value,
+      {DatabaseExecutor? txn}) async {
     await (txn ?? db).insert(
       'meta',
       {'key': key, 'value': value},

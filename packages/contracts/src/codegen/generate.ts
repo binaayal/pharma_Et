@@ -39,8 +39,8 @@ for (const [label, path] of Object.entries(targets)) {
 // the repository dirties a generated file and the codegen-freshness gate fails for a
 // reason that has nothing to do with the contract.
 try {
-  execFileSync('dart', ['format', '--line-length', '100', targets.dart], { stdio: 'pipe' });
-  console.log('  ✓ formatted   dart format --line-length 100');
+  execFileSync('dart', ['format', targets.dart], { stdio: 'pipe' });
+  console.log('  ✓ formatted   dart format');
 } catch {
   // The Dart SDK is not always present (a backend-only CI job, for instance). The output is
   // still valid Dart; it just may not match `dart format` byte for byte.

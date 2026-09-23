@@ -25,7 +25,7 @@ describe('G1 — tenant isolation', () => {
 
   afterAll(async () => harness?.stop());
 
-  it('never returns another tenant\'s reference data through the sync pull', async () => {
+  it("never returns another tenant's reference data through the sync pull", async () => {
     const response = await request(harness.app.getHttpServer())
       .get('/api/sync/pull?cursor=0')
       .set('authorization', `Bearer ${abay.users.owner.token}`)
@@ -115,7 +115,7 @@ describe('G1 — tenant isolation', () => {
     }
   });
 
-  it('returns exactly one tenant\'s rows when the scope IS set', async () => {
+  it("returns exactly one tenant's rows when the scope IS set", async () => {
     // The mirror of the test above: proof that the previous result was RLS doing its job,
     // not an empty database or a broken connection.
     const runner = harness.appDataSource.createQueryRunner();
@@ -141,10 +141,10 @@ describe('G1 — tenant isolation', () => {
       // WITH CHECK on the policy must refuse a row written into a tenant we are not scoped
       // to — otherwise isolation would only protect reads.
       await expect(
-        runner.query(
-          `INSERT INTO branch (id, tenant_id, name) VALUES ($1, $2, 'smuggled')`,
-          ['01930000-0000-7000-8000-0000000000ff', tana.id],
-        ),
+        runner.query(`INSERT INTO branch (id, tenant_id, name) VALUES ($1, $2, 'smuggled')`, [
+          '01930000-0000-7000-8000-0000000000ff',
+          tana.id,
+        ]),
       ).rejects.toThrow();
       await runner.rollbackTransaction();
     } finally {

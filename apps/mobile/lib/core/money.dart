@@ -30,4 +30,5 @@ String _group(int value) {
 /// Line total from quantity and unit price. Integer arithmetic only — the server and the
 /// database both assert `lineTotal == qty * unitPrice`, so a client that computed it any
 /// other way would have its sales rejected.
-int lineTotalSantim({required int qty, required int unitPriceSantim}) => qty * unitPriceSantim;
+int lineTotalSantim({required int qty, required int unitPriceSantim}) =>
+    qty * unitPriceSantim;

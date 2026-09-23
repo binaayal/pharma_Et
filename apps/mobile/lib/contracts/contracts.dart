@@ -94,7 +94,8 @@ class OperationSale extends Operation {
         terminalSeq: json['terminalSeq'] as int,
         entityId: json['entityId'] as String,
         opType: json['opType'] as String,
-        baseVersion: json['baseVersion'] == null ? null : json['baseVersion'] as int,
+        baseVersion:
+            json['baseVersion'] == null ? null : json['baseVersion'] as int,
         tenantId: json['tenantId'] as String,
         branchId: json['branchId'] == null ? null : json['branchId'] as String,
         actorId: json['actorId'] as String,
@@ -136,7 +137,8 @@ class OperationSale extends Operation {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is OperationSale && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is OperationSale && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -187,11 +189,13 @@ class SalePayload {
         'payments': payments.map((e) => e.toJson()).toList(),
       };
 
-  List<Object?> get _props => <Object?>[shiftId, cashierId, soldAt, totalSantim, lines, payments];
+  List<Object?> get _props =>
+      <Object?>[shiftId, cashierId, soldAt, totalSantim, lines, payments];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is SalePayload && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is SalePayload && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -225,7 +229,8 @@ class SaleLinePayload {
   /// Money in santim (1 ETB = 100 santim)
   final int lineTotalSantim;
 
-  factory SaleLinePayload.fromJson(Map<String, dynamic> json) => SaleLinePayload(
+  factory SaleLinePayload.fromJson(Map<String, dynamic> json) =>
+      SaleLinePayload(
         id: json['id'] as String,
         productId: json['productId'] as String,
         batchId: json['batchId'] == null ? null : json['batchId'] as String,
@@ -248,7 +253,8 @@ class SaleLinePayload {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is SaleLinePayload && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is SaleLinePayload && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -286,7 +292,8 @@ class PaymentPayload {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is PaymentPayload && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is PaymentPayload && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -324,19 +331,22 @@ class OperationGoodsReceipt extends Operation {
   final String entityType;
   final GoodsReceiptPayload payload;
 
-  factory OperationGoodsReceipt.fromJson(Map<String, dynamic> json) => OperationGoodsReceipt(
+  factory OperationGoodsReceipt.fromJson(Map<String, dynamic> json) =>
+      OperationGoodsReceipt(
         opId: json['opId'] as String,
         terminalId: json['terminalId'] as String,
         terminalSeq: json['terminalSeq'] as int,
         entityId: json['entityId'] as String,
         opType: json['opType'] as String,
-        baseVersion: json['baseVersion'] == null ? null : json['baseVersion'] as int,
+        baseVersion:
+            json['baseVersion'] == null ? null : json['baseVersion'] as int,
         tenantId: json['tenantId'] as String,
         branchId: json['branchId'] == null ? null : json['branchId'] as String,
         actorId: json['actorId'] as String,
         clientTs: json['clientTs'] as String,
         entityType: json['entityType'] as String,
-        payload: GoodsReceiptPayload.fromJson(json['payload'] as Map<String, dynamic>),
+        payload: GoodsReceiptPayload.fromJson(
+            json['payload'] as Map<String, dynamic>),
       );
 
   @override
@@ -393,11 +403,13 @@ class GoodsReceiptPayload {
   final String receivedAt;
   final List<GoodsReceiptLinePayload> lines;
 
-  factory GoodsReceiptPayload.fromJson(Map<String, dynamic> json) => GoodsReceiptPayload(
+  factory GoodsReceiptPayload.fromJson(Map<String, dynamic> json) =>
+      GoodsReceiptPayload(
         supplierName: json['supplierName'] as String,
         receivedAt: json['receivedAt'] as String,
         lines: (json['lines'] as List<dynamic>)
-            .map((e) => GoodsReceiptLinePayload.fromJson(e as Map<String, dynamic>))
+            .map((e) =>
+                GoodsReceiptLinePayload.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 
@@ -411,7 +423,8 @@ class GoodsReceiptPayload {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is GoodsReceiptPayload && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is GoodsReceiptPayload && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -441,7 +454,8 @@ class GoodsReceiptLinePayload {
   /// Money in santim (1 ETB = 100 santim)
   final int costSantim;
 
-  factory GoodsReceiptLinePayload.fromJson(Map<String, dynamic> json) => GoodsReceiptLinePayload(
+  factory GoodsReceiptLinePayload.fromJson(Map<String, dynamic> json) =>
+      GoodsReceiptLinePayload(
         id: json['id'] as String,
         productId: json['productId'] as String,
         lotNo: json['lotNo'] as String,
@@ -459,7 +473,8 @@ class GoodsReceiptLinePayload {
         'costSantim': costSantim,
       };
 
-  List<Object?> get _props => <Object?>[id, productId, lotNo, expiryDate, qty, costSantim];
+  List<Object?> get _props =>
+      <Object?>[id, productId, lotNo, expiryDate, qty, costSantim];
 
   @override
   bool operator ==(Object other) =>
@@ -489,7 +504,8 @@ class Ack {
   factory Ack.fromJson(Map<String, dynamic> json) => Ack(
         opId: json['opId'] as String,
         status: json['status'] as String,
-        serverVersion: json['serverVersion'] == null ? null : json['serverVersion'] as int,
+        serverVersion:
+            json['serverVersion'] == null ? null : json['serverVersion'] as int,
         reason: json['reason'] == null ? null : json['reason'] as String,
       );
 
@@ -504,7 +520,8 @@ class Ack {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is Ack && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is Ack && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -525,7 +542,9 @@ class PushRequest {
   final List<Operation> operations;
 
   factory PushRequest.fromJson(Map<String, dynamic> json) => PushRequest(
-        contractVersion: json['contractVersion'] == null ? null : json['contractVersion'] as String,
+        contractVersion: json['contractVersion'] == null
+            ? null
+            : json['contractVersion'] as String,
         terminalId: json['terminalId'] as String,
         operations: (json['operations'] as List<dynamic>)
             .map((e) => Operation.fromJson(e as Map<String, dynamic>))
@@ -538,11 +557,13 @@ class PushRequest {
         'operations': operations.map((e) => e.toJson()).toList(),
       };
 
-  List<Object?> get _props => <Object?>[contractVersion, terminalId, operations];
+  List<Object?> get _props =>
+      <Object?>[contractVersion, terminalId, operations];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is PushRequest && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is PushRequest && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -582,7 +603,8 @@ class PushResponse {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is PushResponse && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is PushResponse && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -655,7 +677,8 @@ class PullResponse {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is PullResponse && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is PullResponse && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -694,11 +717,13 @@ class ProductRef {
         name: json['name'] as String,
         unit: json['unit'] as String,
         isControlled: json['isControlled'] as bool,
-        psychotropicClass:
-            json['psychotropicClass'] == null ? null : json['psychotropicClass'] as String,
+        psychotropicClass: json['psychotropicClass'] == null
+            ? null
+            : json['psychotropicClass'] as String,
         currentPriceSantim: json['currentPriceSantim'] as int,
         changeSeq: json['changeSeq'] as int,
-        deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
+        deletedAt:
+            json['deletedAt'] == null ? null : json['deletedAt'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -725,7 +750,8 @@ class ProductRef {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is ProductRef && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is ProductRef && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -756,7 +782,8 @@ class BranchRef {
         name: json['name'] as String,
         address: json['address'] == null ? null : json['address'] as String,
         changeSeq: json['changeSeq'] as int,
-        deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
+        deletedAt:
+            json['deletedAt'] == null ? null : json['deletedAt'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -767,11 +794,13 @@ class BranchRef {
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props => <Object?>[id, name, address, changeSeq, deletedAt];
+  List<Object?> get _props =>
+      <Object?>[id, name, address, changeSeq, deletedAt];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is BranchRef && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is BranchRef && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -803,9 +832,12 @@ class UserRef {
         id: json['id'] as String,
         displayName: json['displayName'] as String,
         role: json['role'] as String,
-        branchIds: (json['branchIds'] as List<dynamic>).map((e) => e as String).toList(),
+        branchIds: (json['branchIds'] as List<dynamic>)
+            .map((e) => e as String)
+            .toList(),
         changeSeq: json['changeSeq'] as int,
-        deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
+        deletedAt:
+            json['deletedAt'] == null ? null : json['deletedAt'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -817,11 +849,13 @@ class UserRef {
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props => <Object?>[id, displayName, role, branchIds, changeSeq, deletedAt];
+  List<Object?> get _props =>
+      <Object?>[id, displayName, role, branchIds, changeSeq, deletedAt];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is UserRef && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is UserRef && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -865,7 +899,8 @@ class StockBatchRef {
         expiryDate: json['expiryDate'] as String,
         qtyOnHand: json['qtyOnHand'] as int,
         changeSeq: json['changeSeq'] as int,
-        deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
+        deletedAt:
+            json['deletedAt'] == null ? null : json['deletedAt'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -879,12 +914,21 @@ class StockBatchRef {
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props =>
-      <Object?>[id, branchId, productId, lotNo, expiryDate, qtyOnHand, changeSeq, deletedAt];
+  List<Object?> get _props => <Object?>[
+        id,
+        branchId,
+        productId,
+        lotNo,
+        expiryDate,
+        qtyOnHand,
+        changeSeq,
+        deletedAt
+      ];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is StockBatchRef && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is StockBatchRef && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -920,11 +964,13 @@ class LoginRequest {
         'terminalId': terminalId,
       };
 
-  List<Object?> get _props => <Object?>[tenantCode, username, secret, terminalId];
+  List<Object?> get _props =>
+      <Object?>[tenantCode, username, secret, terminalId];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is LoginRequest && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is LoginRequest && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -969,7 +1015,8 @@ class LoginResponse {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is LoginResponse && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is LoginResponse && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);
@@ -997,7 +1044,9 @@ class AuthScope {
         userId: json['userId'] as String,
         tenantId: json['tenantId'] as String,
         role: json['role'] as String,
-        branchIds: (json['branchIds'] as List<dynamic>).map((e) => e as String).toList(),
+        branchIds: (json['branchIds'] as List<dynamic>)
+            .map((e) => e as String)
+            .toList(),
         displayName: json['displayName'] as String,
       );
 
@@ -1009,11 +1058,13 @@ class AuthScope {
         'displayName': displayName,
       };
 
-  List<Object?> get _props => <Object?>[userId, tenantId, role, branchIds, displayName];
+  List<Object?> get _props =>
+      <Object?>[userId, tenantId, role, branchIds, displayName];
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || (other is AuthScope && _deepEquals(_props, other._props));
+      identical(this, other) ||
+      (other is AuthScope && _deepEquals(_props, other._props));
 
   @override
   int get hashCode => _deepHash(_props);

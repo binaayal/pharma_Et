@@ -28,7 +28,11 @@ export function SalesPage({ session, onExpired }: { session: Session; onExpired:
       setFetchedAt(new Date().toISOString());
       setError(null);
     } catch (cause) {
-      if (cause instanceof Error && 'status' in cause && (cause as { status: number }).status === 401) {
+      if (
+        cause instanceof Error &&
+        'status' in cause &&
+        (cause as { status: number }).status === 401
+      ) {
         onExpired();
         return;
       }
@@ -49,8 +53,8 @@ export function SalesPage({ session, onExpired }: { session: Session; onExpired:
         <div>
           <h1>Synced sales</h1>
           <p>
-            Every sale that has reached the server, with the gap between when it was rung up
-            and when it arrived. A wide gap is the offline window doing its job, not a fault.
+            Every sale that has reached the server, with the gap between when it was rung up and
+            when it arrived. A wide gap is the offline window doing its job, not a fault.
           </p>
         </div>
         {/* Reports reflect synced data, so the view states its own currency (BR-8.1). */}
@@ -94,8 +98,8 @@ export function SalesPage({ session, onExpired }: { session: Session; onExpired:
         ) : sales.length === 0 ? (
           <div className="empty">
             <strong>Nothing has synced yet</strong>
-            Ring up a sale on a terminal — offline is fine — and it will appear here on its
-            next reconnect.
+            Ring up a sale on a terminal — offline is fine — and it will appear here on its next
+            reconnect.
           </div>
         ) : (
           <table>
@@ -130,8 +134,7 @@ export function SalesPage({ session, onExpired }: { session: Session; onExpired:
         <div className="panel-head">
           <h2>Oversells</h2>
           <span className="note">
-            Stock sold below zero. Never blocked at the counter — recorded here instead
-            (BR-3.2).
+            Stock sold below zero. Never blocked at the counter — recorded here instead (BR-3.2).
           </span>
         </div>
         {oversells.length === 0 ? (

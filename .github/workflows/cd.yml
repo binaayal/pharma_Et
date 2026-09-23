@@ -1,0 +1,87 @@
+name: CD
+
+# Promotion path on merge to main (docs/06-delivery-plan.md §6.2).
+#
+# The environments below do not exist yet — Phase 0's exit gate is "CI/CD auto-promotes to
+# staging and staging is reachable", and this is the pipeline that will do it. Every deploy
+# step is currently a documented placeholder that fails loudly rather than pretending to
+# have shipped something. Filling them in is the remaining Phase 0 work.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-main
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pharmaet/contracts build
+      - run: pnpm --filter @pharmaet/api build
+      - run: pnpm --filter @pharmaet/dashboard build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-bundle
+          path: apps/dashboard/dist
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-dist
+          path: apps/api/dist
+          retention-days: 14
+
+  deploy-staging:
+    name: deploy to staging
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run migrations (gated, forward-only)
+        # Migrations are forward-only and expand-then-contract, rehearsed here against
+        # production-like data before they ever touch production. A migration that is not
+        # safe against live data does not ship (docs/06 §6.2).
+        run: |
+          echo "::error::staging environment is not provisioned yet (Phase 0 exit gate)"
+          echo "When it is: pnpm --filter @pharmaet/api migration:run against STAGING_DATABASE_URL"
+          exit 1
+
+      - name: Deploy API and dashboard
+        if: ${{ false }}
+        run: echo "rolling deploy; the N-1 sync contract must stay served throughout (ADR-009)"
+
+      - name: Staging verification
+        if: ${{ false }}
+        run: echo "e2e + smoke + perf-smoke against staging"
+
+  deploy-production:
+    name: deploy to production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    # A protected environment with required reviewers is the manual release gate from
+    # docs/06 §6.2. Configure reviewers in the repository's environment settings.
+    environment: production
+    steps:
+      - name: Deploy
+        run: |
+          echo "::error::production environment is not provisioned yet"
+          exit 1
+
+      - name: Post-deploy health watch
+        if: ${{ false }}
+        # Watch the guardian-relevant signals: sync failure/retry rate, oversell counts,
+        # error rate, p95 latency. A threshold breach is an alert and a rollback decision;
+        # a suspected S1 is an immediate rollback plus an incident (docs/06 §6.3).
+        run: echo "watch sync failures, oversell counts, error rate, p95"

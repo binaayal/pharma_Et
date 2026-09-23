@@ -36,6 +36,8 @@ export function loadConfiguration(): AppConfig {
   }
   return {
     ...parsed.data,
-    corsOrigins: parsed.data.CORS_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean),
+    corsOrigins: parsed.data.CORS_ORIGINS.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
   };
 }

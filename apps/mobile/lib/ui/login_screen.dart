@@ -58,7 +58,11 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (_) {
       // One message for every failure. Telling the difference between "no such pharmacy"
       // and "wrong PIN" tells an attacker which codes and usernames are real.
-      if (mounted) setState(() => _error = 'Could not sign in. Check the details and try again.');
+      if (mounted) {
+        setState(
+          () => _error = 'Could not sign in. Check the details and try again.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -115,14 +119,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Text(
                         _error!,
-                        style: const TextStyle(color: PharmaColors.red, fontSize: 13),
+                        style: const TextStyle(
+                            color: PharmaColors.red, fontSize: 13),
                       ),
                     ),
                     const SizedBox(height: 14),
                   ],
                   TextField(
                     controller: _tenantCode,
-                    decoration: const InputDecoration(labelText: 'Pharmacy code'),
+                    decoration:
+                        const InputDecoration(labelText: 'Pharmacy code'),
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),

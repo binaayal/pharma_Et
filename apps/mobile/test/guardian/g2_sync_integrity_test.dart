@@ -83,13 +83,15 @@ void main() {
     expect(await sales.unsyncedCount(), 0);
   });
 
-  test('a "rejected" ack keeps the operation and flags it for a person', () async {
+  test('a "rejected" ack keeps the operation and flags it for a person',
+      () async {
     // A rejected transaction is a conversation with a human, not something to discard. The
     // money was taken; somebody has to decide what happens to it.
     await commit();
     final entry = (await outbox.pending()).single;
 
-    await outbox.applyAcks([ack(entry.opId, 'rejected', reason: 'branch not found')]);
+    await outbox
+        .applyAcks([ack(entry.opId, 'rejected', reason: 'branch not found')]);
 
     expect(await outbox.depth(), 1);
     expect(await outbox.attentionCount(), 1);
@@ -119,17 +121,20 @@ void main() {
     ]);
 
     expect(await outbox.depth(), 3);
-    final remaining = (await outbox.pending()).map((e) => e.terminalSeq).toList();
+    final remaining =
+        (await outbox.pending()).map((e) => e.terminalSeq).toList();
     expect(remaining, [3, 4, 5]);
   });
 
-  test('operations are handed over in terminal_seq order, never by time', () async {
+  test('operations are handed over in terminal_seq order, never by time',
+      () async {
     await commit(count: 12);
     final seqs = (await outbox.pending()).map((e) => e.terminalSeq).toList();
     expect(seqs, List<int>.generate(12, (i) => i + 1));
   });
 
-  test('the built envelope round-trips through the generated contract types', () async {
+  test('the built envelope round-trips through the generated contract types',
+      () async {
     await commit();
     final entry = (await outbox.pending()).single;
 
@@ -151,7 +156,8 @@ void main() {
     expect(reparsed.opType, 'create');
   });
 
-  test('the envelope carries the contract version this build speaks (ADR-009)', () {
+  test('the envelope carries the contract version this build speaks (ADR-009)',
+      () {
     expect(kContractVersion, isNotEmpty);
     expect(kContractVersion, matches(RegExp(r'^\d+\.\d+\.\d+$')));
   });

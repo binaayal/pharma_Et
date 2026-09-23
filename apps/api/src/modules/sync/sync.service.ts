@@ -286,10 +286,7 @@ export class SyncService {
       const stockBatches = await stockQuery.orderBy('s.change_seq', 'ASC').limit(limit).getMany();
 
       const pages = [products, branches, users, stockBatches];
-      const maxSeq = Math.max(
-        cursor,
-        ...pages.flatMap((rows) => rows.map((r) => r.changeSeq)),
-      );
+      const maxSeq = Math.max(cursor, ...pages.flatMap((rows) => rows.map((r) => r.changeSeq)));
 
       return {
         contractVersion: CONTRACT_VERSION,

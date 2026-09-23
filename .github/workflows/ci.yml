@@ -1,0 +1,201 @@
+name: CI
+
+# Every gate here blocks a merge (docs/06-delivery-plan.md §6.1, docs/05-qa §12).
+# There is no override and no flaky-retry: a flaky guardian test is itself a blocking
+# defect, because a gate you re-run until it goes green is not a gate.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  FLUTTER_VERSION: '3.24.x'
+
+jobs:
+  # Path filtering so a Dart-only change does not rebuild the backend, and vice versa.
+  changes:
+    name: what changed
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      dashboard: ${{ steps.filter.outputs.dashboard }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      contracts: ${{ steps.filter.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            contracts:
+              - 'packages/contracts/**'
+              - 'apps/mobile/lib/contracts/**'
+              - 'pnpm-lock.yaml'
+            api:
+              - 'apps/api/**'
+              - 'packages/contracts/**'
+              - 'pnpm-lock.yaml'
+            dashboard:
+              - 'apps/dashboard/**'
+              - 'packages/contracts/**'
+              - 'pnpm-lock.yaml'
+            mobile:
+              - 'apps/mobile/**'
+              - 'packages/contracts/**'
+
+  contracts:
+    name: contracts · codegen freshness
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      # The Dart SDK is needed so the generated file is formatted exactly as it is on a
+      # developer's machine; without it the freshness check fails on whitespace.
+      - uses: dart-lang/setup-dart@v1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pharmaet/contracts test
+      - name: Regenerate and fail on any diff
+        # Proves a contract change landed on BOTH sides. This is the anti-drift gate
+        # (ADR-010, docs/05-qa §6): a client and server that disagree about the envelope do
+        # not raise an error, they silently lose or duplicate real transactions.
+        run: |
+          pnpm gen:contracts
+          git diff --exit-code -- packages/contracts/generated apps/mobile/lib/contracts \
+            || { echo "::error::generated contract output is stale — run 'pnpm gen:contracts' and commit the result"; exit 1; }
+
+  api:
+    name: api · lint, unit, integration, guardian
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+
+    services:
+      # A REAL PostgreSQL. RLS, constraints and SET LOCAL scoping are the things under test
+      # and a mocked database exercises none of them (docs/05-qa §5).
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pharmaet
+          POSTGRES_PASSWORD: pharmaet_ci
+          POSTGRES_DB: pharmaet_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://pharmaet:pharmaet_ci@localhost:5432/pharmaet_ci
+      DATABASE_APP_USER: pharmaet_app
+      DATABASE_APP_PASSWORD: pharmaet_app_ci
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint and typecheck
+        run: pnpm --filter @pharmaet/api lint && pnpm --filter @pharmaet/api typecheck
+
+      - name: Migrations apply cleanly (schema AND RLS policies)
+        run: pnpm --filter @pharmaet/api migration:run
+
+      - name: Every table carries an RLS policy
+        # The application role is non-owner, so RLS actually binds it. A table that reached
+        # production without a policy would look fine in every scoped test.
+        run: |
+          UNPROTECTED=$(psql "$DATABASE_URL" -tAc "
+            SELECT string_agg(c.relname, ', ')
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public'
+               AND c.relkind = 'r'
+               AND c.relname <> 'migrations'
+               AND NOT c.relrowsecurity;")
+          if [ -n "$UNPROTECTED" ]; then
+            echo "::error::tables without row-level security: $UNPROTECTED"
+            exit 1
+          fi
+
+      - name: Unit tests
+        run: pnpm --filter @pharmaet/api test
+
+      - name: Guardian suites (the merge gate — no override, no retry)
+        run: pnpm --filter @pharmaet/api test:guardian
+
+  dashboard:
+    name: dashboard · lint, typecheck, test, build
+    needs: changes
+    if: needs.changes.outputs.dashboard == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pharmaet/dashboard lint
+      - run: pnpm --filter @pharmaet/dashboard typecheck
+      - run: pnpm --filter @pharmaet/dashboard test
+      - run: pnpm --filter @pharmaet/dashboard build
+
+  mobile:
+    name: mobile · analyze, format, guardian
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Format check
+        run: dart format --output=none --set-exit-if-changed lib test
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+      - name: Tests, including the G2/G4/G7 guardian suites
+        # G7 closes a real on-disk database and reopens it — a process death from the data's
+        # point of view. The device matrix on real low-end Android hardware is a release
+        # gate, not a per-PR one (docs/05-qa §7).
+        run: flutter test
+
+  # A green tick on the PR needs every job that ran to have passed, including the ones the
+  # path filter skipped — otherwise a skipped job reads as success.
+  ci-gate:
+    name: CI gate
+    if: always()
+    needs: [contracts, api, dashboard, mobile]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        run: |
+          RESULTS="${{ join(needs.*.result, ' ') }}"
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::a required job reported '$r'"; exit 1 ;;
+            esac
+          done

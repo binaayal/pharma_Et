@@ -24,7 +24,12 @@ class SyncChip extends StatelessWidget {
           PharmaColors.greenDark,
           Icons.cloud_done_outlined
         ),
-      SyncState.syncing => ('Syncing…', PharmaColors.greenTint, PharmaColors.greenDark, Icons.sync),
+      SyncState.syncing => (
+          'Syncing…',
+          PharmaColors.greenTint,
+          PharmaColors.greenDark,
+          Icons.sync
+        ),
       SyncState.offline => (
           '${status.pending} waiting',
           PharmaColors.amberTint,

@@ -1,0 +1,26 @@
+# Review routing. Ordinary code needs one review; the paths below are controlled artifacts
+# and need two, one of which owns compliance for ledger and psychotropic changes
+# (docs/06-delivery-plan.md §4, §7).
+#
+# Replace the placeholder handles with real ones before enabling branch protection.
+
+*                                   @binaayal
+
+# --- controlled artifacts -----------------------------------------------------
+# The sync envelope. Drift here does not raise an error; it silently drops or duplicates
+# real transactions.
+/packages/contracts/                @binaayal
+/apps/mobile/lib/contracts/         @binaayal
+/apps/mobile/lib/sync/              @binaayal
+/apps/api/src/modules/sync/         @binaayal
+
+# RLS policies and the schema that carries them.
+/apps/api/src/migrations/           @binaayal
+/apps/api/src/common/db/            @binaayal
+
+# The guardian suites are the merge gate; weakening one is a decision, not a refactor.
+/apps/api/test/guardian/            @binaayal
+/apps/mobile/test/guardian/         @binaayal
+
+# --- binding decisions --------------------------------------------------------
+/docs/adr/                          @binaayal

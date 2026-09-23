@@ -70,9 +70,7 @@ export class ReportingService {
    */
   async oversells(scope: TenantScope, limit = 50) {
     return this.db.runInScope(scope, (em) =>
-      em
-        .getRepository(OversellEvent)
-        .find({ order: { observedAt: 'DESC' }, take: limit }),
+      em.getRepository(OversellEvent).find({ order: { observedAt: 'DESC' }, take: limit }),
     );
   }
 }

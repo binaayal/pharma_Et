@@ -20,7 +20,8 @@ class CartLine {
   /// Integer arithmetic only. The server and the database both assert
   /// `lineTotal == qty * unitPrice`, so a client that computed it any other way would have
   /// its sales rejected (guardian G4).
-  int get lineTotalSantim => money.lineTotalSantim(qty: qty, unitPriceSantim: product.priceSantim);
+  int get lineTotalSantim =>
+      money.lineTotalSantim(qty: qty, unitPriceSantim: product.priceSantim);
 }
 
 class CommittedSale {
@@ -97,7 +98,8 @@ class SaleRepository {
         });
 
         if (line.batchId != null) {
-          await _catalog.decrementLocal(txn, batchId: line.batchId!, qty: line.qty);
+          await _catalog.decrementLocal(txn,
+              batchId: line.batchId!, qty: line.qty);
         }
       }
 
@@ -132,14 +134,16 @@ class SaleRepository {
     return CommittedSale(saleId: saleId, totalSantim: total);
   }
 
-  Future<List<Map<String, Object?>>> recentSales({int limit = 20}) => _db.db.query(
+  Future<List<Map<String, Object?>>> recentSales({int limit = 20}) =>
+      _db.db.query(
         'sale',
         orderBy: 'sold_at DESC',
         limit: limit,
       );
 
   Future<int> unsyncedCount() async {
-    final rows = await _db.db.rawQuery('SELECT count(*) AS n FROM sale WHERE synced = 0');
+    final rows = await _db.db
+        .rawQuery('SELECT count(*) AS n FROM sale WHERE synced = 0');
     return (rows.first['n'] as int?) ?? 0;
   }
 

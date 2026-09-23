@@ -107,7 +107,8 @@ void main() {
     expect(seqs, List<int>.generate(60, (i) => i + 1));
   });
 
-  test('the sequence counter never restarts, even across a kill mid-day', () async {
+  test('the sequence counter never restarts, even across a kill mid-day',
+      () async {
     await sales.commitSale(
       lines: [CartLine(product: product(), qty: 1, batchId: null)],
       tenantId: tenantId,
@@ -128,7 +129,8 @@ void main() {
     expect(seqs, [1, 2]);
   });
 
-  test('an unacknowledged operation is never dropped by a failed sync', () async {
+  test('an unacknowledged operation is never dropped by a failed sync',
+      () async {
     await sales.commitSale(
       lines: [CartLine(product: product(), qty: 3, batchId: null)],
       tenantId: tenantId,

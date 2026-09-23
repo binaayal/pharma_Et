@@ -97,7 +97,8 @@ class _PosScreenState extends State<PosScreen> {
     if (product.isControlled) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Controlled dispensing arrives with the compliance phase.'),
+          content:
+              Text('Controlled dispensing arrives with the compliance phase.'),
         ),
       );
       return;
@@ -108,7 +109,8 @@ class _PosScreenState extends State<PosScreen> {
     final batch = await widget.catalog.fefoBatch(product.id, _branchId);
     if (!mounted) return;
     setState(() {
-      final existing = _cart.indexWhere((line) => line.product.id == product.id);
+      final existing =
+          _cart.indexWhere((line) => line.product.id == product.id);
       if (existing >= 0) {
         final line = _cart[existing];
         _cart[existing] = CartLine(
@@ -156,7 +158,8 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  int get _cartTotal => _cart.fold(0, (sum, line) => sum + line.lineTotalSantim);
+  int get _cartTotal =>
+      _cart.fold(0, (sum, line) => sum + line.lineTotalSantim);
 
   @override
   Widget build(BuildContext context) {
@@ -184,7 +187,8 @@ class _PosScreenState extends State<PosScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Text(
                 'Offline — ${_status.pending} sale(s) waiting. Keep selling; they will sync.',
-                style: const TextStyle(color: PharmaColors.amber, fontSize: 12.5),
+                style:
+                    const TextStyle(color: PharmaColors.amber, fontSize: 12.5),
               ),
             ),
           Expanded(
@@ -204,7 +208,9 @@ class _PosScreenState extends State<PosScreen> {
                                 ? 'Controlled · ledger-dispensed'
                                 : 'per ${product.unit}',
                             style: TextStyle(
-                              color: product.isControlled ? PharmaColors.amber : PharmaColors.muted,
+                              color: product.isControlled
+                                  ? PharmaColors.amber
+                                  : PharmaColors.muted,
                               fontSize: 12.5,
                             ),
                           ),
@@ -218,7 +224,8 @@ class _PosScreenState extends State<PosScreen> {
                     },
                   ),
           ),
-          if (_cart.isNotEmpty) _CartBar(cart: _cart, total: _cartTotal, onCommit: _commit),
+          if (_cart.isNotEmpty)
+            _CartBar(cart: _cart, total: _cartTotal, onCommit: _commit),
         ],
       ),
     );
@@ -235,7 +242,8 @@ class _EmptyCatalog extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.inventory_2_outlined, size: 40, color: PharmaColors.faint),
+              Icon(Icons.inventory_2_outlined,
+                  size: 40, color: PharmaColors.faint),
               SizedBox(height: 12),
               Text(
                 'No catalog yet',
@@ -254,7 +262,8 @@ class _EmptyCatalog extends StatelessWidget {
 }
 
 class _CartBar extends StatelessWidget {
-  const _CartBar({required this.cart, required this.total, required this.onCommit});
+  const _CartBar(
+      {required this.cart, required this.total, required this.onCommit});
 
   final List<CartLine> cart;
   final int total;
@@ -277,7 +286,8 @@ class _CartBar extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Row(
                     children: [
-                      Expanded(child: Text('${line.qty} × ${line.product.name}')),
+                      Expanded(
+                          child: Text('${line.qty} × ${line.product.name}')),
                       Text(formatEtb(line.lineTotalSantim)),
                     ],
                   ),
@@ -285,11 +295,13 @@ class _CartBar extends StatelessWidget {
               const Divider(),
               Row(
                 children: [
-                  const Text('Total', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const Text('Total',
+                      style: TextStyle(fontWeight: FontWeight.w700)),
                   const Spacer(),
                   Text(
                     formatEtb(total),
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 17),
                   ),
                 ],
               ),

@@ -94,8 +94,8 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (session: Session) => vo
           <br />
           <code>abay / owner / owner-dev-password</code>
           <br />
-          <code>tana / owner / owner-dev-password</code> — a second tenant, so isolation is
-          visible by just signing in as the other one.
+          <code>tana / owner / owner-dev-password</code> — a second tenant, so isolation is visible
+          by just signing in as the other one.
         </div>
       </form>
     </div>

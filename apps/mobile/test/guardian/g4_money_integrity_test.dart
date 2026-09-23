@@ -119,7 +119,8 @@ void main() {
 
       final entry = (await Outbox(db).pending()).single;
       expect(entry.payload['totalSantim'], isA<int>());
-      final lines = (entry.payload['lines'] as List<dynamic>).cast<Map<String, dynamic>>();
+      final lines = (entry.payload['lines'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
       expect(lines.first['unitPriceSantim'], isA<int>());
       expect(lines.first['lineTotalSantim'], isA<int>());
     });

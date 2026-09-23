@@ -24,7 +24,8 @@ class SyncTransportException implements Exception {
 /// to do with the answer lives in SyncService — so replacing this transport (ADR-005 keeps
 /// that option open for V2 multi-writer) does not touch the durability logic.
 class SyncClient {
-  SyncClient({required this.baseUrl, http.Client? client}) : _client = client ?? http.Client();
+  SyncClient({required this.baseUrl, http.Client? client})
+      : _client = client ?? http.Client();
 
   final String baseUrl;
   final http.Client _client;
@@ -51,7 +52,8 @@ class SyncClient {
     late final http.Response response;
     try {
       response = await _client
-          .post(Uri.parse('$baseUrl/sync/push'), headers: _headers(token), body: body)
+          .post(Uri.parse('$baseUrl/sync/push'),
+              headers: _headers(token), body: body)
           .timeout(const Duration(seconds: 30));
     } catch (error) {
       throw SyncTransportException('push failed: $error');
@@ -63,7 +65,8 @@ class SyncClient {
         statusCode: response.statusCode,
       );
     }
-    return PushResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return PushResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<PullResponse> pull({
@@ -78,8 +81,9 @@ class SyncClient {
 
     late final http.Response response;
     try {
-      response =
-          await _client.get(uri, headers: _headers(token)).timeout(const Duration(seconds: 30));
+      response = await _client
+          .get(uri, headers: _headers(token))
+          .timeout(const Duration(seconds: 30));
     } catch (error) {
       throw SyncTransportException('pull failed: $error');
     }
@@ -90,7 +94,8 @@ class SyncClient {
         statusCode: response.statusCode,
       );
     }
-    return PullResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return PullResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   Future<LoginResponse> login(LoginRequest request) async {
@@ -108,9 +113,11 @@ class SyncClient {
     }
 
     if (response.statusCode >= 400) {
-      throw SyncTransportException('invalid credentials', statusCode: response.statusCode);
+      throw SyncTransportException('invalid credentials',
+          statusCode: response.statusCode);
     }
-    return LoginResponse.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return LoginResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
   }
 
   void close() => _client.close();

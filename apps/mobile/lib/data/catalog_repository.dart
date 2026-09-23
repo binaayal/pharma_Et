@@ -73,7 +73,8 @@ class CatalogRepository {
     final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
     final rows = await _db.db.query(
       'stock_batch',
-      where: 'product_id = ? AND branch_id = ? AND deleted = 0 AND expiry_date >= ?',
+      where:
+          'product_id = ? AND branch_id = ? AND deleted = 0 AND expiry_date >= ?',
       whereArgs: [productId, branchId, today],
       orderBy: 'expiry_date ASC, qty_on_hand DESC',
       limit: 1,
@@ -155,7 +156,10 @@ class CatalogRepository {
       );
       await txn.insert(
         'meta',
-        {'key': 'last_pull_at', 'value': DateTime.now().toUtc().toIso8601String()},
+        {
+          'key': 'last_pull_at',
+          'value': DateTime.now().toUtc().toIso8601String()
+        },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     });

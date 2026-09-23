@@ -34,7 +34,8 @@ class OutboxEntry {
         terminalSeq: row['terminal_seq'] as int,
         entityType: row['entity_type'] as String,
         entityId: row['entity_id'] as String,
-        payload: jsonDecode(row['payload_json'] as String) as Map<String, dynamic>,
+        payload:
+            jsonDecode(row['payload_json'] as String) as Map<String, dynamic>,
         createdAt: row['created_at'] as String,
         attempts: row['attempts'] as int,
         needsAttention: (row['needs_attention'] as int) == 1,
@@ -82,7 +83,8 @@ class Outbox {
   }
 
   Future<int> _nextSeq(DatabaseExecutor txn) async {
-    final rows = await txn.query('meta', where: 'key = ?', whereArgs: [_seqKey], limit: 1);
+    final rows = await txn.query('meta',
+        where: 'key = ?', whereArgs: [_seqKey], limit: 1);
     final current = rows.isEmpty ? 0 : int.parse(rows.first['value'] as String);
     final next = current + 1;
     await txn.insert(
@@ -140,13 +142,16 @@ class Outbox {
           whereArgs: [ack.opId],
           limit: 1,
         );
-        final entityId = rows.isEmpty ? null : rows.first['entity_id'] as String;
-        final entityType = rows.isEmpty ? null : rows.first['entity_type'] as String;
+        final entityId =
+            rows.isEmpty ? null : rows.first['entity_id'] as String;
+        final entityType =
+            rows.isEmpty ? null : rows.first['entity_type'] as String;
 
         switch (ack.status) {
           case 'applied':
           case 'duplicate':
-            await txn.delete('outbox', where: 'op_id = ?', whereArgs: [ack.opId]);
+            await txn
+                .delete('outbox', where: 'op_id = ?', whereArgs: [ack.opId]);
             if (entityId != null && entityType == 'sale') {
               await txn.update(
                 'sale',

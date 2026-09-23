@@ -30,7 +30,8 @@ import '../support/test_db.dart';
 void main() {
   final apiUrl = Platform.environment['PHARMAET_API_URL'];
 
-  group('walking skeleton', skip: apiUrl == null ? 'PHARMAET_API_URL not set' : null, () {
+  group('walking skeleton',
+      skip: apiUrl == null ? 'PHARMAET_API_URL not set' : null, () {
     late LocalDb db;
     late Directory dir;
     late Outbox outbox;
@@ -98,7 +99,8 @@ void main() {
       // 2. Go offline, in the only way that matters: stop talking to the server. Three
       //    sales are rung up against local state alone.
       for (var i = 0; i < 3; i++) {
-        final batch = await catalog.fefoBatch(product.id, session.primaryBranchId!);
+        final batch =
+            await catalog.fefoBatch(product.id, session.primaryBranchId!);
         await sales.commitSale(
           lines: [CartLine(product: product, qty: 2, batchId: batch?.id)],
           tenantId: session.scope.tenantId,

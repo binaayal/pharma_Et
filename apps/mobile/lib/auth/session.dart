@@ -90,5 +90,6 @@ class CachedSession {
 
   /// The branch this terminal acts in. Owners are all-branch by role, so a terminal signed
   /// in as an owner uses whichever branch it was provisioned to.
-  String? get primaryBranchId => scope.branchIds.isEmpty ? null : scope.branchIds.first;
+  String? get primaryBranchId =>
+      scope.branchIds.isEmpty ? null : scope.branchIds.first;
 }

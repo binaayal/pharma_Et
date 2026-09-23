@@ -52,7 +52,8 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  test('picks the batch that expires first, not the one received first', () async {
+  test('picks the batch that expires first, not the one received first',
+      () async {
     // What costs a pharmacy money is stock dying on the shelf, which is exactly what happens
     // when the longest-dated box goes out first.
     await seed([
@@ -86,13 +87,16 @@ void main() {
   });
 
   test('ignores another branch\'s stock', () async {
-    await seed([batch('01930000-0000-7000-8000-0000000000b1', '2027-06-30', 10)]);
+    await seed(
+        [batch('01930000-0000-7000-8000-0000000000b1', '2027-06-30', 10)]);
     final selected = await catalog.fefoBatch(productId, 'other-branch');
     expect(selected, isNull);
   });
 
-  test('local stock may go negative — an oversell is recorded, not prevented', () async {
-    await seed([batch('01930000-0000-7000-8000-0000000000b1', '2027-06-30', 3)]);
+  test('local stock may go negative — an oversell is recorded, not prevented',
+      () async {
+    await seed(
+        [batch('01930000-0000-7000-8000-0000000000b1', '2027-06-30', 3)]);
 
     await catalog.decrementLocal(
       db.db,

@@ -19,8 +19,8 @@
     "gen:contracts:check": "pnpm gen:contracts && git diff --exit-code -- packages/contracts/generated apps/mobile/lib/contracts",
     "db:up": "./scripts/dev-db.sh up",
     "db:reset": "./scripts/dev-db.sh reset",
-    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,yml,yaml}\""
   },
   "devDependencies": {
     "prettier": "^3.3.3",

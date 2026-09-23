@@ -71,8 +71,8 @@ export function App() {
         <SalesPage session={session} onExpired={signOut} />
         <p className="footnote">
           Signed in to <strong>{session.tenantCode}</strong> as {session.scope.role}.
-          {contractVersion && <> Server contract v{contractVersion}.</>} Money is stored as
-          integer santim and formatted only here, at the edge.
+          {contractVersion && <> Server contract v{contractVersion}.</>} Money is stored as integer
+          santim and formatted only here, at the edge.
         </p>
       </main>
     </div>

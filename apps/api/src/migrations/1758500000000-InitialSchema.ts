@@ -284,9 +284,7 @@ export class InitialSchema1758500000000 implements MigrationInterface {
       `);
       // A tenant predicate is in every query plan whether the author wrote one or not, so
       // every table is indexed for it.
-      await queryRunner.query(
-        `CREATE INDEX "${table}_tenant_idx" ON "${table}" ("tenant_id");`,
-      );
+      await queryRunner.query(`CREATE INDEX "${table}_tenant_idx" ON "${table}" ("tenant_id");`);
     }
 
     // --------------------------------------------------------------- grants

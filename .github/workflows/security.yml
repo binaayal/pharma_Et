@@ -1,0 +1,40 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so an advisory published after a PR merged is still found.
+    - cron: '17 4 * * 1'
+
+jobs:
+  dependencies:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - name: Audit (high severity blocks)
+        run: pnpm audit --audit-level high
+
+  secrets:
+    name: no secrets in the diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan for committed credentials
+        # .env is git-ignored and .env.example holds dummy values. This catches the case
+        # where someone commits a real one anyway.
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "::error::a .env file is tracked; secrets belong in the secret store"
+            exit 1
+          fi
+          if git grep -nE 'postgres://[^ ]*:[^ @]{8,}@' -- ':!*.example' ':!*.md' ':!.github/**' ':!scripts/**'; then
+            echo "::error::a database URL with an embedded password is committed"
+            exit 1
+          fi

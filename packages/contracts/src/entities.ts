@@ -37,10 +37,10 @@ export const salePayload = z
     lines: z.array(saleLinePayload).min(1),
     payments: z.array(paymentPayload),
   })
-  .refine(
-    (s) => s.lines.reduce((sum, l) => sum + l.lineTotalSantim, 0) === s.totalSantim,
-    { message: 'sale total must equal the sum of its line totals (G4)', path: ['totalSantim'] },
-  )
+  .refine((s) => s.lines.reduce((sum, l) => sum + l.lineTotalSantim, 0) === s.totalSantim, {
+    message: 'sale total must equal the sum of its line totals (G4)',
+    path: ['totalSantim'],
+  })
   .refine((s) => s.lines.every((l) => l.qty * l.unitPriceSantim === l.lineTotalSantim), {
     message: 'each line total must equal qty * unit price (G4)',
     path: ['lines'],

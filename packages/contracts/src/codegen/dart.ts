@@ -10,7 +10,17 @@ import type { JsonSchema } from './json-schema.js';
  */
 
 const RESERVED = new Set([
-  'is', 'in', 'default', 'class', 'new', 'final', 'const', 'var', 'this', 'switch', 'return',
+  'is',
+  'in',
+  'default',
+  'class',
+  'new',
+  'final',
+  'const',
+  'var',
+  'this',
+  'switch',
+  'return',
 ]);
 
 function camel(name: string): string {
@@ -160,9 +170,7 @@ function fromJsonExpr(r: Resolved, access: string): string {
       case 'list': {
         const bare = r.itemType!.replace(/\?$/, '');
         const each =
-          r.itemKind === 'class'
-            ? `${bare}.fromJson(e as Map<String, dynamic>)`
-            : `e as ${bare}`;
+          r.itemKind === 'class' ? `${bare}.fromJson(e as Map<String, dynamic>)` : `e as ${bare}`;
         return `(${access} as List<dynamic>).map((e) => ${each}).toList()`;
       }
       default:

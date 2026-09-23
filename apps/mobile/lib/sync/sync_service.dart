@@ -116,7 +116,8 @@ class SyncService {
       var cursor = int.tryParse(await _db.meta('pull_cursor') ?? '0') ?? 0;
       var pages = 0;
       while (pages < 20) {
-        final response = await _client.pull(token: token, cursor: cursor, branchId: branchId);
+        final response = await _client.pull(
+            token: token, cursor: cursor, branchId: branchId);
         await _catalog.applyPull(response);
         cursor = response.cursor;
         pages++;
