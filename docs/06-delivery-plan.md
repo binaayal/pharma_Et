@@ -75,12 +75,11 @@ are cut from `main` by **tag**, not by a parallel branch.
 - ≥ 1 review; **2 reviews for controlled-artifact changes** (§7), one of whom owns compliance for ledger/psychotropic changes.
 - Linear history; squash merge.
 
-> **Not currently enforceable.** Branch protection and rulesets require GitHub Pro or a
-> public repository; on a free private repo the API refuses with a 403. A tracked `pre-push`
-> hook refuses a direct push to `main` (`scripts/install-hooks.sh`), and CI still gates every
-> PR — but "no direct pushes" is presently a convention plus a tripwire, not a guarantee.
-> `scripts/protect-main.sh` applies the full settings the moment the plan permits it. See
-> `engineering/workflow.md` §3.
+> **Active** since the repository was made public — branch protection is unavailable on a
+> free private repo. Applied by `scripts/protect-main.sh`; the exact settings are tabulated
+> in `engineering/workflow.md` §3. Note that **linear history forces the merge strategy**:
+> rebase for a curated multi-commit PR, squash for a messy one, and a merge commit is
+> rejected outright.
 >
 > **Amended by [ADR-011](adr/ADR-011-solo-maintainer-change-control.md) while the project has
 > a single maintainer.** The review counts above are unsatisfiable alone — GitHub does not

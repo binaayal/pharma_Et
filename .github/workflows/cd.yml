@@ -49,9 +49,9 @@ jobs:
 
       - id: meta
         run: |
-          # GHCR rejects any uppercase in a repository name, and this repo is `pharmaEt`.
-          # github.repository preserves the owner's casing, so it is lowercased here rather
-          # than interpolated directly.
+          # GHCR rejects any uppercase in a repository name, and this repo is `pharma_Et`.
+          # github.repository preserves the casing, so it is lowercased here rather than
+          # interpolated directly. Underscores are legal in an image path; uppercase is not.
           echo "image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/api" >> "$GITHUB_OUTPUT"
           echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 

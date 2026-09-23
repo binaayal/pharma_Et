@@ -13,7 +13,7 @@ Runs through power cuts; the counter never stops selling.
 ## Repository layout
 
 ```
-pharmaEt/
+pharma_Et/
 ├── docs/                  # The source of truth: vision → SRS → architecture → design → QA → delivery
 │   ├── adr/               # Architecture Decision Records (binding)
 │   ├── engineering/       # Repo layout, local setup, workflow, CI/CD
