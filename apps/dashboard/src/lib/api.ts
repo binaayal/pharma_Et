@@ -138,6 +138,18 @@ export interface StockReport {
   };
 }
 
+export interface AuditEntry {
+  id: string;
+  seq: number;
+  eventType: string;
+  streamId: string;
+  actorId: string;
+  branchId: string | null;
+  payload: Record<string, unknown>;
+  occurredAt: string;
+  recordedAt: string;
+}
+
 export const api = {
   login: (body: LoginRequest) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
@@ -150,6 +162,8 @@ export const api = {
 
   salesSummary: (token: string, from: string, to: string) =>
     request<SalesSummary>(`/reports/sales-summary?from=${from}&to=${to}`, {}, token),
+
+  audit: (token: string, limit = 100) => request<AuditEntry[]>(`/audit?limit=${limit}`, {}, token),
 
   stock: (token: string, expiringWithinDays: number) =>
     request<StockReport>(`/reports/stock?expiringWithinDays=${expiringWithinDays}`, {}, token),

@@ -10,6 +10,7 @@ import { PLATFORM_DATA_SOURCE } from './common/db/scoped-db.service';
 import { loadConfiguration } from './config/configuration';
 import { ALL_ENTITIES } from './entities';
 import { AdminModule } from './modules/admin/admin.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
 import { InventoryModule } from './modules/inventory/inventory.module';
@@ -65,6 +66,9 @@ function appConnectionUrl(config: ConfigService): string {
     }),
 
     DbModule,
+    // Global, so anything that changes tenant state can record that it did without an
+    // import chain making it inconvenient enough to skip (ADR-015).
+    AuditModule,
     AuthModule,
     AdminModule,
     InventoryModule,

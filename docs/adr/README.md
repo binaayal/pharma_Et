@@ -22,5 +22,6 @@ quietly work around an accepted ADR in code.
 | [ADR-012](ADR-012-extending-the-sync-envelope.md) | Extending the sync envelope; terminal vs server computation | Accepted |
 | [ADR-013](ADR-013-permission-matrix-as-contract.md) | The FR-2 permission matrix is a contract artifact | Accepted |
 | [ADR-014](ADR-014-calendar-implemented-twice.md) | The Ethiopian calendar is implemented twice, verified once | Accepted |
+| [ADR-015](ADR-015-audit-log-before-a1.md) | Event store and audit log built before A-1; the regulated subset is not | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated
