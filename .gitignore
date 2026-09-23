@@ -47,3 +47,8 @@ apps/mobile/.dart_tool/
 
 # Built into the image by the Dockerfile (the dashboard bundle the API serves).
 apps/api/public/
+
+# Payment screenshots. Local development storage for the manual verification flow
+# (docs/04 §5.8) — in production these live in object storage, never in the repository.
+# They are somebody's bank app on their phone, and this repository is public.
+apps/api/.payment-proofs/

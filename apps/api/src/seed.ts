@@ -52,6 +52,7 @@ const TENANTS: SeedTenant[] = [
 /** Dev-only credentials. Production users are provisioned through onboarding, never seeded. */
 const DEV_PIN = '1234';
 const DEV_PASSWORD = 'owner-dev-password';
+const DEV_PLATFORM_PASSWORD = 'platform-dev-password';
 
 async function seedTenant(em: EntityManager, spec: SeedTenant): Promise<void> {
   const tenantId = uuidv7();
@@ -63,6 +64,13 @@ async function seedTenant(em: EntityManager, spec: SeedTenant): Promise<void> {
     deletedAt: null,
   });
   await em.query(`INSERT INTO tenant_change_seq (tenant_id, value) VALUES ($1, 0)`, [tenantId]);
+  // Every tenant has a subscription, so "is this pharmacy paid up?" always has an answer —
+  // the question gates every management write in the system (ADR-016).
+  await em.query(
+    `INSERT INTO subscription (id, tenant_id, state, current_period_end, price_santim)
+     VALUES ($1, $2, 'active', now() + interval '30 days', 100000)`,
+    [uuidv7(), tenantId],
+  );
 
   const nextSeq = async (): Promise<number> => {
     const row = firstRow<{ value: string }>(
@@ -164,6 +172,31 @@ async function seedTenant(em: EntityManager, spec: SeedTenant): Promise<void> {
   console.log(`  ✓ ${spec.name} (code: ${spec.code}) — ${spec.branches.length} branches`);
 }
 
+/**
+ * A development Platform Admin (us).
+ *
+ * Seeded rather than exposed through an endpoint: an API that mints platform identities is
+ * an escalation path however carefully it is guarded. In production an admin is created by
+ * an operator running a one-off statement.
+ */
+async function seedPlatformAdmin(em: EntityManager): Promise<void> {
+  const existing = await em.query(`SELECT count(*)::int AS n FROM platform_admin`);
+  const rows = Array.isArray(existing[0]) ? existing[0] : existing;
+  if (Number(rows[0].n) > 0) return;
+
+  await em.query(
+    `INSERT INTO platform_admin (id, email, display_name, password_hash)
+     VALUES ($1, $2, $3, $4)`,
+    [
+      uuidv7(),
+      'admin@pharmaet.local',
+      'Platform Admin',
+      await argon2.hash(DEV_PLATFORM_PASSWORD, { type: argon2.argon2id }),
+    ],
+  );
+  console.log('  ✓ platform admin (admin@pharmaet.local)');
+}
+
 async function main(): Promise<void> {
   const dataSource = new DataSource({
     type: 'postgres',
@@ -184,12 +217,14 @@ async function main(): Promise<void> {
 
   console.log('seeding two tenants (multi-tenant by construction — docs/05-qa §11):');
   await dataSource.transaction(async (em) => {
+    await seedPlatformAdmin(em);
     for (const spec of TENANTS) await seedTenant(em, spec);
   });
 
   console.log(`\nlogin with:  tenantCode=abay  username=cashier  secret=${DEV_PIN}`);
   console.log(`             tenantCode=abay  username=owner    secret=${DEV_PASSWORD}`);
-  console.log(`             tenantCode=tana  username=owner    secret=${DEV_PASSWORD}\n`);
+  console.log(`             tenantCode=tana  username=owner    secret=${DEV_PASSWORD}`);
+  console.log(`platform:    admin@pharmaet.local / ${DEV_PLATFORM_PASSWORD}\n`);
 
   await dataSource.destroy();
 }

@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CapabilityGuard } from './common/auth/capability.guard';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
+import { SubscriptionGuard } from './common/auth/subscription.guard';
 import { DbModule } from './common/db/db.module';
 import { PLATFORM_DATA_SOURCE } from './common/db/scoped-db.service';
 import { loadConfiguration } from './config/configuration';
@@ -12,6 +13,7 @@ import { ALL_ENTITIES } from './entities';
 import { AdminModule } from './modules/admin/admin.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { HealthController } from './modules/health/health.controller';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
@@ -71,6 +73,7 @@ function appConnectionUrl(config: ConfigService): string {
     AuditModule,
     AuthModule,
     AdminModule,
+    BillingModule,
     InventoryModule,
     SyncModule,
     ReportingModule,
@@ -85,6 +88,10 @@ function appConnectionUrl(config: ConfigService): string {
     // The FR-2 matrix. Global, so a handler that forgets @RequireCapability is merely
     // unrestricted-by-omission rather than silently bypassing a check it appeared to have.
     { provide: APP_GUARD, useClass: CapabilityGuard },
+    // BR-1.3 / ADR-016. Last, so it runs on requests that have already been authenticated
+    // and authorised — a suspended tenant should be told about billing, not about a
+    // permission they would not have had anyway.
+    { provide: APP_GUARD, useClass: SubscriptionGuard },
   ],
 })
 export class AppModule {}

@@ -343,7 +343,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 
 | Req ID | Design ref (`04-system-design.md`) | Implementation | Test ref | Status |
 |---|---|---|---|---|
-| FR-1 tenant/branch | §5.1 | `api/src/entities/{tenant,branch}.entity.ts`, `migrations/InitialSchema` | `api/test/guardian/g1-tenant-isolation.spec.ts` | Skeleton |
+| FR-1 tenant/branch + **onboarding, billing, subscriptions** | §5.1, §5.8 | `api/src/modules/billing/`, `api/src/common/auth/{subscription.guard,platform-admin.guard}.ts`, `dashboard/src/pages/PlatformPage.tsx` | `g1-tenant-isolation.spec.ts`, `g1-subscription-suspension.spec.ts` (15) | **Done** — Platform Admin as a separate identity (BR-2.2), manual screenshot verification (Vision §4), and BR-1.3 suspension as interpreted by ADR-016 |
 | FR-2 (+ matrix) | §8, §5.1 | **matrix: `packages/contracts/src/permissions.ts`** (generated into Dart) · enforcement: `api/src/common/auth/{capability.guard,branch-scope}.ts`, `api/src/modules/admin/` · client: `mobile/lib/core/permissions.dart` | `g1-permission-matrix.spec.ts` (21), `permissions_test.dart` (11), `g1-report-scoping.spec.ts` (17) | **Done** — every role × capability cell tested at both layers (`05-qa` §10); AC-2.1 verified on both. Platform-Admin capabilities are declared and denied to every tenant role; their own surface is FR-1 billing, still open. |
 | FR-3 inventory (FEFO, negative stock, **reconciliation**) | §5.3, §10 | `api/src/modules/inventory/`, `api/src/modules/reporting/stock-report.service.ts`, `mobile/lib/data/{catalog,inventory}_repository.dart`, `mobile/lib/ui/reconcile_screen.dart` | `g5-oversell-detected.spec.ts`, `g5-stock-reconciliation.spec.ts` (12), `g5_reconciliation_test.dart` (13), `fefo_test.dart` | **Done** — FEFO, negative stock, BR-3.4 expiry alerting, and BR-3.2's promised **physical reconciliation** (contract v1.2.0). E-4.2 expired-stock override still open. |
 | FR-4 POS (standard sale) | §5.4 | `mobile/lib/data/sale_repository.dart`, `api/src/modules/sync/sync.service.ts` | `mobile/test/guardian/g7_offline_durability_test.dart` | Skeleton |
@@ -360,6 +360,12 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | NFR-3.4 API p95 | §7, §9 | one query per report; lateral aggregates, no N+1 | `test/perf/nfr3.perf-spec.ts` | **Met** — sync 33 ms / 500, dashboard ≤ 36 ms / 1000 |
 | NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
 | NFR-5 retention | §5.6, §5.8 | no `DELETE` grant to the app role; `deleted_at` on every table | schema-level; ledger retention is Phase 2 | Partial |
+
+**FR-1 complete.** Tenant onboarding, the manual payment loop and subscription control are
+built. The Platform Admin is a separate identity with its own login and a distinct token
+type — there is no token that is both, so BR-2.2's "no default access to tenant data" is
+structural rather than careful. What a suspension actually blocks is **ADR-016**: management
+writes only, never a queued sale, a report, or the payment proof that ends it.
 
 **Phase 2 (partial, ADR-015).** The append-only event store and the general action audit log
 are built: who changed a price, added staff, or deactivated an account, recorded inside the

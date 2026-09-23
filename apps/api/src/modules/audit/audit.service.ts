@@ -22,6 +22,14 @@ export const AUDIT_EVENT_TYPES = [
   'audit.branch_created',
   'audit.branch_updated',
   'audit.stock_adjusted',
+  // Billing (FR-1). Recorded in the TENANT's own trail even when the actor is a platform
+  // admin: an action by us that the affected pharmacy cannot see is exactly what BR-2.2
+  // exists to prevent, and a suspension nobody can find a record of is a support call.
+  'audit.payment_proof_submitted',
+  'audit.payment_accepted',
+  'audit.payment_rejected',
+  'audit.subscription_changed',
+  'audit.tenant_onboarded',
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];

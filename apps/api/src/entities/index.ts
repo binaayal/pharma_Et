@@ -3,6 +3,7 @@ import { Branch } from './branch.entity';
 import { GoodsReceipt, GoodsReceiptLine } from './goods-receipt.entity';
 import { Product } from './product.entity';
 import { Payment, Sale, SaleLine } from './sale.entity';
+import { PaymentProof, PlatformAdmin, Subscription } from './billing.entity';
 import { DomainEvent } from './event.entity';
 import { CashUp, Shift } from './shift.entity';
 import { StockAdjustment } from './stock-adjustment.entity';
@@ -17,6 +18,7 @@ export * from './branch.entity';
 export * from './goods-receipt.entity';
 export * from './product.entity';
 export * from './sale.entity';
+export * from './billing.entity';
 export * from './event.entity';
 export * from './shift.entity';
 export * from './stock-adjustment.entity';
@@ -47,6 +49,9 @@ export const ALL_ENTITIES = [
   CashUp,
   StockAdjustment,
   DomainEvent,
+  PlatformAdmin,
+  Subscription,
+  PaymentProof,
   GoodsReceipt,
   GoodsReceiptLine,
   AppliedOp,

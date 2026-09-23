@@ -150,6 +150,37 @@ export interface AuditEntry {
   recordedAt: string;
 }
 
+export interface SubscriptionView {
+  state: 'pending' | 'active' | 'suspended';
+  currentPeriodEnd: string | null;
+  priceSantim: number;
+  suspendedReason: string | null;
+  daysRemaining: number | null;
+  pendingProofCount: number;
+}
+
+export interface PlatformTenant {
+  id: string;
+  name: string;
+  code: string;
+  status: string;
+  subscriptionState: 'pending' | 'active' | 'suspended' | null;
+  currentPeriodEnd: string | null;
+  suspendedReason: string | null;
+  pendingProofs: number;
+}
+
+export interface PendingProof {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  tenantCode: string;
+  amountSantim: number;
+  submittedAt: string;
+  note: string | null;
+  subscriptionState: string | null;
+}
+
 export const api = {
   login: (body: LoginRequest) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
@@ -168,5 +199,38 @@ export const api = {
   stock: (token: string, expiringWithinDays: number) =>
     request<StockReport>(`/reports/stock?expiringWithinDays=${expiringWithinDays}`, {}, token),
 
+  subscription: (token: string) => request<SubscriptionView>('/billing/subscription', {}, token),
+
   health: () => request<{ status: string; contractVersion: string }>('/health'),
+
+  /**
+   * The platform console (us). A separate login with a distinct token type — a tenant token
+   * must never reach a route that can suspend a pharmacy (BR-2.2).
+   */
+  platform: {
+    login: (email: string, password: string) =>
+      request<{ accessToken: string; admin: { id: string; email: string; displayName: string } }>(
+        '/platform/login',
+        { method: 'POST', body: JSON.stringify({ email, password }) },
+      ),
+    tenants: (token: string) => request<PlatformTenant[]>('/platform/tenants', {}, token),
+    pendingProofs: (token: string) =>
+      request<PendingProof[]>('/platform/payment-proofs', {}, token),
+    decide: (token: string, id: string, body: { accept: boolean; reason?: string }) =>
+      request<unknown>(
+        `/platform/payment-proofs/${id}/decide`,
+        { method: 'POST', body: JSON.stringify(body) },
+        token,
+      ),
+    setState: (
+      token: string,
+      body: { tenantId: string; state: 'active' | 'suspended'; reason?: string },
+    ) =>
+      request<unknown>(
+        '/platform/subscriptions',
+        { method: 'POST', body: JSON.stringify(body) },
+        token,
+      ),
+    proofImageUrl: (id: string) => `/api/platform/payment-proofs/${id}/image`,
+  },
 };
