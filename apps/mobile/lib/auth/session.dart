@@ -86,7 +86,20 @@ class CachedSession {
 
   /// Past this point, privileged actions need an online re-auth — but an in-progress sale
   /// is never blocked (BR-2.3). The till does not close because a token got old.
-  bool get offlineWindowExpired => DateTime.now().isAfter(offlineValidUntil);
+  bool get offlineWindowExpired => expiredAt(DateTime.now());
+
+  /// The same question asked at a given instant.
+  ///
+  /// The clock is a parameter because otherwise the boundary cannot be tested: by the time
+  /// a test built a session ending "now" and read the getter, the wall clock has already
+  /// moved past it. docs/05 §10 asks for expiry to be checked **at the window boundary**,
+  /// and a rule about time that can only be exercised well away from its edge is a rule
+  /// whose edge nobody has looked at.
+  ///
+  /// `isAfter` is strict, so a terminal exactly at its deadline is still valid. That is the
+  /// forgiving side, and forgiving is right here: the alternative locks a manager out on the
+  /// tick of a deadline they cannot see.
+  bool expiredAt(DateTime now) => now.isAfter(offlineValidUntil);
 
   /// The branch this terminal acts in. Owners are all-branch by role, so a terminal signed
   /// in as an owner uses whichever branch it was provisioned to.
