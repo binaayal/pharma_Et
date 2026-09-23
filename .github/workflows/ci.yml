@@ -38,6 +38,7 @@ jobs:
       mobile: ${{ steps.filter.outputs.mobile }}
       contracts: ${{ steps.filter.outputs.contracts }}
       migrations: ${{ steps.filter.outputs.migrations }}
+      docs: ${{ steps.filter.outputs.docs }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -59,6 +60,9 @@ jobs:
             mobile:
               - 'apps/mobile/**'
               - 'packages/contracts/**'
+            docs:
+              - 'docs/**'
+              - 'scripts/check-traceability.mjs'
             migrations:
               - 'apps/api/src/migrations/**'
               # The job's own definition. A change to the thing that proves rollback safety
@@ -351,10 +355,95 @@ jobs:
           echo "A pass means redeploying the previous image over this migration is safe." \
             >> "$GITHUB_STEP_SUMMARY"
 
+
+  traceability:
+    name: traceability · the RTM points at things that exist
+    needs: changes
+    # Any docs change, and any source change — because deleting a file the RTM cites breaks
+    # the table just as surely as editing the table does, and only one of those two edits
+    # happens in docs/.
+    if: >-
+      needs.changes.outputs.docs == 'true' ||
+      needs.changes.outputs.api == 'true' ||
+      needs.changes.outputs.mobile == 'true' ||
+      needs.changes.outputs.dashboard == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      # docs/05-qa §8 and docs/06 §11 make the RTM the evidence that every requirement has
+      # code and a test behind it. Prose does not compile, so a renamed file leaves the claim
+      # standing and silently false. This is the thing that fails.
+      - run: node scripts/check-traceability.mjs
+
+
+  coverage:
+    name: coverage · a trend, not a gate
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pharmaet
+          POSTGRES_PASSWORD: pharmaet_ci
+          POSTGRES_DB: pharmaet_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://pharmaet:pharmaet_ci@localhost:5432/pharmaet_ci
+      TEST_DATABASE_URL: postgres://pharmaet:pharmaet_ci@localhost:5432/pharmaet_ci
+      DATABASE_APP_USER: pharmaet_app
+      DATABASE_APP_PASSWORD: pharmaet_app_ci
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @pharmaet/api migration:run
+
+      # docs/05-qa §16 asks for "coverage per tier as a trend, not a target", and §3 makes it
+      # a secondary signal behind the guardian suites. So this reports and never gates on a
+      # percentage.
+      #
+      # It exists because ci-cd.md listed per-tier coverage among the things that block a PR
+      # while nothing anywhere produced a coverage number — and `test:cov` had in fact never
+      # run to completion. A documented control that does not exist is worse than an absent
+      # one, because it is counted on.
+      #
+      # Its own job rather than a step in `api`: it re-runs every suite, so inside that job it
+      # would double the runtime for a number nobody blocks on. Beside it, the wall clock is
+      # unchanged and a coverage problem cannot be mistaken for a guardian failure.
+      - name: Measure
+        run: pnpm --filter @pharmaet/api test:cov 2>&1 | tee coverage.txt
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "### API coverage — a trend, not a gate (docs/05-qa §16)"
+            echo '```'
+            grep -E "^(File|All files|-{3,})" coverage.txt || echo "no coverage table produced"
+            echo '```'
+            echo "_Per-tier targets in docs/05-qa §3 are a signal. The gate is the guardian suites._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   ci-gate:
     name: CI gate
     if: always()
-    needs: [changes, contracts, api, dashboard, mobile, rollback_safety]
+    needs: [changes, contracts, api, dashboard, mobile, rollback_safety, traceability, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job succeeded or was legitimately skipped
@@ -365,6 +454,8 @@ jobs:
           echo "dashboard: ${{ needs.dashboard.result }}"
           echo "mobile:    ${{ needs.mobile.result }}"
           echo "rollback:  ${{ needs.rollback_safety.result }}"
+          echo "tracing:   ${{ needs.traceability.result }}"
+          echo "coverage:  ${{ needs.coverage.result }}"
 
           # The filter itself must have run. A skip here means nothing downstream was even
           # considered.
@@ -375,7 +466,9 @@ jobs:
 
           for r in "${{ needs.contracts.result }}" "${{ needs.api.result }}" \
                    "${{ needs.dashboard.result }}" "${{ needs.mobile.result }}" \
-                   "${{ needs.rollback_safety.result }}"; do
+                   "${{ needs.rollback_safety.result }}" \
+                   "${{ needs.traceability.result }}" \
+                   "${{ needs.coverage.result }}"; do
             case "$r" in
               success|skipped) ;;
               *) echo "::error::a required job reported '$r'"; exit 1 ;;

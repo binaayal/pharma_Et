@@ -12,7 +12,7 @@
     "test": "jest --config jest.config.cjs --selectProjects unit",
     "test:integration": "jest --config jest.config.cjs --selectProjects integration --runInBand",
     "test:guardian": "jest --config jest.config.cjs --selectProjects guardian --runInBand",
-    "test:cov": "jest --config jest.config.cjs --coverage",
+    "test:cov": "jest --config jest.config.cjs --coverage --runInBand",
     "typeorm": "typeorm-ts-node-commonjs -d src/config/data-source.ts",
     "migration:run": "pnpm typeorm migration:run",
     "migration:revert": "pnpm typeorm migration:revert",
