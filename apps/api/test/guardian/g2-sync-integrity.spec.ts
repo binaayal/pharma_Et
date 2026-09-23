@@ -43,16 +43,42 @@ describe('G2 — sync integrity', () => {
     return rows[0].n;
   };
 
-  it('applies a batch of offline operations exactly once (AC-9.1)', async () => {
-    const ops = Array.from({ length: 25 }, (_, i) =>
+  it('applies a batch of offline operations exactly once, in order (AC-9.1)', async () => {
+    // **200, because the criterion says 200.** It read 25 until this was checked against the
+    // wording: "Given 200 offline transactions, when the terminal reconnects, then all 200
+    // sync exactly once, in order, with zero loss or duplication."
+    //
+    // Twenty-five proves the mechanism and the RTM cited it as evidence for a claim about
+    // two hundred. The number in an acceptance criterion is part of the criterion — a day of
+    // trading is the load this path exists to survive, and a batch an order of magnitude
+    // smaller is a different test wearing the same label.
+    const BATCH = 200;
+    const ops = Array.from({ length: BATCH }, (_, i) =>
       saleOp(tenant, { terminalSeq: i + 1, qty: 1, batchId: null }),
     );
 
     const response = await push(ops).expect(201);
 
-    expect(response.body.acks).toHaveLength(25);
+    expect(response.body.acks).toHaveLength(BATCH);
     expect(response.body.acks.every((a: { status: string }) => a.status === 'applied')).toBe(true);
-    expect(await saleCount()).toBe(25);
+    expect(await saleCount()).toBe(BATCH);
+
+    // "In order" is the half a count cannot show. The outbox is ordered by `terminal_seq`
+    // (never wall-clock — offline terminals have skewed clocks, ADR-005), so the server must
+    // apply them in that order and record it. A batch that landed complete but shuffled
+    // would still sum to the right takings while putting a sale before the shift that opened
+    // it, and the ledger would read as nonsense to anyone reconstructing the day.
+    const applied = await harness.platformDataSource.query(
+      `SELECT terminal_seq FROM applied_op
+        WHERE tenant_id = $1 ORDER BY applied_at, terminal_seq`,
+      [tenant.id],
+    );
+    const seqs = applied.map((r: { terminal_seq: string }) => Number(r.terminal_seq));
+
+    expect(seqs).toHaveLength(BATCH);
+    // Exactly 1..200, each once: zero loss and zero duplication, stated as the criterion
+    // states it rather than inferred from a total.
+    expect(seqs).toEqual(Array.from({ length: BATCH }, (_, i) => i + 1));
   });
 
   it('treats a replayed push as a no-op rather than a second sale (AC-9.2)', async () => {

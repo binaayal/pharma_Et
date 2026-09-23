@@ -16,7 +16,9 @@ changed paths ────┼── api ─── lint ── typecheck ── u
                   │             └── guardian G1–G7 ── no-unscoped-access ── migration + RLS check
                   ├── dashboard ─ lint ── typecheck ── unit ── build
                   ├── mobile ──── analyze ── format ── flutter test (incl. guardian G2/G4/G7)
-                  └── migrations ─ rollback safety: previous code on the NEW schema
+                  ├── migrations ─ rollback safety: previous code on the NEW schema
+                  ├── api ─────── coverage (reported, never gated)
+                  └── docs|src ── traceability: the RTM points at things that exist
 ```
 
 | Gate | Job | Why it blocks |
@@ -28,7 +30,7 @@ changed paths ────┼── api ─── lint ── typecheck ── u
 | **Migration + RLS policy check** | `api` | Migrations must apply cleanly *and* leave RLS policies in force. |
 | **Core e2e journeys** | `api` | The daily loop as a pharmacy performs it, pushed through `/sync/push` in outbox order. Phase 1 exit gate (`../06` §2). |
 | **NFR-3 budgets** | `api` | Sync p95, dashboard p95, a 72h backlog, and an index behind every tenant predicate — sequentially **and** under concurrency, since a p95 with nothing to contend against is not a load test (`../05-qa` §9). RLS overhead is measured too. Printed with margins. |
-| **Per-tier coverage** | `api`, `mobile` | T1 ≥ 90% branch, T2 ≥ 80% line (`../05-qa` §3). Trend, not vanity. |
+| **Traceability** | `traceability` | Every path the RTM cites exists, and every ADR is in both indexes. `../05-qa` §8 makes the RTM the evidence; prose does not compile, so a rename leaves the claim standing and false. |
 | **Dependency scan** | `security` | No high-severity advisories. |
 | **Rollback safety** | `rollback_safety` | Migrations are forward-only, so a rollback is "redeploy the previous image" against a database that has *already* migrated. The job checks the only thing that then matters — see §1.1. |
 
@@ -50,6 +52,19 @@ something is already wrong — into a second outage.
 
 Integration jobs run a **real PostgreSQL 16 service container**. Mocked-database tests cannot
 validate RLS, so they are not accepted as evidence for anything isolation-related.
+
+**Coverage is reported, not gated.** The `coverage` job prints the table into the run summary
+and never fails on a percentage, because `../05-qa` §3 calls coverage a secondary signal —
+"n/a — gated by suites passing, not %" for the invariant tier — and §16 asks for it "as a
+trend, not a target". It runs beside `api` rather than inside it: it re-runs every suite, so
+as a step it would double that job for a number nobody blocks on.
+
+> This row previously claimed per-tier coverage **blocked** a PR. It did not: nothing in CI
+> produced a coverage number at all, and `pnpm test:cov` had never run to completion — the
+> babel instrumenter could not load NestJS's decorator metadata, and Jest's threshold checker
+> crashes under `projects` with the v8 provider. A documented control that does not exist is
+> worse than an absent one, because it is counted on. It now runs, on the v8 provider, with
+> no threshold.
 
 ## 2. What runs on merge to `main`
 

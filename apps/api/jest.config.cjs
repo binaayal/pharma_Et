@@ -50,9 +50,22 @@ module.exports = {
     },
   ],
   collectCoverageFrom: ['src/**/*.ts', '!src/migrations/**', '!src/seed.ts'],
-  coverageThreshold: {
-    // Per-tier targets from docs/05-qa §3. A trend to watch, never the gate — the gate is
-    // the guardian suites passing.
-    global: { branches: 60, lines: 70 },
-  },
+  // V8, not the default babel instrumenter.
+  //
+  // Babel rewrites every source file to add counters, and that rewriting breaks on NestJS's
+  // decorator metadata — `jest --coverage` failed to load 20 of 21 suites with "The
+  // 'original' argument must be of type function". V8 takes coverage from the runtime
+  // instead, so the code under test is the code that ships.
+  coverageProvider: 'v8',
+  // **No `coverageThreshold`, deliberately.**
+  //
+  // docs/05-qa §3 puts coverage as a "secondary signal" and marks the invariant tier "n/a —
+  // gated by suites passing, not %". §16 asks for it "as a trend, not a target". A threshold
+  // is a target, so the one that used to sit here contradicted its own comment, which said
+  // "a trend to watch, never the gate".
+  //
+  // It also could not work: Jest's threshold checker crashes under `projects` with the v8
+  // provider (`Cannot read properties of undefined`), so `test:cov` had never completed. The
+  // number is reported in the CI job summary instead, which is what a trend needs — somewhere
+  // to be seen.
 };
