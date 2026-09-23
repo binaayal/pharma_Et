@@ -7,6 +7,7 @@ import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../data/sale_repository.dart';
 import '../data/shift_repository.dart';
+import '../l10n/locale_store.dart';
 import '../sync/sync_service.dart';
 import 'cash_up_screen.dart';
 import 'sync_chip.dart';
@@ -89,15 +90,12 @@ class _PosScreenState extends State<PosScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Open till'),
+        title: Text(context.t('shift.openTitle')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'How much cash is in the drawer before trading? This is counted as part of '
-              'the expected total at close.',
-              style: TextStyle(fontSize: 13.5),
-            ),
+            Text(context.t('shift.openingFloatHint'),
+                style: const TextStyle(fontSize: 13.5)),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
@@ -116,7 +114,7 @@ class _PosScreenState extends State<PosScreen> {
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(88, 40)),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Open'),
+            child: Text(context.t('shift.open')),
           ),
         ],
       ),
@@ -244,7 +242,8 @@ class _PosScreenState extends State<PosScreen> {
       SnackBar(
         backgroundColor: PharmaColors.greenDark,
         content: Text(
-          'Sale committed · ${formatEtb(sale.totalSantim)} · saved locally in ${elapsed}ms',
+          '${context.t('pos.saleCommitted')} · ${formatEtb(sale.totalSantim)} · '
+          '${context.t('pos.savedLocally')} (${elapsed}ms)',
         ),
         action: SnackBarAction(
           label: 'Sync now',
@@ -262,13 +261,24 @@ class _PosScreenState extends State<PosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sell'),
+        title: Text(context.t('pos.title')),
         actions: [
+          // Switchable per user, from the screen they spend the day on — a language buried
+          // in a settings page is one nobody finds on a shared counter terminal.
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.language),
+            tooltip: context.t('settings.language'),
+            onSelected: L10n.of(context).onChange,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'en', child: Text('English')),
+              PopupMenuItem(value: 'am', child: Text('አማርኛ')),
+            ],
+          ),
           if (_shift != null && _can(Capability.cashupPerform))
             IconButton(
               icon: const Icon(Icons.calculate_outlined),
               onPressed: _cashUp,
-              tooltip: 'Cash up & close till',
+              tooltip: context.t('cashup.title'),
             ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -277,7 +287,7 @@ class _PosScreenState extends State<PosScreen> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: widget.onSignOut,
-            tooltip: 'Sign out',
+            tooltip: context.t('settings.signOut'),
           ),
         ],
       ),
@@ -318,7 +328,7 @@ class _PosScreenState extends State<PosScreen> {
               color: PharmaColors.amberTint,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Text(
-                'Offline — ${_status.pending} sale(s) waiting. Keep selling; they will sync.',
+                '${context.t('pos.offlineBanner')} (${_status.pending})',
                 style:
                     const TextStyle(color: PharmaColors.amber, fontSize: 12.5),
               ),
@@ -337,8 +347,8 @@ class _PosScreenState extends State<PosScreen> {
                           title: Text(product.name),
                           subtitle: Text(
                             product.isControlled
-                                ? 'Controlled · ledger-dispensed'
-                                : 'per ${product.unit}',
+                                ? context.t('pos.controlled')
+                                : '${context.t('pos.perUnit')} ${product.unit}',
                             style: TextStyle(
                               color: product.isControlled
                                   ? PharmaColors.amber
@@ -357,7 +367,13 @@ class _PosScreenState extends State<PosScreen> {
                   ),
           ),
           if (_cart.isNotEmpty)
-            _CartBar(cart: _cart, total: _cartTotal, onCommit: _commit),
+            _CartBar(
+              cart: _cart,
+              total: _cartTotal,
+              onCommit: _commit,
+              totalLabel: context.t('pos.total'),
+              commitLabel: context.t('pos.takeCash'),
+            ),
         ],
       ),
     );
@@ -394,12 +410,19 @@ class _EmptyCatalog extends StatelessWidget {
 }
 
 class _CartBar extends StatelessWidget {
-  const _CartBar(
-      {required this.cart, required this.total, required this.onCommit});
+  const _CartBar({
+    required this.cart,
+    required this.total,
+    required this.onCommit,
+    required this.totalLabel,
+    required this.commitLabel,
+  });
 
   final List<CartLine> cart;
   final int total;
   final VoidCallback onCommit;
+  final String totalLabel;
+  final String commitLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -427,8 +450,8 @@ class _CartBar extends StatelessWidget {
               const Divider(),
               Row(
                 children: [
-                  const Text('Total',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                  Text(totalLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
                   const Spacer(),
                   Text(
                     formatEtb(total),
@@ -438,10 +461,7 @@ class _CartBar extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: onCommit,
-                child: const Text('Take cash & commit'),
-              ),
+              FilledButton(onPressed: onCommit, child: Text(commitLabel)),
             ],
           ),
         ),

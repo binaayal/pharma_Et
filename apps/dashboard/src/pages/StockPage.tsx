@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type StockReport, type StockRow } from '../lib/api';
-import { formatEtb, relativeAge } from '../lib/format';
+import { formatDateOnly, formatEtb, relativeAge, type Calendar } from '../lib/format';
 import type { Session } from '../lib/session';
 
 const WINDOWS = [30, 90, 180, 365];
@@ -16,7 +16,15 @@ const WINDOWS = [30, 90, 180, 365];
  * disagree, and until someone has counted, every expiry decision resting on that number is
  * guesswork.
  */
-export function StockPage({ session, onExpired }: { session: Session; onExpired: () => void }) {
+export function StockPage({
+  session,
+  onExpired,
+  calendar,
+}: {
+  session: Session;
+  onExpired: () => void;
+  calendar: Calendar;
+}) {
   const [days, setDays] = useState(90);
   const [data, setData] = useState<StockReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +145,7 @@ export function StockPage({ session, onExpired }: { session: Session; onExpired:
                   <td>{row.branchName}</td>
                   <td className="mono">{row.lotNo}</td>
                   <td>
-                    {row.expiryDate}
+                    {formatDateOnly(row.expiryDate, calendar)}
                     <div className="mono">
                       {row.daysToExpiry < 0
                         ? `${Math.abs(row.daysToExpiry)}d ago`

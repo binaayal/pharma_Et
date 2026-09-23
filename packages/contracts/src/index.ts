@@ -18,3 +18,6 @@ export * from './auth.js';
 // The FR-2 permission matrix. Here rather than in the API because AC-2.1 requires the
 // denial at both the app and the API layer, and two copies of a permission table drift.
 export * from './permissions.js';
+// Gregorian <-> Ethiopian conversion and its cross-language test vectors (FR-10, BR-10.2).
+// Here so the console and the till cannot disagree about what day it is.
+export * from './ethiopian-calendar.js';

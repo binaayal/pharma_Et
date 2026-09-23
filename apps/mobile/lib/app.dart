@@ -7,6 +7,8 @@ import 'data/local_db.dart';
 import 'data/outbox.dart';
 import 'data/sale_repository.dart';
 import 'data/shift_repository.dart';
+import 'l10n/locale_store.dart';
+import 'l10n/strings.dart';
 import 'sync/sync_client.dart';
 import 'sync/sync_service.dart';
 import 'ui/login_screen.dart';
@@ -41,6 +43,8 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
   CachedSession? _session;
   String? _terminalId;
   bool _booting = true;
+  LocaleStore? _locales;
+  Strings _strings = Strings.en;
 
   @override
   void initState() {
@@ -54,6 +58,9 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
     final catalog = CatalogRepository(db);
     final sales = SaleRepository(db, outbox, catalog);
     final shifts = ShiftRepository(db, outbox);
+
+    final locales = LocaleStore(db);
+    final strings = Strings.of(await locales.load());
 
     final terminalId = await _sessions.terminalId();
     final session = await _sessions.load();
@@ -73,6 +80,8 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       );
       _terminalId = terminalId;
       _session = session;
+      _locales = locales;
+      _strings = strings;
       _booting = false;
     });
   }
@@ -84,8 +93,21 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
     super.dispose();
   }
 
+  Future<void> _setLocale(String locale) async {
+    await _locales?.save(locale);
+    if (mounted) setState(() => _strings = Strings.of(locale));
+  }
+
   @override
   Widget build(BuildContext context) {
+    return L10n(
+      strings: _strings,
+      onChange: (locale) => unawaited(_setLocale(locale)),
+      child: _buildApp(),
+    );
+  }
+
+  Widget _buildApp() {
     return MaterialApp(
       title: 'PharmaEt',
       debugShowCheckedModeBanner: false,
@@ -119,4 +141,10 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
                 ),
     );
   }
+}
+
+/// Fire-and-forget, deliberately: a language change must not block the UI thread, and a
+/// failed write costs the user one re-selection rather than a frozen screen.
+void unawaited(Future<void> future) {
+  future.catchError((Object _) {});
 }

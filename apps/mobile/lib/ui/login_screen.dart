@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../contracts/contracts.dart';
 import '../core/theme.dart';
+import '../l10n/locale_store.dart';
 import '../sync/sync_client.dart';
 
 /// Online sign-in.
@@ -100,14 +101,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'PharmaEt',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                  Text(
+                    context.t('app.name'),
+                    style: const TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Sign in once online. The till keeps working after that.',
-                    style: TextStyle(color: PharmaColors.muted, fontSize: 13.5),
+                  Text(
+                    context.t('app.tagline'),
+                    style: const TextStyle(
+                        color: PharmaColors.muted, fontSize: 13.5),
                   ),
                   const SizedBox(height: 26),
                   if (_error != null) ...[
@@ -134,7 +137,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _username,
-                    decoration: const InputDecoration(labelText: 'Username'),
+                    decoration:
+                        InputDecoration(labelText: context.t('login.username')),
                     textInputAction: TextInputAction.next,
                   ),
                   const SizedBox(height: 12),
@@ -142,13 +146,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _secret,
                     obscureText: true,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'PIN'),
+                    decoration:
+                        InputDecoration(labelText: context.t('login.pin')),
                     onSubmitted: (_) => _submit(),
                   ),
                   const SizedBox(height: 22),
                   FilledButton(
                     onPressed: _busy ? null : _submit,
-                    child: Text(_busy ? 'Signing in…' : 'Sign in'),
+                    child: Text(_busy
+                        ? context.t('login.signingIn')
+                        : context.t('login.signIn')),
                   ),
                   const SizedBox(height: 18),
                   const Text(
