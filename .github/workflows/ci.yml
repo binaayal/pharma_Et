@@ -37,6 +37,7 @@ jobs:
       dashboard: ${{ steps.filter.outputs.dashboard }}
       mobile: ${{ steps.filter.outputs.mobile }}
       contracts: ${{ steps.filter.outputs.contracts }}
+      migrations: ${{ steps.filter.outputs.migrations }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -58,6 +59,12 @@ jobs:
             mobile:
               - 'apps/mobile/**'
               - 'packages/contracts/**'
+            migrations:
+              - 'apps/api/src/migrations/**'
+              # The job's own definition. A change to the thing that proves rollback safety
+              # should have to prove itself, rather than being merged unexercised and
+              # discovered to be broken by the first migration that needed it.
+              - '.github/workflows/ci.yml'
 
   contracts:
     name: contracts · codegen freshness
@@ -252,10 +259,102 @@ jobs:
   # downstream job *skip*, and a gate that accepts "skipped" then reported a green tick over
   # a run in which nothing was tested. A gate that cannot fail is not a gate — this one is
   # written so the most likely infrastructure failure turns it red, not green.
+
+  rollback_safety:
+    name: rollback safety · previous code on the new schema
+    needs: changes
+    # Only when a migration is added or changed. Every other PR cannot break this by
+    # construction, and a job that runs on nothing teaches people to ignore it.
+    if: needs.changes.outputs.migrations == 'true'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pharmaet
+          POSTGRES_PASSWORD: pharmaet_ci
+          POSTGRES_DB: pharmaet_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://pharmaet:pharmaet_ci@localhost:5432/pharmaet_ci
+      TEST_DATABASE_URL: postgres://pharmaet:pharmaet_ci@localhost:5432/pharmaet_ci
+      DATABASE_APP_USER: pharmaet_app
+      DATABASE_APP_PASSWORD: pharmaet_app_ci
+      JWT_SECRET: ci-only-secret-not-used-anywhere-else
+      NODE_ENV: test
+
+    steps:
+      # docs/06 §6.2: migrations are **forward-only**, so a rollback is "redeploy the
+      # previous image" — against a database that has already been migrated forward. That
+      # makes the question this job asks the only one that matters: **does the code we are
+      # replacing still work on the schema we are shipping?**
+      #
+      # Testing `down()` would answer a question production never asks. It is why `down()`
+      # exists for local iteration and is documented as not being the production rollback
+      # path (see InitialSchema). Expand-then-contract is the rule; this job is what makes
+      # the rule true rather than merely intended.
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'pnpm' }
+
+      - name: Take the schema this PR ships
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @pharmaet/api migration:run
+          echo "migrations applied from PR head"
+
+      - name: Put the previous release's code back, keeping that schema
+        run: |
+          # `git checkout <ref> -- <path>` restores what the ref HAS; it does not remove what
+          # the PR ADDED. Without the rm, a PR's new test files would survive and run against
+          # the old code they were written for — the job would fail for a reason that has
+          # nothing to do with rollback, and its real signal would be lost in the noise.
+          rm -rf apps/api/src apps/api/test packages/contracts/src
+          git checkout "origin/${{ github.base_ref }}" -- \
+            apps/api/src apps/api/test packages/contracts/src
+
+          # Everything reverts EXCEPT the migrations directory. Keeping the new migration
+          # files matters: the harness runs `migration:run` in its global setup, and if they
+          # vanished it would build a fresh database at the OLD schema — the job would go
+          # green having tested nothing.
+          git checkout HEAD -- apps/api/src/migrations
+
+          pnpm install --frozen-lockfile
+          # The contracts package must be rebuilt from the restored sources. `test:guardian`
+          # has no pretest hook, so without this the suites fail on a missing module rather
+          # than on anything about the schema.
+          pnpm --filter @pharmaet/contracts build
+
+          echo "### Rolled back to \`origin/${{ github.base_ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          git diff --stat HEAD -- apps/api/src packages/contracts/src >> "$GITHUB_STEP_SUMMARY"
+
+      - name: The previous code must pass on the new schema
+        # If this fails, the PR's migration is not backward-compatible and a rollback would
+        # take the pharmacy down rather than save it. The fix is expand-then-contract: add
+        # the new shape now, remove the old one in a later release, once nothing runs on it.
+        run: pnpm --filter @pharmaet/api test:guardian
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Previous release's guardian suites ran against this PR's schema." \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo "A pass means redeploying the previous image over this migration is safe." \
+            >> "$GITHUB_STEP_SUMMARY"
+
   ci-gate:
     name: CI gate
     if: always()
-    needs: [changes, contracts, api, dashboard, mobile]
+    needs: [changes, contracts, api, dashboard, mobile, rollback_safety]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job succeeded or was legitimately skipped
@@ -265,6 +364,7 @@ jobs:
           echo "api:       ${{ needs.api.result }}"
           echo "dashboard: ${{ needs.dashboard.result }}"
           echo "mobile:    ${{ needs.mobile.result }}"
+          echo "rollback:  ${{ needs.rollback_safety.result }}"
 
           # The filter itself must have run. A skip here means nothing downstream was even
           # considered.
@@ -274,7 +374,8 @@ jobs:
           fi
 
           for r in "${{ needs.contracts.result }}" "${{ needs.api.result }}" \
-                   "${{ needs.dashboard.result }}" "${{ needs.mobile.result }}"; do
+                   "${{ needs.dashboard.result }}" "${{ needs.mobile.result }}" \
+                   "${{ needs.rollback_safety.result }}"; do
             case "$r" in
               success|skipped) ;;
               *) echo "::error::a required job reported '$r'"; exit 1 ;;
