@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { Branch, OversellEvent, Sale } from '../../entities';
+import { CashUpService, type ShiftReconciliation } from '../cashup/cash-up.service';
 
 export interface SyncedSaleRow {
   id: string;
@@ -23,7 +24,10 @@ export interface SyncedSaleRow {
  */
 @Injectable()
 export class ReportingService {
-  constructor(private readonly db: ScopedDbService) {}
+  constructor(
+    private readonly db: ScopedDbService,
+    private readonly cashUp: CashUpService,
+  ) {}
 
   async recentSales(scope: TenantScope, limit = 50): Promise<SyncedSaleRow[]> {
     return this.db.runInScope(scope, async (em) => {
@@ -58,6 +62,37 @@ export class ReportingService {
         syncedAt: new Date(r.syncedAt).toISOString(),
         lineCount: Number(r.lineCount),
       }));
+    });
+  }
+
+  /**
+   * The Z-report for one shift (FR-8 report 1, AC-8.1).
+   *
+   * Vision §2.1.1: the owner's primary anti-shrinkage control. It reports both expected
+   * figures — the one the terminal showed the cashier and the one the server recomputes —
+   * because when they differ, that difference is the finding (ADR-012 §3).
+   */
+  async cashUpReport(scope: TenantScope, shiftId: string): Promise<ShiftReconciliation> {
+    return this.db.runInScope(scope, (em) => this.cashUp.reconcile(em, shiftId));
+  }
+
+  /**
+   * Every recent shift with its reconciliation, for the owner's oversight view.
+   *
+   * A shift that has closed without a cash-up shows up here with nulls, on purpose: an
+   * unreconciled till is precisely what an owner needs to notice, and omitting it would
+   * make the report quietly complicit.
+   */
+  async cashUpSummary(
+    scope: TenantScope,
+    branchId?: string,
+    limit = 30,
+  ): Promise<ShiftReconciliation[]> {
+    return this.db.runInScope(scope, async (em) => {
+      const ids = await this.cashUp.recentShifts(em, branchId, limit);
+      const out: ShiftReconciliation[] = [];
+      for (const id of ids) out.push(await this.cashUp.reconcile(em, id));
+      return out;
     });
   }
 

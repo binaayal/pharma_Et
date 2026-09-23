@@ -15,15 +15,18 @@ import {
   AppUser,
   AppliedOp,
   Branch,
+  CashUp,
   GoodsReceipt,
   GoodsReceiptLine,
   Payment,
   Product,
   Sale,
   SaleLine,
+  Shift,
   StockBatch,
   UserBranch,
 } from '../../entities';
+import { CashUpService } from '../cashup/cash-up.service';
 import { ChangeSeqService } from '../inventory/change-seq.service';
 import { InventoryService } from '../inventory/inventory.service';
 
@@ -56,6 +59,7 @@ export class SyncService {
     private readonly db: ScopedDbService,
     private readonly inventory: InventoryService,
     private readonly changeSeq: ChangeSeqService,
+    private readonly cashUp: CashUpService,
   ) {}
 
   async push(scope: TenantScope, request: PushRequest): Promise<PushResponse> {
@@ -96,6 +100,12 @@ export class SyncService {
             break;
           case 'goods_receipt':
             await this.applyGoodsReceipt(em, scope, operation);
+            break;
+          case 'shift':
+            await this.applyShift(em, scope, operation);
+            break;
+          case 'cash_up':
+            await this.applyCashUp(em, scope, operation);
             break;
         }
 
@@ -231,6 +241,98 @@ export class SyncService {
         batchId: line.id,
       });
     }
+  }
+
+  /**
+   * A shift arrives twice: `create` when it opens, `update` when it closes. Both are
+   * idempotent by `opId`, so a retried close is a duplicate rather than a second close.
+   */
+  private async applyShift(
+    em: EntityManager,
+    scope: TenantScope,
+    operation: Extract<Operation, { entityType: 'shift' }>,
+  ): Promise<void> {
+    const { payload } = operation;
+    const branchId = operation.branchId;
+    if (!branchId) throw new Error('a shift must name its branch');
+
+    const repo = em.getRepository(Shift);
+    const existing = await repo.findOne({ where: { id: operation.entityId } });
+
+    if (!existing) {
+      await repo.insert({
+        id: operation.entityId,
+        tenantId: scope.tenantId,
+        branchId,
+        userId: payload.userId,
+        terminalId: operation.terminalId,
+        openedAt: new Date(payload.openedAt),
+        closedAt: payload.closedAt ? new Date(payload.closedAt) : null,
+        openingFloatSantim: payload.openingFloatSantim,
+        changeSeq: 0,
+        deletedAt: null,
+      });
+      return;
+    }
+
+    // Closing an already-closed shift is refused rather than silently re-closed: two
+    // different close times for one till session make the cash-up unattributable.
+    if (existing.closedAt && payload.closedAt) {
+      throw new Error('shift is already closed');
+    }
+    existing.closedAt = payload.closedAt ? new Date(payload.closedAt) : null;
+    existing.openingFloatSantim = payload.openingFloatSantim;
+    await repo.save(existing);
+  }
+
+  /**
+   * The Z-report lands, and the server records its own expected figure beside the
+   * terminal's (ADR-012 §3).
+   *
+   * The terminal's number is stored exactly as the cashier saw it and never corrected —
+   * rewriting what somebody was asked to reconcile against destroys the evidence of what
+   * they agreed to. The server's recomputation goes in its own column, and the gap between
+   * them is a finding, not an error to resolve.
+   */
+  private async applyCashUp(
+    em: EntityManager,
+    scope: TenantScope,
+    operation: Extract<Operation, { entityType: 'cash_up' }>,
+  ): Promise<void> {
+    const { payload } = operation;
+    const branchId = operation.branchId;
+    if (!branchId) throw new Error('a cash-up must name its branch');
+
+    const shift = await em.getRepository(Shift).findOne({ where: { id: payload.shiftId } });
+    if (!shift) {
+      // The shift operation is queued behind this one, or was rejected. Refusing sends it
+      // to the client's attention queue instead of orphaning a reconciliation record.
+      throw new Error(`cash-up references shift ${payload.shiftId}, which has not arrived`);
+    }
+
+    const server = await this.cashUp.serverExpected(em, payload.shiftId);
+    if (server.expectedSantim !== payload.expectedSantim) {
+      this.logger.warn(
+        `cash-up ${operation.entityId}: terminal expected ${payload.expectedSantim}, ` +
+          `server expected ${server.expectedSantim} — likely sales still queued`,
+      );
+    }
+
+    await em.getRepository(CashUp).insert({
+      id: operation.entityId,
+      tenantId: scope.tenantId,
+      shiftId: payload.shiftId,
+      branchId,
+      userId: payload.userId,
+      countedAt: new Date(payload.countedAt),
+      expectedSantim: payload.expectedSantim,
+      countedSantim: payload.countedSantim,
+      varianceSantim: payload.varianceSantim,
+      serverExpectedSantim: server.expectedSantim,
+      note: payload.note,
+      changeSeq: 0,
+      deletedAt: null,
+    });
   }
 
   /**

@@ -7,6 +7,7 @@ import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/data/outbox.dart';
 import 'package:pharmaet_mobile/data/sale_repository.dart';
+import 'package:pharmaet_mobile/data/shift_repository.dart';
 import 'package:pharmaet_mobile/sync/sync_client.dart';
 import 'package:pharmaet_mobile/sync/sync_service.dart';
 
@@ -37,6 +38,7 @@ void main() {
     late Outbox outbox;
     late CatalogRepository catalog;
     late SaleRepository sales;
+    late ShiftRepository shifts;
     late SyncClient client;
     late SyncService syncService;
     late CachedSession session;
@@ -50,6 +52,7 @@ void main() {
       outbox = Outbox(db);
       catalog = CatalogRepository(db);
       sales = SaleRepository(db, outbox, catalog);
+      shifts = ShiftRepository(db, outbox);
       client = SyncClient(baseUrl: apiUrl!);
       syncService = SyncService(
         db: db,
@@ -121,6 +124,61 @@ void main() {
       // 4. Sync again immediately. Nothing is left to send, and nothing is sent twice.
       final idempotent = await runSync();
       expect(idempotent.pending, 0);
+    });
+
+    test(
+        'a trading day: open till → sell offline → cash up offline → sync (FR-8)',
+        () async {
+      // The shape of a real day in this market, not a happy path: the till opens, sales are
+      // rung up with no network, the drawer is counted at close still with no network, and
+      // only then does connectivity come back.
+      await runSync();
+      final products = await catalog.products();
+      final product = products.firstWhere((p) => !p.isControlled);
+
+      final shift = await shifts.openShift(
+        userId: session.scope.userId,
+        branchId: session.primaryBranchId!,
+        openingFloatSantim: 20000,
+      );
+
+      for (var i = 0; i < 4; i++) {
+        final batch =
+            await catalog.fefoBatch(product.id, session.primaryBranchId!);
+        await sales.commitSale(
+          lines: [CartLine(product: product, qty: 1, batchId: batch?.id)],
+          tenantId: session.scope.tenantId,
+          branchId: session.primaryBranchId!,
+          cashierId: session.scope.userId,
+          terminalId: terminalId,
+          shiftId: shift.id,
+        );
+      }
+
+      final expected = await shifts.expectedCash(shift.id);
+      expect(expected.openingFloatSantim, 20000);
+      expect(expected.cashTakenSantim, product.priceSantim * 4);
+      // Everything is still queued, and the screen says so rather than presenting the
+      // figure as settled.
+      expect(expected.unsyncedSaleCount, 4);
+
+      // The cashier counts 12.50 ETB less than the drawer should hold.
+      final variance = await shifts.closeShiftWithCashUp(
+        shift: shift,
+        countedSantim: expected.expectedSantim - 1250,
+        note: 'short — checking receipts',
+      );
+      expect(variance, -1250);
+
+      // Connectivity returns. Everything goes at once, in order.
+      final status = await runSync();
+      expect(status.state, SyncState.synced);
+      expect(status.pending, 0);
+      expect(status.needsAttention, 0);
+
+      // The office sees it.
+      final report = await client.pull(token: session.accessToken, cursor: 0);
+      expect(report.contractVersion, kContractVersion);
     });
 
     test('a sale committed before the catalog arrives still syncs', () async {

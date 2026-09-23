@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   CONTRACT_VERSION,
   SUPPORTED_CONTRACT_VERSIONS,
+  cashUpPayload,
   operation,
   pushRequest,
   salePayload,
   santim,
+  shiftPayload,
   uuidv7,
 } from '../src/index.js';
 
@@ -121,5 +123,104 @@ describe('sync envelope (docs/04 §7, controlled artifact)', () => {
 describe('contract versioning (ADR-009)', () => {
   it('always supports the current version', () => {
     expect(SUPPORTED_CONTRACT_VERSIONS).toContain(CONTRACT_VERSION);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Contract v1.1.0 — shift & cash-up (FR-8, ADR-012)                           */
+/* -------------------------------------------------------------------------- */
+
+describe('cash-up (FR-8, BR-8.2)', () => {
+  const base = {
+    shiftId: BRANCH,
+    userId: ACTOR,
+    countedAt: '2026-09-23T17:00:00Z',
+    expectedSantim: 45000,
+    countedSantim: 44200,
+    varianceSantim: -800,
+    note: 'short by one 8 birr sale, checking receipts',
+  };
+
+  it('accepts a shortfall — a negative variance is the whole point of the feature', () => {
+    expect(cashUpPayload.safeParse(base).success).toBe(true);
+  });
+
+  it('accepts an overage', () => {
+    expect(
+      cashUpPayload.safeParse({ ...base, countedSantim: 45500, varianceSantim: 500 }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a variance that does not equal counted minus expected', () => {
+    // Otherwise a client could report a clean till while the numbers say otherwise, which
+    // is precisely the fraud the control exists to catch.
+    expect(cashUpPayload.safeParse({ ...base, varianceSantim: 0 }).success).toBe(false);
+  });
+
+  it('rejects a negative counted amount — you cannot count less than nothing', () => {
+    expect(
+      cashUpPayload.safeParse({ ...base, countedSantim: -100, varianceSantim: -45100 }).success,
+    ).toBe(false);
+  });
+
+  it('rejects fractional money', () => {
+    expect(
+      cashUpPayload.safeParse({ ...base, countedSantim: 44200.5, varianceSantim: -799.5 }).success,
+    ).toBe(false);
+  });
+});
+
+describe('shift', () => {
+  const open = {
+    userId: ACTOR,
+    openedAt: '2026-09-23T06:00:00Z',
+    closedAt: null,
+    openingFloatSantim: 20000,
+  };
+
+  it('accepts an open shift', () => {
+    expect(shiftPayload.safeParse(open).success).toBe(true);
+  });
+
+  it('accepts a closed shift', () => {
+    expect(shiftPayload.safeParse({ ...open, closedAt: '2026-09-23T17:00:00Z' }).success).toBe(
+      true,
+    );
+  });
+
+  it('rejects a negative opening float', () => {
+    expect(shiftPayload.safeParse({ ...open, openingFloatSantim: -1 }).success).toBe(false);
+  });
+});
+
+describe('envelope v1.1.0 (ADR-012)', () => {
+  const shiftOp = {
+    ...validOperation,
+    entityType: 'shift' as const,
+    payload: {
+      userId: ACTOR,
+      openedAt: '2026-09-23T06:00:00Z',
+      closedAt: null,
+      openingFloatSantim: 20000,
+    },
+  };
+
+  it('carries the new entity types', () => {
+    expect(operation.safeParse(shiftOp).success).toBe(true);
+  });
+
+  it('still carries the v1.0.0 types unchanged — additive means additive', () => {
+    expect(operation.safeParse(validOperation).success).toBe(true);
+  });
+
+  it('keeps 1.0.0 inside the support window (ADR-009)', () => {
+    // A terminal offline since before this release reconnects speaking 1.0.0. Dropping it
+    // would mean its queued sales have nowhere to go.
+    expect(SUPPORTED_CONTRACT_VERSIONS).toContain('1.0.0');
+    expect(SUPPORTED_CONTRACT_VERSIONS).toContain('1.1.0');
+  });
+
+  it('rejects a shift payload sent under the wrong entity type', () => {
+    expect(operation.safeParse({ ...shiftOp, entityType: 'sale' }).success).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import 'data/catalog_repository.dart';
 import 'data/local_db.dart';
 import 'data/outbox.dart';
 import 'data/sale_repository.dart';
+import 'data/shift_repository.dart';
 import 'sync/sync_client.dart';
 import 'sync/sync_service.dart';
 import 'ui/login_screen.dart';
@@ -34,6 +35,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
 
   CatalogRepository? _catalog;
   SaleRepository? _sales;
+  ShiftRepository? _shifts;
   SyncService? _syncService;
 
   CachedSession? _session;
@@ -51,6 +53,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
     final outbox = Outbox(db);
     final catalog = CatalogRepository(db);
     final sales = SaleRepository(db, outbox, catalog);
+    final shifts = ShiftRepository(db, outbox);
 
     final terminalId = await _sessions.terminalId();
     final session = await _sessions.load();
@@ -60,6 +63,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       _db = db;
       _catalog = catalog;
       _sales = sales;
+      _shifts = shifts;
       _syncService = SyncService(
         db: db,
         outbox: outbox,
@@ -102,6 +106,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
                   session: _session!,
                   catalog: _catalog!,
                   sales: _sales!,
+                  shifts: _shifts!,
                   syncService: _syncService!,
                   terminalId: _terminalId!,
                   onSignOut: () async {

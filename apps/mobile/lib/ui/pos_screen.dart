@@ -5,7 +5,9 @@ import '../core/money.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../data/sale_repository.dart';
+import '../data/shift_repository.dart';
 import '../sync/sync_service.dart';
+import 'cash_up_screen.dart';
 import 'sync_chip.dart';
 
 /// The counter (FR-4).
@@ -20,6 +22,7 @@ class PosScreen extends StatefulWidget {
     required this.session,
     required this.catalog,
     required this.sales,
+    required this.shifts,
     required this.syncService,
     required this.terminalId,
     required this.onSignOut,
@@ -28,6 +31,7 @@ class PosScreen extends StatefulWidget {
   final CachedSession session;
   final CatalogRepository catalog;
   final SaleRepository sales;
+  final ShiftRepository shifts;
   final SyncService syncService;
   final String terminalId;
   final VoidCallback onSignOut;
@@ -39,6 +43,7 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen> {
   List<LocalProduct> _products = [];
   final List<CartLine> _cart = [];
+  ActiveShift? _shift;
   SyncStatus _status = const SyncStatus(
     state: SyncState.idle,
     pending: 0,
@@ -58,11 +63,88 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _load() async {
     final products = await widget.catalog.products();
     final status = await widget.syncService.status();
+    final shift = await widget.shifts.activeShift(widget.session.scope.userId);
     if (!mounted) return;
     setState(() {
       _products = products;
       _status = status;
+      _shift = shift;
     });
+  }
+
+  /// Opening the till asks for the float that is already in the drawer.
+  ///
+  /// It is part of the expected figure, so skipping it would report a variance equal to the
+  /// float on every shift — and a control that is always wrong is one that gets ignored.
+  Future<void> _openShift() async {
+    final controller = TextEditingController(text: '0');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Open till'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'How much cash is in the drawer before trading? This is counted as part of '
+              'the expected total at close.',
+              style: TextStyle(fontSize: 13.5),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration:
+                  const InputDecoration(labelText: 'Opening float (ETB)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(88, 40)),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Open'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final birr = double.tryParse(controller.text.trim()) ?? 0;
+    final shift = await widget.shifts.openShift(
+      userId: widget.session.scope.userId,
+      branchId: _branchId,
+      // Parsed once, at the edge, and immediately integral. Nothing downstream sees a
+      // double (guardian G4).
+      openingFloatSantim: (birr * 100).round(),
+    );
+    if (!mounted) return;
+    setState(() => _shift = shift);
+    await _load();
+  }
+
+  Future<void> _cashUp() async {
+    final shift = _shift;
+    if (shift == null) return;
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => CashUpScreen(
+          shift: shift,
+          shifts: widget.shifts,
+          onCompleted: (_) {},
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _load();
+    // The close and the cash-up are queued; push them when there is a network.
+    await _sync();
   }
 
   Future<void> _sync() async {
@@ -134,6 +216,9 @@ class _PosScreenState extends State<PosScreen> {
       branchId: _branchId,
       cashierId: widget.session.scope.userId,
       terminalId: widget.terminalId,
+      // A missing shift never stops a sale (BR-4.1). It just means this one cannot be
+      // attributed to a till session, which the cash-up banner tells the cashier about.
+      shiftId: _shift?.id,
     );
 
     final elapsed = DateTime.now().difference(started).inMilliseconds;
@@ -167,6 +252,12 @@ class _PosScreenState extends State<PosScreen> {
       appBar: AppBar(
         title: const Text('Sell'),
         actions: [
+          if (_shift != null)
+            IconButton(
+              icon: const Icon(Icons.calculate_outlined),
+              onPressed: _cashUp,
+              tooltip: 'Cash up & close till',
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: Center(child: SyncChip(status: _status, onTap: _sync)),
@@ -180,6 +271,35 @@ class _PosScreenState extends State<PosScreen> {
       ),
       body: Column(
         children: [
+          if (_shift == null)
+            Material(
+              color: PharmaColors.amberTint,
+              child: InkWell(
+                onTap: _openShift,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  child: Row(
+                    children: [
+                      Icon(Icons.point_of_sale_outlined,
+                          size: 18, color: PharmaColors.amber),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'No till open — sales will not be attributed to a shift',
+                          style: TextStyle(
+                              color: PharmaColors.amber, fontSize: 12.5),
+                        ),
+                      ),
+                      Text('OPEN TILL',
+                          style: TextStyle(
+                              color: PharmaColors.amber,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           if (_status.state == SyncState.offline)
             Container(
               width: double.infinity,

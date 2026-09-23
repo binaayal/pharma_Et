@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CashUpPage } from './pages/CashUpPage';
 import { LoginPage } from './pages/LoginPage';
 import { SalesPage } from './pages/SalesPage';
 import { api } from './lib/api';
@@ -11,9 +12,12 @@ import { clearSession, loadSession, saveSession, type Session } from './lib/sess
  * platform-admin surface proper — come with Phase 1. The navigation names them now so the
  * shape of the console is visible, and marks them as not yet built rather than pretending.
  */
+type Page = 'sales' | 'cash-up';
+
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
   const [contractVersion, setContractVersion] = useState<string | null>(null);
+  const [page, setPage] = useState<Page>('cash-up');
 
   useEffect(() => {
     // Surfacing the server's contract version makes an N-1 mismatch visible to whoever is
@@ -48,7 +52,20 @@ export function App() {
         </div>
 
         <div className="nav-group">Oversight</div>
-        <button className="nav-item active">Synced sales</button>
+        {/* Cash reconciliation leads, because Vision §2.1.1 says it is the reason an owner
+            buys this: it is the first thing they should see on opening the console. */}
+        <button
+          className={`nav-item${page === 'cash-up' ? ' active' : ''}`}
+          onClick={() => setPage('cash-up')}
+        >
+          Cash reconciliation
+        </button>
+        <button
+          className={`nav-item${page === 'sales' ? ' active' : ''}`}
+          onClick={() => setPage('sales')}
+        >
+          Synced sales
+        </button>
 
         <div className="nav-group">Platform · Phase 1</div>
         <button className="nav-item" disabled title="Arrives with Phase 1">
@@ -68,7 +85,11 @@ export function App() {
       </aside>
 
       <main className="main">
-        <SalesPage session={session} onExpired={signOut} />
+        {page === 'cash-up' ? (
+          <CashUpPage session={session} onExpired={signOut} />
+        ) : (
+          <SalesPage session={session} onExpired={signOut} />
+        )}
         <p className="footnote">
           Signed in to <strong>{session.tenantCode}</strong> as {session.scope.role}.
           {contractVersion && <> Server contract v{contractVersion}.</>} Money is stored as integer

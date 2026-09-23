@@ -19,5 +19,6 @@ quietly work around an accepted ADR in code.
 | [ADR-009](ADR-009-sync-backward-compatibility.md) | Sync API backward-compatibility window for offline clients | Accepted |
 | [ADR-010](ADR-010-repository-layout-and-tooling.md) | Repository layout, workspace tooling & contract codegen | Accepted |
 | [ADR-011](ADR-011-solo-maintainer-change-control.md) | Change control for a single maintainer | Accepted |
+| [ADR-012](ADR-012-extending-the-sync-envelope.md) | Extending the sync envelope; terminal vs server computation | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

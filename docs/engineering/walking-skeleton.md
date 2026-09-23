@@ -111,11 +111,12 @@ a spine that has already been proven to survive a power cut.
 
 The first three, in the order the docs argue for:
 
-1. **Per-shift cash reconciliation (FR-8, cash-up/Z-report).** Vision §2.1.1 calls it the
-   owner's primary anti-shrinkage control and the strongest single reason to adopt. It is the
-   highest-value thing not yet built.
+1. ~~**Per-shift cash reconciliation (FR-8, cash-up/Z-report).**~~ ✅ **Done.** Contract
+   v1.1.0 (ADR-012), offline shift lifecycle, server-side recomputation kept beside the
+   terminal's figure, and the owner's console view. 22 guardian assertions.
 2. **The full FR-2 permission matrix**, every role × capability cell tested at both layers
-   (`../05-qa-and-test-strategy.md` §10). Phase 0 has owner/manager/cashier and one guard.
+   (`../05-qa-and-test-strategy.md` §10). Phase 0 has owner/manager/cashier and one guard;
+   cash-up added the first ownership check (a cashier reads only their own shift).
 3. **FR-10 localization** — Amharic and the Ethiopian calendar. Table stakes for adoption,
    and the presentation-layer seams for it already exist (`money.dart`, `format.ts`).
 

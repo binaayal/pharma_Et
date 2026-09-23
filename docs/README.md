@@ -64,6 +64,7 @@ answer, permanently.
 | [ADR-009](adr/ADR-009-sync-backward-compatibility.md) | Sync API backward-compatibility window for offline clients | Accepted |
 | [ADR-010](adr/ADR-010-repository-layout-and-tooling.md) | Single polyglot repository, pnpm workspaces, generated contract types | Accepted |
 | [ADR-011](adr/ADR-011-solo-maintainer-change-control.md) | Change control for a single maintainer | Accepted |
+| [ADR-012](adr/ADR-012-extending-the-sync-envelope.md) | Extending the sync envelope; terminal vs server computation | Accepted |
 
 ---
 
@@ -80,8 +81,8 @@ answer, permanently.
 
 ## Current status (V1)
 
-Phase: **Phase 0 — Foundations + Walking Skeleton: built and verified; two account steps
-outstanding.**
+Phase: **Phase 1 — Core loop, in progress.** Phase 0 is built and verified; staging
+deployment is deferred until Phase 1 completes (owner's call).
 
 The documentation suite (`01`–`06`) and ADR-001–010 are drafted, cross-referenced, and
 traceable. The repository is built out — `apps/api` (NestJS + RLS), `apps/dashboard`
@@ -109,9 +110,11 @@ Pages both require GitHub Pro or a public repository. The dashboard no longer ne
 (the API serves it — `03-architecture.md` §7), but "no direct pushes to `main`" is currently
 a local pre-push hook rather than an enforced rule. See `engineering/workflow.md` §3.
 
-**Next:** Phase 1 (`engineering/walking-skeleton.md` §7) — cash-up first, then the full
-permission matrix, then localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is
-verified and recorded in `compliance-sign-off.md`.
+**Phase 1 so far:** ✅ **FR-8 per-shift cash reconciliation** — the owner's primary
+anti-shrinkage control (Vision §2.1.1) — works end to end offline, on contract v1.1.0
+(ADR-012). Next: the rest of FR-8's reports, the full FR-2 permission matrix, then FR-10
+localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
+`compliance-sign-off.md`.
 
 See **`engineering/`** for repo layout, local setup, the contribution workflow, and staging.
 

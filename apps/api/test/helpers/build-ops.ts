@@ -83,3 +83,96 @@ export function receiptOp(
     },
   };
 }
+
+export function shiftOp(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    shiftId?: string;
+    openingFloatSantim?: number;
+    closedAt?: string | null;
+    opType?: 'create' | 'update';
+  },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: options.shiftId ?? uuidv7(),
+    opType: options.opType ?? ('create' as const),
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.cashier.id,
+    clientTs: '2026-09-23T06:00:00.000Z',
+    entityType: 'shift' as const,
+    payload: {
+      userId: tenant.users.cashier.id,
+      openedAt: '2026-09-23T06:00:00.000Z',
+      closedAt: options.closedAt ?? null,
+      openingFloatSantim: options.openingFloatSantim ?? 20000,
+    },
+  };
+}
+
+export function cashUpOp(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    shiftId: string;
+    expectedSantim: number;
+    countedSantim: number;
+    note?: string | null;
+    userId?: string;
+  },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.cashier.id,
+    clientTs: '2026-09-23T17:00:00.000Z',
+    entityType: 'cash_up' as const,
+    payload: {
+      shiftId: options.shiftId,
+      userId: options.userId ?? tenant.users.cashier.id,
+      countedAt: '2026-09-23T17:00:00.000Z',
+      expectedSantim: options.expectedSantim,
+      countedSantim: options.countedSantim,
+      varianceSantim: options.countedSantim - options.expectedSantim,
+      note: options.note ?? null,
+    },
+  };
+}
+
+/** A sale bound to a shift, so its cash reaches that shift's expected figure. */
+export function saleInShift(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    shiftId: string;
+    qty?: number;
+    unitPriceSantim?: number;
+    method?: 'cash' | 'other_recorded';
+  },
+) {
+  const op = saleOp(tenant, {
+    terminalSeq: options.terminalSeq,
+    qty: options.qty,
+    unitPriceSantim: options.unitPriceSantim,
+    batchId: null,
+  });
+  return {
+    ...op,
+    payload: {
+      ...op.payload,
+      shiftId: options.shiftId,
+      payments: op.payload.payments.map((p) => ({ ...p, method: options.method ?? 'cash' })),
+    },
+  };
+}

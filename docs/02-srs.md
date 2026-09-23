@@ -336,7 +336,7 @@ Amharic/English + Ethiopian calendar (FR-10); counter workflows optimized for sp
 
 Filled as design and tests land. Every M-priority FR/NFR must trace to a design element and ≥ 1 test before it is "done." Controlled-substance requirements (FR-4 psychotropic rules, FR-6, NFR-5.1) are the highest-priority traceability targets.
 
-*Last updated: 2026-09-23, at the close of the Phase 0 walking skeleton.*
+*Last updated: 2026-09-23, after FR-8 cash-up landed (Phase 1, slice 1).*
 
 Status legend: **Skeleton** — the Phase 0 slice of this requirement is implemented and
 tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
@@ -350,13 +350,18 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-4 psychotropic rules | §6.4 | — | — | **Gated on A-1** (Phase 2) |
 | FR-6 controlled ledger + audit | §5.6, §6 | — | — | **Gated on A-1** (Phase 2) |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`) | `api/test/guardian/g7-offline-resilience.spec.ts` | Skeleton |
-| FR-8 reporting + cash-up | §5.4, §9 | `api/src/modules/reporting/`, `dashboard/src/pages/SalesPage.tsx` | `g5` (oversell report) | Skeleton — **cash-up/Z-report is Phase 1** |
+| FR-8 reporting + cash-up | §5.4, §9 | `api/src/modules/cashup/cash-up.service.ts`, `mobile/lib/data/shift_repository.dart`, `mobile/lib/ui/cash_up_screen.dart`, `dashboard/src/pages/CashUpPage.tsx` | `api/test/guardian/g4-cash-up.spec.ts` (12), `mobile/test/guardian/g4_cash_up_test.dart` (10) | **Done** for cash-up (AC-8.1); daily sales summary (AC-8.2), stock/expiry report still open |
 | FR-9 single-writer sync | §7, §10 | `api/src/modules/sync/`, `mobile/lib/{sync,data/outbox.dart}` | `api/test/guardian/g2-sync-integrity.spec.ts`, `mobile/test/guardian/g2_sync_integrity_test.dart` | Skeleton |
 | FR-10 localization | §3 | UTC storage + edge formatting seams (`mobile/lib/core/money.dart`, `dashboard/src/lib/format.ts`) | `g4` suites | Open — Amharic + Ethiopian calendar is Phase 1 |
 | NFR-1 offline window | §7, §8 | `mobile/lib/data/local_db.dart`, `outbox.dart` | `mobile/test/guardian/g7_offline_durability_test.dart`; field UAT is the release gate | Skeleton — 72h harness is Phase 1 |
 | NFR-3.2 local op < 100 ms | §7 | single local transaction, no network on the sale path | `g7` timing guard; real figure comes from the device matrix | Skeleton |
 | NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
 | NFR-5 retention | §5.6, §5.8 | no `DELETE` grant to the app role; `deleted_at` on every table | schema-level; ledger retention is Phase 2 | Partial |
+
+**Phase 1 progress.** FR-8's cash-up is complete end to end — contract v1.1.0, server
+recomputation, offline device flow, and the owner's console view — and is covered by 22
+guardian assertions across both halves. The rest of FR-8 (daily sales summary, stock and
+expiry reports) is next, followed by the full FR-2 matrix and FR-10 localization.
 
 **Not yet traced, and deliberately so:** FR-5 (inter-branch transfer, V1.x), FR-7a/7b and
 FR-8a (deferred), NFR-2 (V2 multi-writer). G3 (ledger immutability) and G6 (psychotropic

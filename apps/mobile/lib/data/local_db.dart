@@ -17,7 +17,7 @@ class LocalDb {
 
   final Database db;
 
-  static const _version = 1;
+  static const _version = 2;
 
   static Future<LocalDb> open({
     DatabaseFactory? factory,
@@ -36,6 +36,7 @@ class LocalDb {
           await db.execute('PRAGMA foreign_keys = ON');
         },
         onCreate: _createSchema,
+        onUpgrade: _upgradeSchema,
       ),
     );
     return LocalDb._(database);
@@ -81,6 +82,7 @@ class LocalDb {
         id            TEXT PRIMARY KEY,
         branch_id     TEXT NOT NULL,
         cashier_id    TEXT NOT NULL,
+        shift_id      TEXT,
         total_santim  INTEGER NOT NULL,
         sold_at       TEXT NOT NULL,
         synced        INTEGER NOT NULL DEFAULT 0
@@ -130,12 +132,67 @@ class LocalDb {
     ''');
     await db.execute('CREATE INDEX outbox_order ON outbox (terminal_seq)');
 
+    await _createShiftSchema(db);
+
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
     // database rather than in preferences so that the counter and the operations it
     // numbers commit or roll back together.
     await db.execute(
         'CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+  }
+
+  /// FR-8 — shift and cash-up (contract v1.1.0, ADR-012).
+  ///
+  /// Both are authored locally and queued, exactly like a sale: a pharmacy counts its till
+  /// at close, which is frequently when the power is out. Neither waits on the network.
+  static Future<void> _createShiftSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE shift (
+        id                    TEXT PRIMARY KEY,
+        branch_id             TEXT NOT NULL,
+        user_id               TEXT NOT NULL,
+        opened_at             TEXT NOT NULL,
+        closed_at             TEXT,
+        opening_float_santim  INTEGER NOT NULL DEFAULT 0,
+        synced                INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    // One open shift per user on this terminal. Two open tills for one person means the
+    // expected figure is split across them and neither reconciles.
+    await db.execute(
+      'CREATE UNIQUE INDEX shift_one_open_per_user ON shift (user_id) WHERE closed_at IS NULL',
+    );
+
+    await db.execute('''
+      CREATE TABLE cash_up (
+        id               TEXT PRIMARY KEY,
+        shift_id         TEXT NOT NULL REFERENCES shift(id),
+        user_id          TEXT NOT NULL,
+        counted_at       TEXT NOT NULL,
+        expected_santim  INTEGER NOT NULL,
+        counted_santim   INTEGER NOT NULL,
+        variance_santim  INTEGER NOT NULL,
+        note             TEXT,
+        synced           INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute(
+        'CREATE UNIQUE INDEX cash_up_one_per_shift ON cash_up (shift_id)');
+  }
+
+  /// Schema upgrades run on a device holding real, unsynced sales.
+  ///
+  /// So they are additive only — new tables and new nullable columns. Anything that
+  /// rewrites or drops existing rows risks destroying a transaction that has not reached
+  /// the server yet, and that transaction is somebody's money (NFR-1.3).
+  static Future<void> _upgradeSchema(Database db, int from, int to) async {
+    if (from < 2) {
+      await _createShiftSchema(db);
+      // Sales gain their shift. Existing rows keep NULL: they were rung up before shifts
+      // existed and cannot be retro-assigned to one honestly.
+      await db.execute('ALTER TABLE sale ADD COLUMN shift_id TEXT');
+    }
   }
 
   Future<String?> meta(String key) async {

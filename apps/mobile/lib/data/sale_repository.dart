@@ -53,6 +53,11 @@ class SaleRepository {
     required String branchId,
     required String cashierId,
     required String terminalId,
+
+    /// The open till session this sale belongs to, so its cash reaches the right cash-up
+    /// (BR-8.2). Null only where no shift is open — the sale still commits, because a
+    /// missing shift must never stop the counter.
+    String? shiftId,
   }) async {
     if (lines.isEmpty) {
       throw ArgumentError('a sale must have at least one line');
@@ -71,6 +76,7 @@ class SaleRepository {
         'id': saleId,
         'branch_id': branchId,
         'cashier_id': cashierId,
+        'shift_id': shiftId,
         'total_santim': total,
         'sold_at': soldAt.toIso8601String(),
         'synced': 0,
@@ -119,7 +125,7 @@ class SaleRepository {
         entityType: 'sale',
         entityId: saleId,
         payload: {
-          'shiftId': null,
+          'shiftId': shiftId,
           'cashierId': cashierId,
           'soldAt': soldAt.toIso8601String(),
           'totalSantim': total,
@@ -147,33 +153,76 @@ class SaleRepository {
     return (rows.first['n'] as int?) ?? 0;
   }
 
-  /// Builds the wire operation for a queued sale (docs/04 §7.1).
+  /// Builds the wire operation for a queued entry (docs/04 §7.1).
   ///
-  /// The envelope is assembled from the generated contract types, so a change to the
-  /// schema breaks this at compile time rather than at a pharmacy counter.
-  OperationSale toOperation(
+  /// The envelope is assembled from the generated contract types, so a change to the schema
+  /// breaks this at compile time rather than at a pharmacy counter. The switch is
+  /// exhaustive on purpose: a new entity type added to the outbox without a case here
+  /// fails to compile, rather than being silently dropped on the next sync.
+  Operation toOperation(
     OutboxEntry entry, {
     required String tenantId,
     required String branchId,
     required String actorId,
     required String terminalId,
   }) {
-    final payload = entry.payload;
-    return OperationSale(
-      opId: entry.opId,
-      terminalId: terminalId,
-      terminalSeq: entry.terminalSeq,
-      entityId: entry.entityId,
-      opType: 'create',
-      baseVersion: null,
-      tenantId: tenantId,
-      branchId: branchId,
-      actorId: actorId,
-      // When the terminal authored it, not when it happens to be sending. Recorded for
-      // forensics only — ordering comes from terminalSeq (ADR-006).
-      clientTs: entry.createdAt,
-      entityType: 'sale',
-      payload: SalePayload.fromJson(payload),
-    );
+    // When the terminal authored it, not when it happens to be sending. Recorded for
+    // forensics only — ordering comes from terminalSeq (ADR-006).
+    final clientTs = entry.createdAt;
+
+    switch (entry.entityType) {
+      case 'sale':
+        return OperationSale(
+          opId: entry.opId,
+          terminalId: terminalId,
+          terminalSeq: entry.terminalSeq,
+          entityId: entry.entityId,
+          opType: 'create',
+          baseVersion: null,
+          tenantId: tenantId,
+          branchId: branchId,
+          actorId: actorId,
+          clientTs: clientTs,
+          entityType: 'sale',
+          payload: SalePayload.fromJson(entry.payload),
+        );
+      case 'shift':
+        return OperationShift(
+          opId: entry.opId,
+          terminalId: terminalId,
+          terminalSeq: entry.terminalSeq,
+          entityId: entry.entityId,
+          // A shift is created once and updated when it closes; the server keys on
+          // entityId either way, so this states intent rather than driving behaviour.
+          opType: entry.payload['closedAt'] == null ? 'create' : 'update',
+          baseVersion: null,
+          tenantId: tenantId,
+          branchId: branchId,
+          actorId: actorId,
+          clientTs: clientTs,
+          entityType: 'shift',
+          payload: ShiftPayload.fromJson(entry.payload),
+        );
+      case 'cash_up':
+        return OperationCashUp(
+          opId: entry.opId,
+          terminalId: terminalId,
+          terminalSeq: entry.terminalSeq,
+          entityId: entry.entityId,
+          opType: 'create',
+          baseVersion: null,
+          tenantId: tenantId,
+          branchId: branchId,
+          actorId: actorId,
+          clientTs: clientTs,
+          entityType: 'cash_up',
+          payload: CashUpPayload.fromJson(entry.payload),
+        );
+      default:
+        // Better to fail loudly here than to drop a queued transaction quietly. The entry
+        // stays in the outbox either way.
+        throw StateError(
+            'no envelope builder for entity type "\${entry.entityType}"');
+    }
   }
 }
