@@ -10,6 +10,13 @@ on:
   push:
     branches: [main]
 
+# Least privilege, stated explicitly. `pull-requests: read` is what the path filter needs
+# to ask the API which files a PR touches; without it the filter fails, and a failing
+# filter is how every downstream job silently skips.
+permissions:
+  contents: read
+  pull-requests: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -185,19 +192,35 @@ jobs:
         # gate, not a per-PR one (docs/05-qa §7).
         run: flutter test
 
-  # A green tick on the PR needs every job that ran to have passed, including the ones the
-  # path filter skipped — otherwise a skipped job reads as success.
+  # The single required check for branch protection.
+  #
+  # `changes` is in `needs` on purpose. Without it, a failure in the path filter made every
+  # downstream job *skip*, and a gate that accepts "skipped" then reported a green tick over
+  # a run in which nothing was tested. A gate that cannot fail is not a gate — this one is
+  # written so the most likely infrastructure failure turns it red, not green.
   ci-gate:
     name: CI gate
     if: always()
-    needs: [contracts, api, dashboard, mobile]
+    needs: [changes, contracts, api, dashboard, mobile]
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if any required job failed or was cancelled
+      - name: Fail unless every job succeeded or was legitimately skipped
         run: |
-          RESULTS="${{ join(needs.*.result, ' ') }}"
-          echo "job results: $RESULTS"
-          for r in $RESULTS; do
+          echo "changes:   ${{ needs.changes.result }}"
+          echo "contracts: ${{ needs.contracts.result }}"
+          echo "api:       ${{ needs.api.result }}"
+          echo "dashboard: ${{ needs.dashboard.result }}"
+          echo "mobile:    ${{ needs.mobile.result }}"
+
+          # The filter itself must have run. A skip here means nothing downstream was even
+          # considered.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "::error::the path filter did not succeed — no build job was evaluated"
+            exit 1
+          fi
+
+          for r in "${{ needs.contracts.result }}" "${{ needs.api.result }}" \
+                   "${{ needs.dashboard.result }}" "${{ needs.mobile.result }}"; do
             case "$r" in
               success|skipped) ;;
               *) echo "::error::a required job reported '$r'"; exit 1 ;;
