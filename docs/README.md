@@ -110,10 +110,11 @@ Pages both require GitHub Pro or a public repository. The dashboard no longer ne
 (the API serves it — `03-architecture.md` §7), but "no direct pushes to `main`" is currently
 a local pre-push hook rather than an enforced rule. See `engineering/workflow.md` §3.
 
-**Phase 1 so far:** ✅ **FR-8 per-shift cash reconciliation** — the owner's primary
-anti-shrinkage control (Vision §2.1.1) — works end to end offline, on contract v1.1.0
-(ADR-012). Next: the rest of FR-8's reports, the full FR-2 permission matrix, then FR-10
-localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
+**Phase 1 so far:** ✅ **FR-8 complete for the V1 base report set** — per-shift cash
+reconciliation (the owner's primary anti-shrinkage control, Vision §2.1.1), consolidated
+and per-branch sales summary, and stock with expiry alerting. Cash-up works end to end
+offline on contract v1.1.0 (ADR-012); reports are branch-scoped by role. Next: the full
+FR-2 permission matrix, then FR-10 localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
 `compliance-sign-off.md`.
 
 See **`engineering/`** for repo layout, local setup, the contribution workflow, and staging.
