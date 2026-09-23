@@ -5,6 +5,7 @@ import 'core/theme.dart';
 import 'data/catalog_repository.dart';
 import 'data/local_db.dart';
 import 'data/outbox.dart';
+import 'data/inventory_repository.dart';
 import 'data/sale_repository.dart';
 import 'data/shift_repository.dart';
 import 'l10n/locale_store.dart';
@@ -38,6 +39,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
   CatalogRepository? _catalog;
   SaleRepository? _sales;
   ShiftRepository? _shifts;
+  InventoryRepository? _inventory;
   SyncService? _syncService;
 
   CachedSession? _session;
@@ -58,6 +60,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
     final catalog = CatalogRepository(db);
     final sales = SaleRepository(db, outbox, catalog);
     final shifts = ShiftRepository(db, outbox);
+    final inventory = InventoryRepository(db, outbox, catalog);
 
     final locales = LocaleStore(db);
     final strings = Strings.of(await locales.load());
@@ -71,12 +74,14 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       _catalog = catalog;
       _sales = sales;
       _shifts = shifts;
+      _inventory = inventory;
       _syncService = SyncService(
         db: db,
         outbox: outbox,
         client: _client,
         catalog: catalog,
         sales: sales,
+        inventory: inventory,
       );
       _terminalId = terminalId;
       _session = session;
@@ -129,6 +134,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
                   catalog: _catalog!,
                   sales: _sales!,
                   shifts: _shifts!,
+                  inventory: _inventory!,
                   syncService: _syncService!,
                   terminalId: _terminalId!,
                   onSignOut: () async {

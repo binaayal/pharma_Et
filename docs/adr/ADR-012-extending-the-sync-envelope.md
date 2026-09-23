@@ -145,6 +145,8 @@ against a server that does not exist.
 | **1.0.0** | 2026-09-22 | Initial envelope: `sale`, `goods_receipt` (`04` §7) | — |
 | **1.1.0** | 2026-09-23 | Adds `shift` and `cash_up` entity types (FR-8). Pull response unchanged. | Additive. A 1.0.0 client is fully served; a 1.1.0 client against a 1.0.0 server has its new operations `rejected` with a reason and retried later, never dropped. |
 
+| **1.2.0** | 2026-09-23 | Adds `stock_adjustment` (FR-3, BR-3.2). Pull response unchanged. | Additive. Carries a signed **delta**, never a resulting total: a terminal offline for days counted against a figure the server may already disagree with, and an absolute would silently discard whatever synced in between — most likely the very sales that made the count wrong. |
+
 **Apply-side semantics added 2026-09-23 without a version change** (§4, §5 above): a
 `cash_up` now closes its shift if still open, and the server's body limit is derived from
 the batch cap. Neither alters the envelope, so no client needs to know — which is the test
