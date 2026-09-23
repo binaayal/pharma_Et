@@ -150,22 +150,6 @@ void main() {
     expect(await outbox.depth(), 1);
   });
 
-  test('committing a sale is fast enough for the counter (NFR-3.2)', () async {
-    // The budget is <100ms on low-end Android hardware; this runs on the Dart VM, so it is
-    // a regression guard on the shape of the work — one transaction, no network — rather
-    // than a device measurement. The real number is taken on the device matrix (docs/05 §7).
-    final started = DateTime.now();
-    await sales.commitSale(
-      lines: [CartLine(product: product(), qty: 1, batchId: null)],
-      tenantId: tenantId,
-      branchId: branchId,
-      cashierId: cashierId,
-      terminalId: terminalId,
-    );
-    final elapsed = DateTime.now().difference(started).inMilliseconds;
-    expect(elapsed, lessThan(100));
-  });
-
   test('a sale with no stock and no network still commits', () async {
     // There is no catalog, no batch, and nothing to check against. The sale still goes
     // through, because refusing it would stop the counter over a number the terminal

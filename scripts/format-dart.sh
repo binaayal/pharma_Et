@@ -10,7 +10,15 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/../apps/mobile"
-FILES=$(find lib test -name '*.dart' -not -path 'lib/contracts/*')
+# `integration_test` is included explicitly. It is a real source directory — the on-device
+# NFR-3.2 measurement lives there — but it is not `lib` or `test`, so a glob that named only
+# those two would leave it unformatted AND unchecked, which is the worse half: CI would go
+# green over a directory it never looked at.
+# Only directories that exist: `find` on a missing one fails, and under `set -e` that would
+# kill the whole script — turning a deleted directory into "formatting is broken".
+DIRS=()
+for d in lib test integration_test; do [ -d "$d" ] && DIRS+=("$d"); done
+FILES=$(find "${DIRS[@]}" -name '*.dart' -not -path 'lib/contracts/*')
 
 if [ "${1:-}" = "--check" ]; then
   # shellcheck disable=SC2086

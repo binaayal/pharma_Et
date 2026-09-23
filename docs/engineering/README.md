@@ -14,6 +14,7 @@
 | [`ci-cd.md`](ci-cd.md) | What runs on a PR, what runs on merge, how to read a red pipeline |
 | [`staging.md`](staging.md) | What staging is, the one-time account setup, running it locally, rolling back |
 | [`walking-skeleton.md`](walking-skeleton.md) | Phase 0 scope, its guardian gate, and how to verify it |
+| [`device-matrix.md`](device-matrix.md) | NFR-3.2 on real handsets: why CI cannot answer it, how to run it, where the results live |
 
 ---
 
