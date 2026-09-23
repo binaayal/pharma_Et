@@ -118,3 +118,61 @@ export const cashUpPayload = z
     path: ['varianceSantim'],
   });
 export type CashUpPayload = z.infer<typeof cashUpPayload>;
+
+/* -------------------------------------------------------------------------- */
+/* Stock adjustment (FR-3, docs/04 §5.3) — contract v1.2.0                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Why a count was corrected.
+ *
+ * A closed list, not free text. BR-3.2 promises that an oversell is "flagged for physical
+ * reconciliation", and a reconciliation report is only useful if the reasons can be counted:
+ * "shrinkage happened 40 times this quarter" is a finding, "somebody typed something 40
+ * different ways" is not.
+ *
+ * `recount` is the honest default for "the shelf and the system disagreed and the shelf
+ * won" — which is what most corrections actually are, and pretending otherwise by forcing a
+ * cause produces invented causes.
+ */
+export const adjustmentReason = z.enum([
+  'recount',
+  'damage',
+  'expiry_writeoff',
+  'theft_or_loss',
+  'receipt_correction',
+  'other',
+]);
+export type AdjustmentReason = z.infer<typeof adjustmentReason>;
+
+export const stockAdjustmentPayload = z
+  .object({
+    batchId: uuidv7,
+    productId: uuidv7,
+    /**
+     * Signed change to the count: negative writes stock off, positive adds it back.
+     *
+     * The delta is recorded, never the resulting total. A terminal that has been offline
+     * holds a count the server may already disagree with, so sending "set it to 40" would
+     * silently discard whatever happened in between. A delta composes; an absolute does not.
+     */
+    delta: quantity,
+    reason: adjustmentReason,
+    /** Required for anything but a recount — see the refinement below. */
+    note: z.string().max(500).nullable(),
+    countedAt: utcTimestamp,
+    /** What the terminal believed the count was, for reconstructing the decision later. */
+    previousQtyOnHand: quantity,
+  })
+  .refine((a) => a.delta !== 0, {
+    message: 'an adjustment of zero records nothing; omit it instead',
+    path: ['delta'],
+  })
+  .refine((a) => a.reason === 'recount' || (a.note !== null && a.note.trim().length > 0), {
+    // Loss, damage and theft are the entries an owner will actually read. An unexplained
+    // write-off is indistinguishable from a covered-up one, so the note is required
+    // wherever the reason implies somebody knows more than the number shows.
+    message: 'this reason requires a note explaining it',
+    path: ['note'],
+  });
+export type StockAdjustmentPayload = z.infer<typeof stockAdjustmentPayload>;

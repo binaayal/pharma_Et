@@ -17,7 +17,7 @@ class LocalDb {
 
   final Database db;
 
-  static const _version = 2;
+  static const _version = 3;
 
   static Future<LocalDb> open({
     DatabaseFactory? factory,
@@ -133,6 +133,7 @@ class LocalDb {
     await db.execute('CREATE INDEX outbox_order ON outbox (terminal_seq)');
 
     await _createShiftSchema(db);
+    await _createInventorySchema(db);
 
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
@@ -181,6 +182,48 @@ class LocalDb {
         'CREATE UNIQUE INDEX cash_up_one_per_shift ON cash_up (shift_id)');
   }
 
+  /// Goods receipts and stock corrections, authored locally (FR-7, FR-3).
+  ///
+  /// Both happen at the counter and both must work with no network: stock arrives when the
+  /// wholesaler's van arrives, and a shelf gets counted when somebody notices the number is
+  /// wrong — neither waits for connectivity.
+  static Future<void> _createInventorySchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE goods_receipt (
+        id             TEXT PRIMARY KEY,
+        branch_id      TEXT NOT NULL,
+        supplier_name  TEXT NOT NULL,
+        received_at    TEXT NOT NULL,
+        synced         INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE goods_receipt_line (
+        id                TEXT PRIMARY KEY,
+        goods_receipt_id  TEXT NOT NULL REFERENCES goods_receipt(id),
+        product_id        TEXT NOT NULL,
+        lot_no            TEXT NOT NULL,
+        expiry_date       TEXT NOT NULL,
+        qty               INTEGER NOT NULL,
+        cost_santim       INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE stock_adjustment (
+        id                    TEXT PRIMARY KEY,
+        branch_id             TEXT NOT NULL,
+        batch_id              TEXT NOT NULL,
+        product_id            TEXT NOT NULL,
+        delta                 INTEGER NOT NULL,
+        reason                TEXT NOT NULL,
+        note                  TEXT,
+        previous_qty_on_hand  INTEGER NOT NULL,
+        counted_at            TEXT NOT NULL,
+        synced                INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+  }
+
   /// Schema upgrades run on a device holding real, unsynced sales.
   ///
   /// So they are additive only — new tables and new nullable columns. Anything that
@@ -192,6 +235,9 @@ class LocalDb {
       // Sales gain their shift. Existing rows keep NULL: they were rung up before shifts
       // existed and cannot be retro-assigned to one honestly.
       await db.execute('ALTER TABLE sale ADD COLUMN shift_id TEXT');
+    }
+    if (from < 3) {
+      await _createInventorySchema(db);
     }
   }
 

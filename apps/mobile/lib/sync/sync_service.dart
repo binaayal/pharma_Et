@@ -2,6 +2,7 @@ import '../contracts/contracts.dart';
 import '../data/catalog_repository.dart';
 import '../data/local_db.dart';
 import '../data/outbox.dart';
+import '../data/inventory_repository.dart';
 import '../data/sale_repository.dart';
 import 'sync_client.dart';
 
@@ -46,17 +47,20 @@ class SyncService {
     required SyncClient client,
     required CatalogRepository catalog,
     required SaleRepository sales,
+    required InventoryRepository inventory,
   })  : _db = db,
         _outbox = outbox,
         _client = client,
         _catalog = catalog,
-        _sales = sales;
+        _sales = sales,
+        _inventory = inventory;
 
   final LocalDb _db;
   final Outbox _outbox;
   final SyncClient _client;
   final CatalogRepository _catalog;
   final SaleRepository _sales;
+  final InventoryRepository _inventory;
 
   DateTime? _lastSyncedAt;
 
@@ -82,15 +86,29 @@ class SyncService {
       // Every queued entry goes, in terminal_seq order — not just sales. Filtering by type
       // here is how a shift close or a cash-up would sit in the outbox forever while the
       // chip cheerfully reported everything synced.
+      // Every queued entry goes, in terminal_seq order. Which repository builds the
+      // envelope depends on the entity type; an unrecognised one throws rather than being
+      // skipped, because a silently skipped operation sits in the outbox forever while the
+      // chip cheerfully reports everything synced.
       final operations = <Operation>[
         for (final entry in pending)
-          _sales.toOperation(
-            entry,
-            tenantId: tenantId,
-            branchId: branchId,
-            actorId: actorId,
-            terminalId: terminalId,
-          ),
+          if (entry.entityType == 'goods_receipt' ||
+              entry.entityType == 'stock_adjustment')
+            _inventory.toOperation(
+              entry,
+              tenantId: tenantId,
+              branchId: branchId,
+              actorId: actorId,
+              terminalId: terminalId,
+            )
+          else
+            _sales.toOperation(
+              entry,
+              tenantId: tenantId,
+              branchId: branchId,
+              actorId: actorId,
+              terminalId: terminalId,
+            ),
       ];
 
       try {

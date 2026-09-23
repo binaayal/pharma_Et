@@ -7,6 +7,7 @@ import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/data/outbox.dart';
 import 'package:pharmaet_mobile/data/sale_repository.dart';
+import 'package:pharmaet_mobile/data/inventory_repository.dart';
 import 'package:pharmaet_mobile/data/shift_repository.dart';
 import 'package:pharmaet_mobile/sync/sync_client.dart';
 import 'package:pharmaet_mobile/sync/sync_service.dart';
@@ -53,6 +54,7 @@ void main() {
       catalog = CatalogRepository(db);
       sales = SaleRepository(db, outbox, catalog);
       shifts = ShiftRepository(db, outbox);
+      final inventory = InventoryRepository(db, outbox, catalog);
       client = SyncClient(baseUrl: apiUrl!);
       syncService = SyncService(
         db: db,
@@ -60,6 +62,7 @@ void main() {
         client: client,
         catalog: catalog,
         sales: sales,
+        inventory: inventory,
       );
 
       final login = await client.login(const LoginRequest(

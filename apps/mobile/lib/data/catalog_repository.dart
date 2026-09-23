@@ -112,6 +112,72 @@ class CatalogRepository {
     );
   }
 
+  /// Credits a batch locally when stock arrives, keyed on the batch id the client minted.
+  ///
+  /// Idempotent by id: the server applies the same receipt against the same batch id, so a
+  /// pulled correction converges with this rather than double-counting it.
+  Future<void> upsertLocalBatch(
+    DatabaseExecutor txn, {
+    required String batchId,
+    required String branchId,
+    required String productId,
+    required String lotNo,
+    required String expiryDate,
+    required int qty,
+  }) async {
+    final existing = await txn.query(
+      'stock_batch',
+      where: 'branch_id = ? AND product_id = ? AND lot_no = ? AND deleted = 0',
+      whereArgs: [branchId, productId, lotNo],
+      limit: 1,
+    );
+
+    if (existing.isNotEmpty) {
+      await txn.rawUpdate(
+        'UPDATE stock_batch SET qty_on_hand = qty_on_hand + ? WHERE id = ?',
+        [qty, existing.first['id']],
+      );
+      return;
+    }
+
+    await txn.insert('stock_batch', {
+      'id': batchId,
+      'branch_id': branchId,
+      'product_id': productId,
+      'lot_no': lotNo,
+      'expiry_date': expiryDate,
+      'qty_on_hand': qty,
+      // Zero until the server tells us otherwise: a locally minted batch has no server
+      // sequence yet, and claiming one would make the next pull skip the real value.
+      'change_seq': 0,
+      'deleted': 0,
+    });
+  }
+
+  /// Batches worth looking at: oversold first, then soonest to expire.
+  ///
+  /// The order is the priority order. A negative count means the shelf and the system
+  /// disagree, and until somebody counts, every expiry decision resting on that number is
+  /// guesswork.
+  Future<List<LocalBatch>> batchesForReconciliation(String branchId) async {
+    final rows = await _db.db.query(
+      'stock_batch',
+      where: 'branch_id = ? AND deleted = 0',
+      whereArgs: [branchId],
+      orderBy: 'qty_on_hand < 0 DESC, expiry_date ASC',
+      limit: 100,
+    );
+    return rows
+        .map((r) => LocalBatch(
+              id: r['id'] as String,
+              productId: r['product_id'] as String,
+              lotNo: r['lot_no'] as String,
+              expiryDate: r['expiry_date'] as String,
+              qtyOnHand: r['qty_on_hand'] as int,
+            ))
+        .toList();
+  }
+
   /// Applies a delta pull. Reference rows are overwritten wholesale because the terminal
   /// never authors them — there is nothing local to lose.
   Future<void> applyPull(PullResponse response) async {

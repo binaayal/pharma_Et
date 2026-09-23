@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { cashUpPayload, goodsReceiptPayload, salePayload, shiftPayload } from './entities.js';
+import {
+  cashUpPayload,
+  goodsReceiptPayload,
+  salePayload,
+  shiftPayload,
+  stockAdjustmentPayload,
+} from './entities.js';
 import {
   changeSeq,
   isoDate,
@@ -24,7 +30,7 @@ import { CONTRACT_VERSION } from './version.js';
  * Entity types a terminal may push. Grows per phase, additively (ADR-012 §1); every
  * addition appends to the version log in that ADR.
  */
-export const entityType = z.enum(['sale', 'goods_receipt', 'shift', 'cash_up']);
+export const entityType = z.enum(['sale', 'goods_receipt', 'shift', 'cash_up', 'stock_adjustment']);
 export type EntityType = z.infer<typeof entityType>;
 
 /**
@@ -66,6 +72,11 @@ export const operation = z.discriminatedUnion('entityType', [
   // carries `baseVersion`, so a terminal that somehow closed a shift twice is caught.
   z.object({ ...operationBase, entityType: z.literal('shift'), payload: shiftPayload }),
   z.object({ ...operationBase, entityType: z.literal('cash_up'), payload: cashUpPayload }),
+  z.object({
+    ...operationBase,
+    entityType: z.literal('stock_adjustment'),
+    payload: stockAdjustmentPayload,
+  }),
 ]);
 export type Operation = z.infer<typeof operation>;
 

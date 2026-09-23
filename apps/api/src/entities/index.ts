@@ -5,6 +5,7 @@ import { Product } from './product.entity';
 import { Payment, Sale, SaleLine } from './sale.entity';
 import { DomainEvent } from './event.entity';
 import { CashUp, Shift } from './shift.entity';
+import { StockAdjustment } from './stock-adjustment.entity';
 import { StockBatch } from './stock-batch.entity';
 import { AppliedOp, OversellEvent, TenantChangeSeq } from './sync.entity';
 import { Tenant } from './tenant.entity';
@@ -18,6 +19,7 @@ export * from './product.entity';
 export * from './sale.entity';
 export * from './event.entity';
 export * from './shift.entity';
+export * from './stock-adjustment.entity';
 export * from './stock-batch.entity';
 export * from './sync.entity';
 export * from './tenant.entity';
@@ -43,6 +45,7 @@ export const ALL_ENTITIES = [
   Payment,
   Shift,
   CashUp,
+  StockAdjustment,
   DomainEvent,
   GoodsReceipt,
   GoodsReceiptLine,

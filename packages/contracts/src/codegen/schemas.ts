@@ -30,6 +30,7 @@ export const CONTRACT_SCHEMAS: Record<string, ZodTypeAny> = {
   GoodsReceiptLinePayload: entities.goodsReceiptLinePayload,
   ShiftPayload: entities.shiftPayload,
   CashUpPayload: entities.cashUpPayload,
+  StockAdjustmentPayload: entities.stockAdjustmentPayload,
 
   // Auth
   LoginRequest: auth.loginRequest,

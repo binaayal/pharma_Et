@@ -23,9 +23,11 @@ import {
   Sale,
   SaleLine,
   Shift,
+  StockAdjustment,
   StockBatch,
   UserBranch,
 } from '../../entities';
+import { AuditService } from '../audit/audit.service';
 import { CashUpService } from '../cashup/cash-up.service';
 import { ChangeSeqService } from '../inventory/change-seq.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -60,6 +62,7 @@ export class SyncService {
     private readonly inventory: InventoryService,
     private readonly changeSeq: ChangeSeqService,
     private readonly cashUp: CashUpService,
+    private readonly audit: AuditService,
   ) {}
 
   async push(scope: TenantScope, request: PushRequest): Promise<PushResponse> {
@@ -106,6 +109,9 @@ export class SyncService {
             break;
           case 'cash_up':
             await this.applyCashUp(em, scope, operation);
+            break;
+          case 'stock_adjustment':
+            await this.applyStockAdjustment(em, scope, operation);
             break;
         }
 
@@ -349,6 +355,76 @@ export class SyncService {
       shift.closedAt = new Date(payload.countedAt);
       await em.getRepository(Shift).save(shift);
     }
+  }
+
+  /**
+   * A manual stock correction (FR-3, BR-3.2).
+   *
+   * Applies the **delta**, never an absolute. A terminal offline for days counted against a
+   * figure the server may already disagree with, and "set it to 40" would silently discard
+   * whatever synced in between — including, most likely, the very sales that made the count
+   * wrong. A delta composes with whatever else happened; an absolute overwrites it.
+   *
+   * Recorded in the audit log in the same transaction, because a write-off nobody can trace
+   * to a person is the one an owner most wants traced.
+   */
+  private async applyStockAdjustment(
+    em: EntityManager,
+    scope: TenantScope,
+    operation: Extract<Operation, { entityType: 'stock_adjustment' }>,
+  ): Promise<void> {
+    const { payload } = operation;
+    const branchId = operation.branchId;
+    if (!branchId) throw new Error('a stock adjustment must name its branch');
+
+    const batch = await em.getRepository(StockBatch).findOne({ where: { id: payload.batchId } });
+    if (!batch) {
+      // Rejected rather than orphaned: the receipt that created this batch may still be
+      // queued behind it, and the client retries.
+      throw new Error(`adjustment references batch ${payload.batchId}, which has not arrived`);
+    }
+
+    await em.getRepository(StockAdjustment).insert({
+      id: operation.entityId,
+      tenantId: scope.tenantId,
+      branchId,
+      batchId: payload.batchId,
+      productId: payload.productId,
+      // The operation's actor, not the request's: a batch pushed after a shift change must
+      // still be attributed to whoever actually counted the shelf.
+      actorId: operation.actorId,
+      terminalId: operation.terminalId,
+      delta: payload.delta,
+      reason: payload.reason,
+      note: payload.note,
+      previousQtyOnHand: payload.previousQtyOnHand,
+      countedAt: new Date(payload.countedAt),
+      changeSeq: 0,
+      deletedAt: null,
+    });
+
+    batch.qtyOnHand += payload.delta;
+    batch.changeSeq = await this.changeSeq.next(em, scope.tenantId);
+    await em.getRepository(StockBatch).save(batch);
+
+    await this.audit.record(em, scope, {
+      type: 'audit.stock_adjusted',
+      streamId: payload.batchId,
+      branchId,
+      occurredAt: new Date(payload.countedAt),
+      terminalId: operation.terminalId,
+      opId: operation.opId,
+      payload: {
+        productId: payload.productId,
+        delta: payload.delta,
+        reason: payload.reason,
+        note: payload.note,
+        terminalBelievedQty: payload.previousQtyOnHand,
+        // Both what the terminal thought and what actually resulted. Where they disagree,
+        // sales synced after the count was taken — the same finding the cash-up surfaces.
+        resultingQtyOnHand: batch.qtyOnHand,
+      },
+    });
   }
 
   /**

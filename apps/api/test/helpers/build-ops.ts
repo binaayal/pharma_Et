@@ -176,3 +176,39 @@ export function saleInShift(
     },
   };
 }
+
+export function adjustmentOp(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    batchId?: string;
+    delta: number;
+    reason?:
+      'recount' | 'damage' | 'expiry_writeoff' | 'theft_or_loss' | 'receipt_correction' | 'other';
+    note?: string | null;
+    previousQtyOnHand?: number;
+  },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.cashier.id,
+    clientTs: '2026-09-23T18:00:00.000Z',
+    entityType: 'stock_adjustment' as const,
+    payload: {
+      batchId: options.batchId ?? tenant.batchIds[1],
+      productId: tenant.productId,
+      delta: options.delta,
+      reason: options.reason ?? ('recount' as const),
+      note: options.note === undefined ? null : options.note,
+      countedAt: '2026-09-23T18:00:00.000Z',
+      previousQtyOnHand: options.previousQtyOnHand ?? 10,
+    },
+  };
+}

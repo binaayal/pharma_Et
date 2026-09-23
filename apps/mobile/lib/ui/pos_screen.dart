@@ -6,10 +6,13 @@ import '../core/permissions.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../data/sale_repository.dart';
+import '../data/inventory_repository.dart';
 import '../data/shift_repository.dart';
 import '../l10n/locale_store.dart';
 import '../sync/sync_service.dart';
 import 'cash_up_screen.dart';
+import 'receive_screen.dart';
+import 'reconcile_screen.dart';
 import 'sync_chip.dart';
 
 /// The counter (FR-4).
@@ -25,6 +28,7 @@ class PosScreen extends StatefulWidget {
     required this.catalog,
     required this.sales,
     required this.shifts,
+    required this.inventory,
     required this.syncService,
     required this.terminalId,
     required this.onSignOut,
@@ -34,6 +38,7 @@ class PosScreen extends StatefulWidget {
   final CatalogRepository catalog;
   final SaleRepository sales;
   final ShiftRepository shifts;
+  final InventoryRepository inventory;
   final SyncService syncService;
   final String terminalId;
   final VoidCallback onSignOut;
@@ -132,6 +137,16 @@ class _PosScreenState extends State<PosScreen> {
     if (!mounted) return;
     setState(() => _shift = shift);
     await _load();
+  }
+
+  /// Receiving stock and counting it are both branch-scoped capabilities the FR-2 matrix
+  /// grants a cashier (`goods.receive`) — this is counter work, not back-office work.
+  Future<void> _openInventory(Widget screen) async {
+    await Navigator.of(context)
+        .push<void>(MaterialPageRoute(builder: (_) => screen));
+    if (!mounted) return;
+    await _load();
+    await _sync();
   }
 
   Future<void> _cashUp() async {
@@ -263,6 +278,28 @@ class _PosScreenState extends State<PosScreen> {
       appBar: AppBar(
         title: Text(context.t('pos.title')),
         actions: [
+          if (_can(Capability.goodsReceive))
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.inventory_2_outlined),
+              tooltip: 'Stock',
+              onSelected: (choice) => _openInventory(
+                choice == 'receive'
+                    ? ReceiveScreen(
+                        catalog: widget.catalog,
+                        inventory: widget.inventory,
+                        branchId: _branchId,
+                      )
+                    : ReconcileScreen(
+                        catalog: widget.catalog,
+                        inventory: widget.inventory,
+                        branchId: _branchId,
+                      ),
+              ),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'receive', child: Text('Receive stock')),
+                PopupMenuItem(value: 'count', child: Text('Count stock')),
+              ],
+            ),
           // Switchable per user, from the screen they spend the day on — a language buried
           // in a settings page is one nobody finds on a shared counter terminal.
           PopupMenuButton<String>(
