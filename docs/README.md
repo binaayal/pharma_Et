@@ -80,7 +80,8 @@ answer, permanently.
 
 ## Current status (V1)
 
-Phase: **Phase 0 — Foundations + Walking Skeleton: complete.** ✅
+Phase: **Phase 0 — Foundations + Walking Skeleton: built and verified; two account steps
+outstanding.**
 
 The documentation suite (`01`–`06`) and ADR-001–010 are drafted, cross-referenced, and
 traceable. The repository is built out — `apps/api` (NestJS + RLS), `apps/dashboard`
@@ -91,9 +92,22 @@ visible on the dashboard, exactly once, with the second tenant seeing none of it
 **Guardian gate G1, G2, G4, G7 is green** (see `engineering/walking-skeleton.md` §6), and
 the RTM (`02-srs.md` §6) records what is implemented against each requirement.
 
-**The exit gate in `06-delivery-plan.md` §2 is met:** guardian suites green, CI/CD
-auto-promotes on merge (image → verified against real Postgres → deployed), and staging is
-reachable — dashboard on GitHub Pages, API on Fly.io with Neon Postgres.
+**Exit gate (`06-delivery-plan.md` §2), item by item:**
+
+| | |
+|---|---|
+| Skeleton passes G1, G2, G4, G7 | ✅ 37 API + 28 mobile tests, green on every PR |
+| CI/CD pipeline | ✅ on merge: publish image → stand it up against real Postgres → migrate → smoke 12/12 over HTTP → deploy. Green today. |
+| **Staging reachable** | ⛔ **needs `FLY_API_TOKEN` and a Neon `DATABASE_URL`** — accounts only the owner can create. The deploy job reports this in its run summary and does not pretend to have shipped. Three commands: `engineering/staging.md` §3. |
+
+So the spine is proven and the promotion path works; staging has nowhere to land yet.
+**Phase 1 should not start until it does** — the point of the gate is that breadth lands on
+a spine that has been observed running somewhere real, not only in CI.
+
+**Also outstanding, and a plan decision rather than a task:** branch protection and GitHub
+Pages both require GitHub Pro or a public repository. The dashboard no longer needs Pages
+(the API serves it — `03-architecture.md` §7), but "no direct pushes to `main`" is currently
+a local pre-push hook rather than an enforced rule. See `engineering/workflow.md` §3.
 
 **Next:** Phase 1 (`engineering/walking-skeleton.md` §7) — cash-up first, then the full
 permission matrix, then localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is

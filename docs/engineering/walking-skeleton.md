@@ -90,14 +90,18 @@ If step 4 or step 7 fails, the spine is not proven and no breadth work starts.
 | **End-to-end slice** | ✅ real Flutter stack → API → PostgreSQL: pull → 3 offline sales → reconnect → sync → 0 pending; a second sync sends nothing |
 | **CI gates** | ✅ 8 checks on every PR, path-filtered, with a gate that fails on a skipped-because-broken run |
 | **CD promotion path** | ✅ image published to GHCR, stood up against real Postgres, migrated, smoke-tested over HTTP, then deployed — all on merge |
-| **Staging reachable** | ✅ dashboard on GitHub Pages; API on Fly.io once `FLY_API_TOKEN` is set (`staging.md` §3) |
+| **Staging reachable** | ⛔ needs `FLY_API_TOKEN` + a Neon `DATABASE_URL` (`staging.md` §3). The dashboard ships inside the API image, so it arrives with it. |
 
 Totals: 37 API guardian/gate tests, 28 mobile tests, 13 contract tests, 3 dashboard tests,
 12 HTTP smoke assertions. The manual walkthrough in §5 was run and passed; so was the exact
 CD sequence, locally, against the built image.
 
-**Phase 0's exit gate is met** (`../06-delivery-plan.md` §2): the guardian suites are green,
-CI/CD auto-promotes on merge, and staging is reachable. Phase 1 breadth work can begin.
+**Two of the three exit-gate items are met** (`../06-delivery-plan.md` §2): the guardian
+suites are green and CI/CD auto-promotes on merge, having verified the image end to end
+first. The third — staging reachable — is one secret away and needs an account.
+
+Phase 1 waits for it. Not out of ceremony: the gate exists so that breadth lands on a spine
+somebody has watched run somewhere real, and CI is not somewhere real.
 
 ## 7. What "green" unlocks
 
