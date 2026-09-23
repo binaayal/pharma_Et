@@ -155,7 +155,8 @@ These are settled. Rationale and rejected alternatives live in the ADRs.
 
 | ID | Type | Statement | Owner | Resolution |
 |----|------|-----------|-------|------------|
-| A-1 | `[ASSUMPTION]` | EFDA directive No. 1121/2025 requires ≥ 5-year retention for controlled-substance records; psychotropic dispensing rules are as stated in FR-4. **Must be verified by a compliance/legal review before build.** | Bina | Before SRS freeze |
+| A-1 | `[ASSUMPTION]` | EFDA directive No. 1121/2025 requires ≥ 5-year retention for controlled-substance records; psychotropic dispensing rules are as stated in FR-4. **Must be verified by a compliance/legal review before build.** ⛔ Still unverified — directive **872/2022** was reviewed on 2026-09-23 and covers import/export/wholesale, not retail dispensing (`compliance-sign-off.md` §2). | Bina | Before SRS freeze |
+| A-4 | `[ASSUMPTION]` → ✅ **verified** | Electronic records satisfy EFDA record-keeping duties. Confirmed by directive 872/2022 Art. 29 §1(l): records may be kept "in a paper copy **or electronically**". | Bina | Closed 2026-09-23 |
 | A-2 | `[ASSUMPTION]` | Manual screenshot payment verification is acceptable to early tenants. | Bina | Pilot |
 | A-3 | `[ASSUMPTION]` | The large majority of target pharmacies operate a single POS terminal per branch (validates single-writer V1). | Bina | Pilot / market check |
 | R-1 | Risk | Offline sync of conservation-law inventory is the project's dominant technical risk. | Eng | De-risk via walking-skeleton spike before breadth |

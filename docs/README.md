@@ -39,6 +39,7 @@ the SRS is settled.
 | — | `adr/` | ✅ Draft | Architecture Decision Records (binding decisions + rationale) |
 | — | `engineering/` | ✅ Draft | How to build it: repo layout, local setup, workflow, CI/CD, staging |
 | — | `compliance-sign-off.md` | ✅ Live | Dated compliance evidence; A-1 status (ADR-011) |
+| — | `regulatory/` | ✅ Live | Primary source documents, stored verbatim so a citation can be checked |
 | — | `prototype/index.html` | ✅ Draft | Visual/UX prototype (27 screens). **Look only — no logic.** Behaviour is defined by `02`/`04`. |
 
 Status legend: ✅ Draft · ⏳ Next up · 🔜 Planned · 🔒 Frozen (change requires an ADR)
