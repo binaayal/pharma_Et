@@ -196,12 +196,12 @@ jobs:
           cache: true
       - run: flutter pub get
       - name: Format check
-        # Skips lib/contracts/contracts.dart, which is generated. Its canonical form is
-        # whatever the emitter produces, so running a version-sensitive formatter over it
-        # would make this check fail on the SDK version rather than on the code.
-        run: |
-          dart format --output=none --set-exit-if-changed \
-            $(find lib test -name '*.dart' -not -path 'lib/contracts/*')
+        # The same script developers run, so the check and the fix cannot diverge. It skips
+        # lib/contracts/, whose canonical form is whatever the emitter produces — running a
+        # version-sensitive formatter over generated code makes the contract-freshness gate
+        # fail for a reason that has nothing to do with the contract.
+        working-directory: .
+        run: ./scripts/format-dart.sh --check
       - name: Analyze
         run: flutter analyze --fatal-infos
       - name: Tests, including the G2/G4/G7 guardian suites

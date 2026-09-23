@@ -20,7 +20,9 @@
     "db:up": "./scripts/dev-db.sh up",
     "db:reset": "./scripts/dev-db.sh reset",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,yml,yaml}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,yml,yaml}\"",
+    "format:dart": "./scripts/format-dart.sh",
+    "format:dart:check": "./scripts/format-dart.sh --check"
   },
   "devDependencies": {
     "prettier": "^3.3.3",
