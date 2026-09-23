@@ -73,6 +73,7 @@ Verify: `node -v && pnpm -v && docker info >/dev/null && flutter doctor`.
 
 ```bash
 pnpm install                       # installs api, dashboard, contracts
+./scripts/install-hooks.sh         # pre-push tripwire against pushing to main
 cp apps/api/.env.example apps/api/.env
 ./scripts/dev-db.sh up             # PostgreSQL 16 on localhost:5433
 pnpm --filter @pharmaet/api migration:run

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Refuses a direct push to main.
+#
+# This exists because server-side branch protection is not available on a free private
+# repository — neither classic protection nor rulesets (GitHub returns 403: "Upgrade to
+# GitHub Pro or make this repository public"). See docs/engineering/workflow.md §3.
+#
+# It is NOT equivalent to branch protection. It runs on your machine, it can be skipped with
+# --no-verify, and it does nothing on any other clone. It is a tripwire against the 11pm
+# "just this once" push, which is the failure it is actually meant to catch.
+set -euo pipefail
+
+PROTECTED="main"
+REMOTE="${1:-origin}"
+
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  branch="${remote_ref#refs/heads/}"
+  [ "$branch" = "$PROTECTED" ] || continue
+  # A branch deletion pushes the zero sha; that is caught here too.
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && {
+    echo "pre-push: refusing to delete $PROTECTED on $REMOTE" >&2
+    exit 1
+  }
+
+  cat >&2 <<MSG
+
+  ✗ pre-push: direct push to '$PROTECTED' refused.
+
+    Every change goes through a pull request — including a one-line hotfix, which is a
+    fast PR, not an exception (docs/06 §4, ADR-011).
+
+      git switch -c fix/<what>      # or feat/, chore/, docs/
+      git push -u origin HEAD
+      gh pr create
+
+    If you are genuinely certain, --no-verify will skip this. That it is easy to skip is
+    the point: this is a tripwire, not a gate. The gate is CI, and CI only runs on a PR.
+
+MSG
+  exit 1
+done
+
+exit 0
