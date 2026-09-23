@@ -10,6 +10,7 @@ import type { Grant } from '@pharmaet/contracts';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { AppUser, Branch, Product, UserBranch, type UserRole } from '../../entities';
+import { AuditService } from '../audit/audit.service';
 import { ChangeSeqService } from '../inventory/change-seq.service';
 
 /**
@@ -25,6 +26,7 @@ export class ManagementService {
   constructor(
     private readonly db: ScopedDbService,
     private readonly changeSeq: ChangeSeqService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -62,6 +64,14 @@ export class ManagementService {
         deletedAt: null,
       });
       await em.getRepository(Branch).insert(branch);
+      // Inside the same transaction as the change itself. An audit record written
+      // afterwards, best-effort, is missing precisely the entries somebody wanted missing.
+      await this.audit.record(em, scope, {
+        type: 'audit.branch_created',
+        streamId: branch.id,
+        branchId: branch.id,
+        payload: { name: branch.name, address: branch.address },
+      });
       return branch;
     });
   }
@@ -76,10 +86,20 @@ export class ManagementService {
       const branch = await repo.findOne({ where: { id: branchId } });
       if (!branch) throw new NotFoundException('branch not found');
 
+      const before = { name: branch.name, address: branch.address };
       if (input.name !== undefined) branch.name = input.name.trim();
       if (input.address !== undefined) branch.address = input.address.trim() || null;
       branch.changeSeq = await this.changeSeq.next(em, scope.tenantId);
-      return repo.save(branch);
+      const saved = await repo.save(branch);
+
+      // Both sides recorded. "The name changed" is not an audit entry; "from X to Y" is.
+      await this.audit.record(em, scope, {
+        type: 'audit.branch_updated',
+        streamId: branch.id,
+        branchId: branch.id,
+        payload: { before, after: { name: saved.name, address: saved.address } },
+      });
+      return saved;
     });
   }
 
@@ -162,6 +182,18 @@ export class ManagementService {
         });
       }
 
+      await this.audit.record(em, scope, {
+        type: 'audit.user_created',
+        streamId: id,
+        payload: {
+          username: input.username,
+          role: input.role,
+          branchIds: input.branchIds,
+          // Never the PIN, and never its hash. An audit log that records credentials turns
+          // a read of the log into a compromise of every account it mentions.
+        },
+      });
+
       return { id, username: input.username, role: input.role, branchIds: input.branchIds };
     });
   }
@@ -193,6 +225,12 @@ export class ManagementService {
       user.deletedAt = new Date();
       user.changeSeq = await this.changeSeq.next(em, scope.tenantId);
       await repo.save(user);
+
+      await this.audit.record(em, scope, {
+        type: 'audit.user_deactivated',
+        streamId: user.id,
+        payload: { username: user.username, role: user.role },
+      });
       return { id: user.id, deactivated: true };
     });
   }
@@ -237,6 +275,12 @@ export class ManagementService {
         changeSeq: await this.changeSeq.next(em, scope.tenantId),
         deletedAt: null,
       });
+      await this.audit.record(em, scope, {
+        type: 'audit.product_created',
+        streamId: id,
+        payload: { name: input.name, unit: input.unit, priceSantim: input.priceSantim },
+      });
+
       return { id, name: input.name, priceSantim: input.priceSantim };
     });
   }
@@ -262,6 +306,19 @@ export class ManagementService {
       product.currentPriceSantim = priceSantim;
       product.changeSeq = await this.changeSeq.next(em, scope.tenantId);
       await repo.save(product);
+
+      // The entry Vision §2.1.1 is really about: a price changed at 11pm by somebody who
+      // should not have is a finding an owner wants, controlled substance or not.
+      await this.audit.record(em, scope, {
+        type: 'audit.price_changed',
+        streamId: product.id,
+        payload: {
+          productName: product.name,
+          previousPriceSantim: previous,
+          priceSantim,
+          deltaSantim: priceSantim - previous,
+        },
+      });
 
       return { id: product.id, previousPriceSantim: previous, priceSantim };
     });

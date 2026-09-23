@@ -347,8 +347,9 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-2 (+ matrix) | §8, §5.1 | **matrix: `packages/contracts/src/permissions.ts`** (generated into Dart) · enforcement: `api/src/common/auth/{capability.guard,branch-scope}.ts`, `api/src/modules/admin/` · client: `mobile/lib/core/permissions.dart` | `g1-permission-matrix.spec.ts` (21), `permissions_test.dart` (11), `g1-report-scoping.spec.ts` (17) | **Done** — every role × capability cell tested at both layers (`05-qa` §10); AC-2.1 verified on both. Platform-Admin capabilities are declared and denied to every tenant role; their own surface is FR-1 billing, still open. |
 | FR-3 inventory (FEFO, negative stock) | §5.3, §10 | `api/src/modules/inventory/inventory.service.ts`, `mobile/lib/data/catalog_repository.dart`, `api/src/modules/reporting/stock-report.service.ts` | `g5-oversell-detected.spec.ts`, `fefo_test.dart`, `g1-report-scoping.spec.ts` | Skeleton + **BR-3.4 expiry alerting done**; E-4.2 expired-stock override still open |
 | FR-4 POS (standard sale) | §5.4 | `mobile/lib/data/sale_repository.dart`, `api/src/modules/sync/sync.service.ts` | `mobile/test/guardian/g7_offline_durability_test.dart` | Skeleton |
-| FR-4 psychotropic rules | §6.4 | — | — | **Gated on A-1** (Phase 2) |
-| FR-6 controlled ledger + audit | §5.6, §6 | — | — | **Gated on A-1** (Phase 2) |
+| FR-4 psychotropic rules | §6.4 | — | — | **Gated on A-1.** Not built, not partially built, not behind a flag — the rules' shape is itself the regulatory answer (ADR-015). |
+| FR-6 — event store + **general audit log** | §5.6, §6 | `apps/api/src/migrations/EventStore`, `apps/api/src/modules/audit/`, `dashboard/src/pages/AuditPage.tsx` | `g3-ledger-immutability.spec.ts` (13) | **Done** for the non-regulated half (Vision §2.1.1). Append-only enforced by the database — UPDATE, DELETE and TRUNCATE all refused, including for the owner role. |
+| FR-6 — controlled-substance ledger | §5.6, §6 | — | — | **Gated on A-1.** No `controlled.*` event type exists and the `controlled_stock` stream has never been written to; a guardian assertion holds that true (ADR-015). |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`) | `api/test/guardian/g7-offline-resilience.spec.ts` | Skeleton |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}`, `dashboard/src/pages/CashUpPage.tsx` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `dashboard/src/pages/{SalesSummaryPage,StockPage}.tsx` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | FR-9 single-writer sync | §7, §10 | `api/src/modules/sync/`, `mobile/lib/{sync,data/outbox.dart}` | `api/test/guardian/g2-sync-integrity.spec.ts`, `mobile/test/guardian/g2_sync_integrity_test.dart` | Skeleton |
@@ -359,6 +360,15 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | NFR-3.4 API p95 | §7, §9 | one query per report; lateral aggregates, no N+1 | `test/perf/nfr3.perf-spec.ts` | **Met** — sync 33 ms / 500, dashboard ≤ 36 ms / 1000 |
 | NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
 | NFR-5 retention | §5.6, §5.8 | no `DELETE` grant to the app role; `deleted_at` on every table | schema-level; ledger retention is Phase 2 | Partial |
+
+**Phase 2 (partial, ADR-015).** The append-only event store and the general action audit log
+are built: who changed a price, added staff, or deactivated an account, recorded inside the
+transaction that did it. Immutability is enforced by the database rather than by convention.
+That half is product capability (Vision §2.1.1), asserts no regulatory fact, and gives the
+controlled-substance ledger infrastructure that has already carried real traffic.
+
+**The regulated half remains gated on A-1** and is not begun. G3 is therefore a *provisional*
+compliance suite in the sense of `05-qa` §8: it asserts the mechanism, not the numbers.
 
 **Phase 1 progress.** FR-8 is complete for V1's base report set: per-shift cash-up
 (AC-8.1), consolidated and per-branch sales summary (AC-8.2), and stock with expiry

@@ -70,14 +70,41 @@ export class TestHarness {
    * Wipes every table. Runs on the platform (owner) connection, because the application
    * role deliberately has no DELETE grant anywhere — nothing in this system is physically
    * deleted in production, and the grants say so.
+   *
+   * The `event` table refuses TRUNCATE outright (guardian G3), so the harness **explicitly
+   * suspends that guard and puts it back**. Two things make this acceptable here and
+   * impossible in production: it needs owner rights, which the application role does not
+   * have, and it is a statement somebody had to write on purpose — the trigger exists to
+   * stop an accidental mutation, not to be undroppable by the schema owner.
+   *
+   * The re-enable is asserted rather than assumed. A run that left the triggers off would
+   * make every G3 assertion pass against nothing, which is far worse than a failed reset.
    */
   async reset(): Promise<void> {
-    await this.platform.query(`
-      TRUNCATE oversell_event, applied_op, payment, sale_line, sale,
-               goods_receipt_line, goods_receipt, stock_batch, product,
-               user_branch, app_user, branch, tenant_change_seq, tenant
-      RESTART IDENTITY CASCADE;
-    `);
+    await this.platform.query(`ALTER TABLE "event" DISABLE TRIGGER USER;`);
+    try {
+      await this.platform.query(`
+        TRUNCATE event, oversell_event, applied_op, payment, sale_line, sale,
+                 goods_receipt_line, goods_receipt, stock_batch, product,
+                 user_branch, app_user, branch, tenant_change_seq, tenant
+        RESTART IDENTITY CASCADE;
+      `);
+    } finally {
+      await this.platform.query(`ALTER TABLE "event" ENABLE TRIGGER USER;`);
+    }
+
+    const triggers = await this.platform.query(
+      `SELECT tgname, tgenabled FROM pg_trigger
+        WHERE tgrelid = 'event'::regclass AND NOT tgisinternal`,
+    );
+    const disabled = triggers.filter((t: { tgenabled: string }) => t.tgenabled === 'D');
+    if (disabled.length > 0) {
+      throw new Error(
+        `the event log's append-only triggers are still disabled after reset: ` +
+          `${disabled.map((t: { tgname: string }) => t.tgname).join(', ')}. ` +
+          `Every G3 assertion would pass against nothing.`,
+      );
+    }
   }
 
   async seedTenant(code: string, productPriceSantim = 1500): Promise<SeededTenant> {

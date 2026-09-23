@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AuditPage } from './pages/AuditPage';
 import { CashUpPage } from './pages/CashUpPage';
 import { LoginPage } from './pages/LoginPage';
 import { SalesPage } from './pages/SalesPage';
@@ -15,7 +16,7 @@ import { clearSession, loadSession, saveSession, type Session } from './lib/sess
  * platform-admin surface proper — come with Phase 1. The navigation names them now so the
  * shape of the console is visible, and marks them as not yet built rather than pretending.
  */
-type Page = 'sales' | 'cash-up' | 'summary' | 'stock';
+type Page = 'sales' | 'cash-up' | 'summary' | 'stock' | 'audit';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
@@ -99,6 +100,12 @@ export function App() {
         >
           Synced sales
         </button>
+        <button
+          className={`nav-item${page === 'audit' ? ' active' : ''}`}
+          onClick={() => setPage('audit')}
+        >
+          Audit trail
+        </button>
 
         <div className="nav-group">Platform · Phase 1</div>
         <button className="nav-item" disabled title="Arrives with Phase 1">
@@ -140,6 +147,9 @@ export function App() {
           <StockPage session={session} onExpired={signOut} calendar={calendar} />
         )}
         {page === 'sales' && <SalesPage session={session} onExpired={signOut} />}
+        {page === 'audit' && (
+          <AuditPage session={session} onExpired={signOut} calendar={calendar} />
+        )}
         <p className="footnote">
           Signed in to <strong>{session.tenantCode}</strong> as {session.scope.role}.
           {contractVersion && <> Server contract v{contractVersion}.</>} Money is stored as integer

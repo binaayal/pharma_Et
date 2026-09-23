@@ -37,9 +37,16 @@ no regulated requirement can be marked done (`05-qa-and-test-strategy.md` §8, �
 
 ## 2. Sign-off record
 
-*No entries yet. Phase 0 built no regulated code, so none was required — the ledger, the
-audit log and the psychotropic rules are deliberately absent from the schema until A-1
-clears (see `04-system-design.md` §5.6, `02-srs.md` §7).*
+*No entries yet, and none is due.*
+
+Phase 2 has built the **event store** and the **general action audit log** (ADR-015). Neither
+required a sign-off, because neither asserts anything the directive governs: the audit log is
+staff accountability (Vision §2.1.1), and the store's append-only property is an
+architectural decision (ADR-004) that no reading of the directive would reverse.
+
+Still absent from the schema and the code, pending A-1: any `controlled.*` event type, the
+psychotropic dispensing rules, the controlled-stock projection, and **any retention period at
+all** — including a default. A guardian assertion holds the first of those true.
 
 <!-- Template — copy for each sign-off:
 

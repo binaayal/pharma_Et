@@ -3,6 +3,7 @@ import { Branch } from './branch.entity';
 import { GoodsReceipt, GoodsReceiptLine } from './goods-receipt.entity';
 import { Product } from './product.entity';
 import { Payment, Sale, SaleLine } from './sale.entity';
+import { DomainEvent } from './event.entity';
 import { CashUp, Shift } from './shift.entity';
 import { StockBatch } from './stock-batch.entity';
 import { AppliedOp, OversellEvent, TenantChangeSeq } from './sync.entity';
@@ -15,6 +16,7 @@ export * from './branch.entity';
 export * from './goods-receipt.entity';
 export * from './product.entity';
 export * from './sale.entity';
+export * from './event.entity';
 export * from './shift.entity';
 export * from './stock-batch.entity';
 export * from './sync.entity';
@@ -24,9 +26,10 @@ export * from './user-branch.entity';
 /**
  * The entity set as far as Phase 1 has built it.
  *
- * The controlled-substance `event` table, its projections, and subscriptions remain absent:
- * ADR-004's ledger is not something to half-build ahead of the A-1 compliance gate, and
- * nothing here should make it look closer than it is.
+ * The `event` table is present — it carries the general action audit log, which Vision
+ * §2.1.1 folds into V1 as product capability rather than compliance. What remains absent is
+ * the regulated subset: no `controlled.*` event type, no projection, no retention rule.
+ * ADR-015 draws that line and explains why it is where it is.
  */
 export const ALL_ENTITIES = [
   Tenant,
@@ -40,6 +43,7 @@ export const ALL_ENTITIES = [
   Payment,
   Shift,
   CashUp,
+  DomainEvent,
   GoodsReceipt,
   GoodsReceiptLine,
   AppliedOp,
