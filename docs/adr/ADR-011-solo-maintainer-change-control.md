@@ -53,11 +53,19 @@ Open the Files-changed view and read the whole diff there before merging, agains
 reviewer questions in `engineering/workflow.md` §7. Reading a diff in a different
 presentation, after the fact, catches things that reading it as you wrote it does not.
 
-**5. Merge commits, not squash, for curated multi-commit PRs.**
-§4 mandates squash merge. Squash exists to collapse the noise of review fixups — "address
-comments", "fix typo", "rebase" — which a solo PR does not accumulate. The commits here are
-already written to be read one at a time, so squashing them destroys the record for no gain.
-Single-commit PRs still land as one commit; linear history is preserved either way.
+**5. Rebase merge for curated multi-commit PRs; squash for noisy ones.**
+§4 mandates squash merge and linear history. Squash exists to collapse the noise of review
+fixups — "address comments", "fix typo", "rebase" — which a solo PR does not accumulate. The
+commits here are written to be read one at a time, so squashing them destroys the record for
+no gain.
+
+**Rebase merge** gives both: every curated commit lands as its own commit, and history stays
+linear. A merge commit would preserve the commits too, but it is not linear and GitHub's
+required-linear-history rule rejects it outright — so "merge commits" would be a rule that
+the branch protection immediately contradicts, which is exactly the failure this ADR exists
+to avoid.
+
+Squash still applies when a PR genuinely is a single idea arrived at messily.
 
 ## Consequences
 

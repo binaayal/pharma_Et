@@ -9,7 +9,7 @@
 
 | Piece | Where | Deployed by |
 |---|---|---|
-| **API + dashboard** | Fly.io — `pharmaet-staging`, single region (`fra`); image from `ghcr.io/<owner>/pharmaet/api` (GHCR rejects uppercase, so the repo name is lowercased) | `cd.yml` → `deploy-staging-api`, on every merge to `main` |
+| **API + dashboard** | Fly.io — `pharmaet-staging`, single region (`fra`); image from `ghcr.io/<owner>/<repo>/api`, lowercased (GHCR rejects uppercase, and this repo is `pharma_Et`) | `cd.yml` → `deploy-staging-api`, on every merge to `main` |
 | **Database** | Neon — managed PostgreSQL 16, its own backup schedule | migrations run from the API image as Fly's release command |
 | **Mobile** | built in CI; a signed internal-track build is Phase 1 | — |
 
@@ -124,7 +124,7 @@ the second tenant sees none of it.
 
 ```bash
 fly releases -a pharmaet-staging          # find the previous version
-fly deploy -a pharmaet-staging --image ghcr.io/<owner>/pharmaet/api:sha-<previous>
+fly deploy -a pharmaet-staging --image ghcr.io/binaayal/pharma_et/api:sha-<previous>
 ```
 
 Migrations are forward-only, so rollback is redeploying the previous **image**, never

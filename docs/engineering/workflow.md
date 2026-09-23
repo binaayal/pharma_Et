@@ -26,47 +26,31 @@ An item is not ready to pick up without:
 - [ ] An RTM row (`../02-srs.md` §6).
 - [ ] Known dependencies — **including whether it touches a controlled artifact** (§6).
 
-## 3. Branch protection — what is actually enforced
+## 3. Branch protection — what is enforced
 
-**Server-side branch protection is not available on this repository.** GitHub restricts both
-classic protection and rulesets to Pro, Team or public repositories; on a free private repo
-the API answers:
+**Active on `main`** since the repository was made public (branch protection is unavailable
+on a free private repo). Applied by `scripts/protect-main.sh`, which is the record of what
+the settings are:
 
-```
-403  Upgrade to GitHub Pro or make this repository public to enable this feature.
-```
-
-So be clear about what does and does not hold today:
-
-| | Enforced by | Bypassable? |
+| Rule | Setting | Why |
 |---|---|---|
-| CI gates on a PR | GitHub Actions | No — the checks run and their result is visible |
-| Controlled-artifact requirements | the `controlled-artifact` job (ADR-011) | No, for any change that goes through a PR |
-| "no direct pushes to `main`" | **a local `pre-push` hook only** | **Yes** — `--no-verify`, or any clone that has not run `scripts/install-hooks.sh` |
+| Pull request required | yes | No path to `main` except a reviewed, tested one |
+| Required approvals | **0** | You cannot approve your own PR; requiring 1 would block every merge (ADR-011) |
+| Required checks | `CI gate`, `controlled-artifact requirements`, `dependency audit`, `no secrets in the diff` | The gates that actually decide |
+| Strict (branch up to date) | yes | A green check on a stale branch proves nothing about `main` |
+| Linear history | yes | Determines the merge strategy — see §6 |
+| Force pushes / deletions | blocked | History is evidence in a regulated system |
+| Conversation resolution | required | A self-review comment cannot be left dangling |
+| Admin enforcement | **off** | So you can never lock yourself out of your own repository |
 
-Install the hook once per clone:
+The local `pre-push` hook stays as a first line — it fails in a second, before a round trip:
 
 ```bash
-./scripts/install-hooks.sh
+./scripts/install-hooks.sh     # once per clone
 ```
 
-It refuses a push to `main` and points at the PR flow. It is a **tripwire, not a gate** — it
-catches the 11pm "just this once", which is the failure it is meant for. It cannot catch
-someone who means it, and it does nothing on a fresh clone.
-
-**To get real enforcement**, one of:
-
-- **make the repository public** — protection and rulesets become free. The code and the
-  docs go with it, which is a product decision, not a workflow one; and note that
-  `docs/compliance-sign-off.md` and the ADRs would become public reading;
-- **GitHub Pro** — a few dollars a month, repository stays private.
-
-Either way the settings to apply are: require a PR, required approvals **0** (ADR-011 — you
-cannot approve your own), required checks `CI gate`, `controlled-artifact requirements`,
-`dependency audit`, `no secrets in the diff`, linear history, no force pushes, no deletions.
-`scripts/protect-main.sh` applies exactly that once the plan permits it.
-
-Until then the discipline is yours to keep, and the hook is the reminder.
+It is a convenience now rather than the only thing standing between a tired evening and a
+direct push. The gate is the protection; the hook is the fast failure.
 
 ## 4. Branches
 
@@ -128,10 +112,18 @@ The head-count is gone because it was unsatisfiable, not because the scrutiny wa
 What replaced it — the `controlled-artifact` job — is stricter in the way that matters: it
 cannot be forgotten at the end of a long day.
 
-Linear history. **Merge commits for curated multi-commit PRs**, squash for single-commit
-ones (ADR-011 §5: squash exists to collapse review-fixup noise, which a solo PR does not
-accumulate). No direct pushes to `main` — ever, including for a one-line hotfix; a hotfix is
-a fast PR, not an exception to the rule.
+Linear history, enforced. **Rebase merge** for a curated multi-commit PR — every commit
+lands as its own commit and history stays linear — and **squash** when a PR genuinely is one
+idea arrived at messily (ADR-011 §5).
+
+```bash
+gh pr merge <n> --rebase --delete-branch     # curated commits, each worth reading
+gh pr merge <n> --squash --delete-branch     # one idea, messy history
+```
+
+A merge commit is rejected by the linear-history rule, so it is not an option. No direct
+pushes to `main` — ever, including for a one-line hotfix; a hotfix is a fast PR, not an
+exception to the rule.
 
 ## 7. Controlled artifacts
 

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Applies branch protection to `main`.
 #
-# Requires GitHub Pro, Team, or a public repository — on a free private repo the API answers
-# 403 "Upgrade to GitHub Pro or make this repository public". Until then, the local pre-push
-# hook (scripts/install-hooks.sh) is the substitute, and it is a tripwire, not a gate.
+# Requires a public repository, or GitHub Pro/Team — on a free private repo the API answers
+# 403 "Upgrade to GitHub Pro or make this repository public".
 #
 # Settings come from docs/06 §4 as amended by ADR-011:
 #   - every change through a PR
@@ -11,6 +10,10 @@
 #     rule that has to be switched off to ship is worse than no rule
 #   - the four required checks, with "strict" so a branch must be up to date with main
 #   - linear history, no force pushes, no deletions
+#   - enforce_admins off, so the owner can never be locked out of their own repository
+#
+# Linear history DECIDES THE MERGE STRATEGY: rebase for a curated multi-commit PR, squash
+# for a messy one. A merge commit is rejected. See docs/engineering/workflow.md §6.
 set -euo pipefail
 
 REPO="${1:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
