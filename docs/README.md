@@ -66,6 +66,7 @@ answer, permanently.
 | [ADR-011](adr/ADR-011-solo-maintainer-change-control.md) | Change control for a single maintainer | Accepted |
 | [ADR-012](adr/ADR-012-extending-the-sync-envelope.md) | Extending the sync envelope; terminal vs server computation | Accepted |
 | [ADR-013](adr/ADR-013-permission-matrix-as-contract.md) | The FR-2 permission matrix is a contract artifact | Accepted |
+| [ADR-014](adr/ADR-014-calendar-implemented-twice.md) | The Ethiopian calendar is implemented twice, verified once | Accepted |
 
 ---
 
