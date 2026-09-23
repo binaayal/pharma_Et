@@ -69,6 +69,41 @@ evidence of what they actually agreed to. When the two disagree, that is a findi
 surface — usually queued sales, occasionally something worse — and it is exactly the signal
 an owner deploying this product for anti-shrinkage wants.
 
+### 4. Counting the drawer closes the till, server-side
+
+A `cash_up` operation closes its shift if the shift is still open.
+
+The client already pushes a shift close immediately before the cash-up, so in normal
+operation this does nothing. It exists for the case where it does: a terminal that applied
+the cash-up and then died before the close reached the server leaves the shift open
+**permanently**, and the next morning's shift creation fails on the
+`shift_one_open_per_user_terminal` index with a constraint error that says nothing about
+the cause. A pharmacy experiences that as the app refusing to open, on a day when nothing
+appears to have changed.
+
+Closing it here makes the rule follow the domain rather than the client: counting the
+drawer *is* ending the shift, whoever records it. Re-closing at the same instant is a
+no-op — a retried batch, or the client's own close arriving second. Re-closing at a
+**different** instant is still refused, because two close times for one till session make
+the cash-up unattributable, and that is a genuine conflict rather than a duplicate.
+
+### 5. The request body limit is derived from the contract, not chosen
+
+`pushRequest` caps a batch at 500 operations, which for realistic sales is about 770 KB.
+Express defaults to 100 KB. The server must therefore raise its body limit explicitly, and
+the value must be **derived from the contract cap** rather than picked — a limit chosen by
+taste drifts below the contract the moment the envelope grows.
+
+This is not a tuning detail. A terminal returning from the 72-hour outage NFR-1.1
+guarantees pushes exactly such a batch; a 413 means nothing is acknowledged, the whole
+outbox stays queued, and every retry fails identically. The product's central promise
+breaks precisely in the situation it was built for, silently, and only for the customers
+who were offline longest.
+
+Guarded by a test that pushes a full 500-operation batch, and mirrored in the test harness
+— a harness with a more generous limit than the server would let that assertion pass
+against a server that does not exist.
+
 ## Rationale
 
 - Versioning the contract on MINOR for additive change keeps ADR-009's window meaningful
@@ -109,3 +144,8 @@ an owner deploying this product for anti-shrinkage wants.
 |---|---|---|---|
 | **1.0.0** | 2026-09-22 | Initial envelope: `sale`, `goods_receipt` (`04` §7) | — |
 | **1.1.0** | 2026-09-23 | Adds `shift` and `cash_up` entity types (FR-8). Pull response unchanged. | Additive. A 1.0.0 client is fully served; a 1.1.0 client against a 1.0.0 server has its new operations `rejected` with a reason and retried later, never dropped. |
+
+**Apply-side semantics added 2026-09-23 without a version change** (§4, §5 above): a
+`cash_up` now closes its shift if still open, and the server's body limit is derived from
+the batch cap. Neither alters the envelope, so no client needs to know — which is the test
+for whether something belongs in the version log or only in this ADR.
