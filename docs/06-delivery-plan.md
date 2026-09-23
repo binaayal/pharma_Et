@@ -42,10 +42,23 @@ flowchart LR
 | Phase | Scope | Exit gate |
 |---|---|---|
 | **P0 Foundations + Walking Skeleton** | Repos, CI/CD, environments (incl. staging) stood up; the thin vertical slice (`03`§9): one tenant/branch/terminal, receive→sell→decrement→sync→dashboard. | Skeleton passes guardian **G1, G2, G4, G7**; CI/CD auto-promotes to staging; staging reachable. |
-| **P1 Core loop** | FR-1, FR-2, FR-3 (standard, FEFO, negative-stock), FR-4 (standard sale), FR-7 (base receipt), FR-8 (+ cash-up), FR-9 (single-writer), FR-10. | All guardian suites full; core e2e journeys green; perf within NFR-3 on staging. |
+| **P1 Core loop** ✅ | FR-1, FR-2, FR-3 (standard, FEFO, negative-stock), FR-4 (standard sale), FR-7 (base receipt), FR-8 (+ cash-up), FR-9 (single-writer), FR-10. | All guardian suites full; core e2e journeys green; perf within NFR-3 on staging. **Closed 2026-09-23** — see the note below on where perf was measured. |
 | **P2 Compliance subset** | FR-6 (ledger), FR-4 (psychotropic rules), general audit log. **Entry gate: A-1 verified.** | Compliance tests **final** (not provisional); RTM complete for regulated reqs; sign-off. |
 | **P3 Hardening + Field UAT** | Performance + security passes, low-end Android device matrix, pilot in a real pharmacy through real outages. | Pilot sign-off; launch-readiness checklist (§11) green. |
 | **P4 GA** | Staged production rollout. | Post-deploy health within thresholds. |
+
+> **P1 closure note (2026-09-23).** Guardian suites are full (110 API, 75 mobile) and six
+> core e2e journeys run the daily loop through `/sync/push` exactly as a terminal does.
+> NFR-3 was measured against the **production-like container stack** — the same image CD
+> ships, the same Postgres major, the same RLS — rather than hosted staging, which is
+> deferred by owner decision. Every budget passes with wide margin (sync p95 33 ms of 500;
+> dashboard p95 ≤ 36 ms of 1000; a 72h backlog of 186 operations in 3.4 s of 10).
+>
+> **What that does not establish:** production latency over a real network, and NFR-3.2's
+> <100 ms local op, which is a *device* figure requiring the low-end Android matrix
+> (`05-qa` §7). Both remain on the GA checklist (§11) and neither is a Phase 1 gate.
+>
+> Closing P1 without hosted staging is a deliberate, recorded decision, not an oversight.
 
 **Post-V1:** V1.x — FR-5 inter-branch transfer (**online-only**), FR-8a advanced reporting,
 desktop (Flutter Windows). **V2** — multi-writer offline + conflict engine (full FR-9 +

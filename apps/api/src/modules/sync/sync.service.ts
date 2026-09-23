@@ -275,10 +275,15 @@ export class SyncService {
       return;
     }
 
-    // Closing an already-closed shift is refused rather than silently re-closed: two
-    // different close times for one till session make the cash-up unattributable.
     if (existing.closedAt && payload.closedAt) {
-      throw new Error('shift is already closed');
+      // Re-closing at the same instant is a no-op: a retried batch, or the client's close
+      // arriving after the cash-up already closed the shift. Re-closing at a DIFFERENT
+      // instant is refused — two close times for one till session make the cash-up
+      // unattributable, and that is a real conflict rather than a duplicate.
+      if (existing.closedAt.getTime() !== new Date(payload.closedAt).getTime()) {
+        throw new Error('shift is already closed at a different time');
+      }
+      return;
     }
     existing.closedAt = payload.closedAt ? new Date(payload.closedAt) : null;
     existing.openingFloatSantim = payload.openingFloatSantim;
@@ -333,6 +338,17 @@ export class SyncService {
       changeSeq: 0,
       deletedAt: null,
     });
+
+    // Counting the drawer IS closing the till, so the shift closes here if it is still
+    // open. The client normally pushes the close first and this does nothing — but a client
+    // that crashed between the two would otherwise leave the till open forever, and the
+    // next day's shift would fail on the one-open-shift-per-user index with an error that
+    // says nothing about the cause. A pharmacy would experience that as the app refusing to
+    // open in the morning.
+    if (!shift.closedAt) {
+      shift.closedAt = new Date(payload.countedAt);
+      await em.getRepository(Shift).save(shift);
+    }
   }
 
   /**

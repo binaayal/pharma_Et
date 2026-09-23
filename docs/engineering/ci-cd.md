@@ -25,6 +25,8 @@ changed paths ────┼── api ─── lint ── typecheck ── u
 | **Contract tests, current + N-1** | `api`, `mobile` | An offline terminal may reconnect on the previous contract (ADR-009). |
 | **No-unscoped-access** | `api` | A single unscoped query is a cross-tenant leak waiting to happen (ADR-007). |
 | **Migration + RLS policy check** | `api` | Migrations must apply cleanly *and* leave RLS policies in force. |
+| **Core e2e journeys** | `api` | The daily loop as a pharmacy performs it, pushed through `/sync/push` in outbox order. Phase 1 exit gate (`../06` §2). |
+| **NFR-3 budgets** | `api` | Sync p95, dashboard p95, a 72h backlog, and an index behind every tenant predicate. Measured, and printed with margins. |
 | **Per-tier coverage** | `api`, `mobile` | T1 ≥ 90% branch, T2 ≥ 80% line (`../05-qa` §3). Trend, not vanity. |
 | **Dependency scan** | `security` | No high-severity advisories. |
 

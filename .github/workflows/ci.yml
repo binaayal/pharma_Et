@@ -151,6 +151,18 @@ jobs:
       - name: Guardian suites (the merge gate — no override, no retry)
         run: pnpm --filter @pharmaet/api test:guardian
 
+      - name: Core end-to-end journeys (Phase 1 exit gate)
+        # Guardian suites prove invariants in isolation; these prove the journey a pharmacy
+        # actually performs, pushed through /sync/push in outbox order as a terminal does.
+        run: pnpm --filter @pharmaet/api test:e2e
+
+      - name: NFR-3 performance budgets
+        # Budgets from the SRS, not observations dressed up as targets. Passing proves the
+        # shape of the work — one query per report, indexes behind every tenant predicate,
+        # no N+1 in the sync path. It does not prove production latency; that is a launch
+        # checklist item against hosted staging (docs/06 §11).
+        run: pnpm --filter @pharmaet/api test:perf
+
   dashboard:
     name: dashboard · lint, typecheck, test, build
     needs: changes

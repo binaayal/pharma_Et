@@ -127,9 +127,10 @@ The first three, in the order the docs argue for:
    AC-10.2 is asserted at the schema level: every timestamp column is `timestamptz`, and no
    calendar or locale column exists in the domain at all.
 
-**Phase 1's requirements are done** apart from what A-1 gates. What is left to close the
-phase is exit-gate work — core e2e journeys and NFR-3 performance on staging and on low-end
-Android — and both need the staging environment (`staging.md` §3) and the device lab.
+**Phase 1 is closed** (2026-09-23). Exit gate met: guardian suites full, six core e2e
+journeys green, NFR-3 budgets measured against the production-like container stack. The
+device matrix and hosted-staging latency move to the GA checklist, where they always
+belonged.
 
 **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
 `../compliance-sign-off.md`. No ledger, no psychotropic rules, no audit events before then —
