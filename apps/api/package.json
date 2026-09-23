@@ -2,7 +2,7 @@
   "name": "@pharmaet/api",
   "version": "0.1.0",
   "private": true,
-  "description": "PharmaEt backend \u2014 NestJS modular monolith over PostgreSQL with RLS",
+  "description": "PharmaEt backend — NestJS modular monolith over PostgreSQL with RLS",
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
@@ -32,6 +32,7 @@
     "@nestjs/core": "^10.4.4",
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/platform-express": "^10.4.4",
+    "@nestjs/serve-static": "^4.0.2",
     "@nestjs/typeorm": "^10.0.2",
     "@pharmaet/contracts": "workspace:*",
     "argon2": "^0.41.1",

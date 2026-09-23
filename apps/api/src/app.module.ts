@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
+import { StaticModule } from './modules/static/static.module';
 import { SyncModule } from './modules/sync/sync.module';
 
 /**
@@ -63,6 +64,9 @@ function appConnectionUrl(config: ConfigService): string {
     }),
 
     DbModule,
+    // Serves the dashboard bundle when the image contains one (docs/03 §7). Registered
+    // after the feature modules so their routes win; the static handler is the fallback.
+    StaticModule,
     AuthModule,
     InventoryModule,
     SyncModule,

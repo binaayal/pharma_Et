@@ -2,7 +2,13 @@ name: CD
 
 # The promotion path (docs/06-delivery-plan.md §6.2):
 #
-#   merge → build artifacts → verify the stack end to end → deploy staging → smoke → [gate] → production
+#   merge → build image (API + dashboard) → verify end to end → deploy staging → smoke → [gate] → production
+#
+# The dashboard is built INTO the API image and served by it (docs/03 §7), so there is one
+# artifact, one origin and one deploy target. GitHub Pages was the alternative and is not
+# available on a free private repository — but same-origin is the better answer regardless:
+# it removes CORS from the picture and makes it impossible to run a console against a server
+# it was not built for.
 #
 # The verification step is the part worth pointing at. Before anything reaches a hosted
 # environment, CD stands up the *built image* against a real Postgres, runs the real
@@ -96,6 +102,17 @@ jobs:
       - name: Smoke the walking skeleton over HTTP
         run: ./scripts/smoke.sh http://localhost:3100/api
 
+      - name: Confirm the dashboard ships in the image
+        run: |
+          curl -fsS http://localhost:3100/ | grep -q '<div id="root">' \
+            && echo "dashboard served from the API" \
+            || { echo "::error::the dashboard bundle is missing from the image"; exit 1; }
+          # An unmatched /api route must still 404, not fall through to index.html — a 200
+          # full of HTML is a corrupt response as far as any client is concerned.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/api/nope)
+          [ "$code" = "404" ] || { echo "::error::/api fell through to the SPA (got $code)"; exit 1; }
+          echo "unmatched /api routes still 404"
+
       - name: Prove the migration is re-runnable (idempotent, forward-only)
         env:
           API_IMAGE: ${{ needs.image.outputs.image }}:${{ needs.image.outputs.tag }}
@@ -170,44 +187,19 @@ jobs:
         if: steps.configured.outputs.configured == 'true'
         run: ./scripts/smoke.sh https://pharmaet-staging.fly.dev/api
 
-  # ------------------------------------------------------ deploy dashboard
-  deploy-staging-dashboard:
-    name: deploy dashboard to GitHub Pages
-    needs: verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '22', cache: 'pnpm' }
-      - run: pnpm install --frozen-lockfile
-
-      - name: Build for Pages
-        env:
-          # Pages serves a project site under /<repo>/, and the API lives on another origin,
-          # so both are baked in at build time. The API's CORS_ORIGINS must name this origin
-          # or every request from the console is blocked.
-          BASE_PATH: /${{ github.event.repository.name }}/
-          VITE_API_BASE_URL: ${{ vars.STAGING_API_BASE_URL || 'https://pharmaet-staging.fly.dev/api' }}
-        run: pnpm --filter @pharmaet/dashboard build
-
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with: { path: apps/dashboard/dist }
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Confirm the dashboard is served from the same origin
+        if: steps.configured.outputs.configured == 'true'
+        run: |
+          # The console and the API are one deployment. If this 404s, the bundle did not
+          # make it into the image and staging is only half there.
+          curl -fsS https://pharmaet-staging.fly.dev/ | grep -q '<div id="root">' \
+            && echo "dashboard served at https://pharmaet-staging.fly.dev/" \
+            || { echo "::error::the dashboard bundle is not in the image"; exit 1; }
 
   # ------------------------------------------------------------- production
   deploy-production:
     name: deploy to production
-    needs: [image, deploy-staging-api, deploy-staging-dashboard]
+    needs: [image, deploy-staging-api]
     if: github.event_name == 'workflow_dispatch' && inputs.deploy_production
     runs-on: ubuntu-latest
     # A protected environment with required reviewers is the manual release gate
