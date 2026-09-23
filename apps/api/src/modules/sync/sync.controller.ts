@@ -8,6 +8,7 @@ import {
   pullQuery,
   pushRequest,
 } from '@pharmaet/contracts';
+import { AllowWhenSuspended } from '../../common/auth/allow-when-suspended.decorator';
 import { CurrentScope } from '../../common/auth/current-scope.decorator';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { ZodValidationPipe } from '../../common/http/zod-validation.pipe';
@@ -17,7 +18,21 @@ import { SyncService } from './sync.service';
 export class SyncController {
   constructor(private readonly sync: SyncService) {}
 
+  /**
+   * **Allowed while the subscription is suspended (ADR-016).**
+   *
+   * These operations are records of things that already happened — money taken, receipts
+   * printed, stock gone from the shelf. Refusing them leaves them in an outbox that retries
+   * forever until the device is replaced, at which point a pharmacy's real trading records
+   * are destroyed over a billing dispute. Vision §6 puts "never lose a regulated record"
+   * second only to "the daily loop never breaks", and a system that deletes a customer's
+   * books when they are late paying honours neither.
+   *
+   * Suspension's lever is the loss of the console and of management writes, never the
+   * destruction of data we do not own.
+   */
   @Post('push')
+  @AllowWhenSuspended()
   push(
     @CurrentScope() scope: TenantScope,
     @Body(new ZodValidationPipe(pushRequest)) body: PushRequest,

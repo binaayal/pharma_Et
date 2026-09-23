@@ -61,3 +61,14 @@ jobs:
             exit 1
           fi
           echo "no tokens or private keys in tracked files"
+
+          # Payment screenshots are somebody's bank app. They belong in object storage, and
+          # this repository is public. A local development directory is one `git add -A`
+          # away from being published, which is how this check earned its place.
+          PROOFS=$(git ls-files | grep -E '(^|/)\.payment-proofs/|(^|/)proofs/' || true)
+          if [ -n "$PROOFS" ]; then
+            echo "$PROOFS"
+            echo "::error::payment proof images are tracked; they belong in object storage"
+            exit 1
+          fi
+          echo "no payment screenshots in tracked files"

@@ -196,21 +196,30 @@ describe('NFR-3 — performance budgets', () => {
       );
     }
 
+    // Every table that HAS a tenant_id carries an index on it. RLS adds that predicate to
+    // every query whether the author wrote it or not, so a tenant-scoped table without one
+    // is a guaranteed sequential scan at 1,000 tenants.
+    //
+    // Scoped by "has the column" rather than by an exclusion list, so it stays true on its
+    // own: a new tenant table without an index fails, and a legitimately non-tenant table
+    // — `platform_admin`, which is us and has no tenant_id at all — never has to be
+    // remembered and added to a list somebody would eventually pad to make a test pass.
     const missing = await harness.platformDataSource.query(`
       SELECT c.relname AS table
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE n.nspname = 'public' AND c.relkind = 'r'
-         AND c.relname NOT IN ('migrations', 'tenant')
+         AND c.relname <> 'migrations'
+         AND EXISTS (
+           SELECT 1 FROM pg_attribute a
+            WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped
+         )
          AND NOT EXISTS (
            SELECT 1 FROM pg_index i
              JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = ANY(i.indkey)
             WHERE i.indrelid = c.oid AND a.attname = 'tenant_id'
          )
     `);
-    // Every tenant-scoped table carries an index on tenant_id. RLS adds that predicate to
-    // every query whether the author wrote it or not, so a table without one is a
-    // guaranteed scan at scale.
     expect(missing).toEqual([]);
   });
 });

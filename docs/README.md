@@ -69,6 +69,7 @@ answer, permanently.
 | [ADR-013](adr/ADR-013-permission-matrix-as-contract.md) | The FR-2 permission matrix is a contract artifact | Accepted |
 | [ADR-014](adr/ADR-014-calendar-implemented-twice.md) | The Ethiopian calendar is implemented twice, verified once | Accepted |
 | [ADR-015](adr/ADR-015-audit-log-before-a1.md) | Event store and audit log built before A-1; the regulated subset is not | Accepted |
+| [ADR-016](adr/ADR-016-what-suspension-blocks.md) | What a suspended subscription blocks — management writes only | Accepted |
 
 ---
 
@@ -85,7 +86,8 @@ answer, permanently.
 
 ## Current status (V1)
 
-Phase: **Phase 1 CLOSED** (2026-09-23) · **Phase 2 in progress, partially** — the event store
+Phase: **Phase 1 CLOSED** (2026-09-23) · **FR-1 platform surface complete** · **Phase 2 in
+progress, partially** — the event store
 and the general audit log are built; the regulated subset is not, and will not be until
 `[ASSUMPTION]` A-1 is verified. The split, and why it is where it is, is
 [ADR-015](adr/ADR-015-audit-log-before-a1.md).
