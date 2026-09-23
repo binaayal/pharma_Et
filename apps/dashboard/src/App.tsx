@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { CashUpPage } from './pages/CashUpPage';
 import { LoginPage } from './pages/LoginPage';
 import { SalesPage } from './pages/SalesPage';
+import { SalesSummaryPage } from './pages/SalesSummaryPage';
+import { StockPage } from './pages/StockPage';
 import { api } from './lib/api';
 import { clearSession, loadSession, saveSession, type Session } from './lib/session';
 
@@ -12,7 +14,7 @@ import { clearSession, loadSession, saveSession, type Session } from './lib/sess
  * platform-admin surface proper — come with Phase 1. The navigation names them now so the
  * shape of the console is visible, and marks them as not yet built rather than pretending.
  */
-type Page = 'sales' | 'cash-up';
+type Page = 'sales' | 'cash-up' | 'summary' | 'stock';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
@@ -61,6 +63,18 @@ export function App() {
           Cash reconciliation
         </button>
         <button
+          className={`nav-item${page === 'summary' ? ' active' : ''}`}
+          onClick={() => setPage('summary')}
+        >
+          Sales summary
+        </button>
+        <button
+          className={`nav-item${page === 'stock' ? ' active' : ''}`}
+          onClick={() => setPage('stock')}
+        >
+          Stock &amp; expiry
+        </button>
+        <button
           className={`nav-item${page === 'sales' ? ' active' : ''}`}
           onClick={() => setPage('sales')}
         >
@@ -85,11 +99,10 @@ export function App() {
       </aside>
 
       <main className="main">
-        {page === 'cash-up' ? (
-          <CashUpPage session={session} onExpired={signOut} />
-        ) : (
-          <SalesPage session={session} onExpired={signOut} />
-        )}
+        {page === 'cash-up' && <CashUpPage session={session} onExpired={signOut} />}
+        {page === 'summary' && <SalesSummaryPage session={session} onExpired={signOut} />}
+        {page === 'stock' && <StockPage session={session} onExpired={signOut} />}
+        {page === 'sales' && <SalesPage session={session} onExpired={signOut} />}
         <p className="footnote">
           Signed in to <strong>{session.tenantCode}</strong> as {session.scope.role}.
           {contractVersion && <> Server contract v{contractVersion}.</>} Money is stored as integer

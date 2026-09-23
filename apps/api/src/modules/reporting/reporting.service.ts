@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { Branch, OversellEvent, Sale } from '../../entities';
+import { resolveBranchFilter } from '../../common/auth/branch-scope';
 import { CashUpService, type ShiftReconciliation } from '../cashup/cash-up.service';
+import { SalesSummaryService, type SalesSummary } from './sales-summary.service';
+import { StockReportService, type StockReport } from './stock-report.service';
 
 export interface SyncedSaleRow {
   id: string;
@@ -27,7 +30,36 @@ export class ReportingService {
   constructor(
     private readonly db: ScopedDbService,
     private readonly cashUp: CashUpService,
+    private readonly salesSummary: SalesSummaryService,
+    private readonly stockReport: StockReportService,
   ) {}
+
+  /**
+   * Daily sales summary (AC-8.2), consolidated and per branch.
+   *
+   * The window is half-open — `from` inclusive, `to` exclusive — so that consecutive days
+   * tile exactly and a sale rung up at midnight is counted once rather than twice or never.
+   */
+  async salesSummaryReport(
+    scope: TenantScope,
+    options: { from: Date; to: Date; branchId?: string },
+  ): Promise<SalesSummary> {
+    const branchIds = resolveBranchFilter(scope, options.branchId);
+    return this.db.runInScope(scope, (em) =>
+      this.salesSummary.summarise(em, { from: options.from, to: options.to, branchIds }),
+    );
+  }
+
+  /** Stock and expiry alerting (BR-3.4). */
+  async stock(
+    scope: TenantScope,
+    options: { branchId?: string; expiringWithinDays: number },
+  ): Promise<StockReport> {
+    const branchIds = resolveBranchFilter(scope, options.branchId);
+    return this.db.runInScope(scope, (em) =>
+      this.stockReport.report(em, { branchIds, expiringWithinDays: options.expiringWithinDays }),
+    );
+  }
 
   async recentSales(scope: TenantScope, limit = 50): Promise<SyncedSaleRow[]> {
     return this.db.runInScope(scope, async (em) => {

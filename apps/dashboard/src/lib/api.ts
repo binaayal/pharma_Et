@@ -91,6 +91,53 @@ export interface ShiftReconciliation {
   note: string | null;
 }
 
+export interface BranchSalesRow {
+  branchId: string;
+  branchName: string;
+  saleCount: number;
+  grossSantim: number;
+  cashSantim: number;
+  otherTenderSantim: number;
+  itemsSold: number;
+}
+
+export interface SalesSummary {
+  from: string;
+  to: string;
+  branches: BranchSalesRow[];
+  total: Omit<BranchSalesRow, 'branchId' | 'branchName'>;
+  /** When the most recent sale in this window actually reached the server (BR-8.1). */
+  lastSyncedAt: string | null;
+}
+
+export interface StockRow {
+  batchId: string;
+  branchId: string;
+  branchName: string;
+  productId: string;
+  productName: string;
+  unit: string;
+  lotNo: string;
+  expiryDate: string;
+  qtyOnHand: number;
+  daysToExpiry: number;
+  status: 'expired' | 'expiring' | 'oversold' | 'ok';
+  valueSantim: number;
+}
+
+export interface StockReport {
+  asOf: string;
+  expiringWithinDays: number;
+  rows: StockRow[];
+  summary: {
+    expiredBatches: number;
+    expiringBatches: number;
+    oversoldBatches: number;
+    expiredValueSantim: number;
+    expiringValueSantim: number;
+  };
+}
+
 export const api = {
   login: (body: LoginRequest) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
@@ -100,6 +147,12 @@ export const api = {
   oversells: (token: string) => request<OversellRow[]>('/reports/oversells', {}, token),
 
   cashUps: (token: string) => request<ShiftReconciliation[]>('/reports/cash-up', {}, token),
+
+  salesSummary: (token: string, from: string, to: string) =>
+    request<SalesSummary>(`/reports/sales-summary?from=${from}&to=${to}`, {}, token),
+
+  stock: (token: string, expiringWithinDays: number) =>
+    request<StockReport>(`/reports/stock?expiringWithinDays=${expiringWithinDays}`, {}, token),
 
   health: () => request<{ status: string; contractVersion: string }>('/health'),
 };

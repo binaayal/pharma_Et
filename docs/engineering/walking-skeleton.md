@@ -114,9 +114,13 @@ The first three, in the order the docs argue for:
 1. ~~**Per-shift cash reconciliation (FR-8, cash-up/Z-report).**~~ ✅ **Done.** Contract
    v1.1.0 (ADR-012), offline shift lifecycle, server-side recomputation kept beside the
    terminal's figure, and the owner's console view. 22 guardian assertions.
+1b. ~~**The rest of FR-8's base reports.**~~ ✅ **Done.** Consolidated and per-branch sales
+   summary (AC-8.2) and stock with expiry alerting (BR-3.4), both branch-scoped by role.
+   17 further assertions.
 2. **The full FR-2 permission matrix**, every role × capability cell tested at both layers
-   (`../05-qa-and-test-strategy.md` §10). Phase 0 has owner/manager/cashier and one guard;
-   cash-up added the first ownership check (a cashier reads only their own shift).
+   (`../05-qa-and-test-strategy.md` §10). Branch scoping (**T** vs **B**) is now enforced
+   and tested; what remains is the write-side capabilities — managing branches, staff,
+   products and pricing — which have no endpoints yet.
 3. **FR-10 localization** — Amharic and the Ethiopian calendar. Table stakes for adoption,
    and the presentation-layer seams for it already exist (`money.dart`, `format.ts`).
 

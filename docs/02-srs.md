@@ -344,13 +344,13 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | Req ID | Design ref (`04-system-design.md`) | Implementation | Test ref | Status |
 |---|---|---|---|---|
 | FR-1 tenant/branch | §5.1 | `api/src/entities/{tenant,branch}.entity.ts`, `migrations/InitialSchema` | `api/test/guardian/g1-tenant-isolation.spec.ts` | Skeleton |
-| FR-2 (+ matrix) | §8, §5.1 | `api/src/modules/auth/`, `common/auth/{jwt-auth,roles}.guard.ts`, `mobile/lib/auth/session.dart` | G1 suite; role-denial asserted end-to-end | Skeleton — full role × capability matrix is Phase 1 |
-| FR-3 inventory (FEFO, negative stock) | §5.3, §10 | `api/src/modules/inventory/inventory.service.ts`, `mobile/lib/data/catalog_repository.dart` | `api/test/guardian/g5-oversell-detected.spec.ts`, `mobile/test/unit/fefo_test.dart` | Skeleton |
+| FR-2 (+ matrix) | §8, §5.1 | `api/src/modules/auth/`, `common/auth/{jwt-auth.guard,roles.guard,branch-scope}.ts`, `mobile/lib/auth/session.dart` | G1 suites; branch-scope denial asserted per report | Partial — **branch scoping (T vs B) now enforced and tested**; the full role × capability matrix is the next slice |
+| FR-3 inventory (FEFO, negative stock) | §5.3, §10 | `api/src/modules/inventory/inventory.service.ts`, `mobile/lib/data/catalog_repository.dart`, `api/src/modules/reporting/stock-report.service.ts` | `g5-oversell-detected.spec.ts`, `fefo_test.dart`, `g1-report-scoping.spec.ts` | Skeleton + **BR-3.4 expiry alerting done**; E-4.2 expired-stock override still open |
 | FR-4 POS (standard sale) | §5.4 | `mobile/lib/data/sale_repository.dart`, `api/src/modules/sync/sync.service.ts` | `mobile/test/guardian/g7_offline_durability_test.dart` | Skeleton |
 | FR-4 psychotropic rules | §6.4 | — | — | **Gated on A-1** (Phase 2) |
 | FR-6 controlled ledger + audit | §5.6, §6 | — | — | **Gated on A-1** (Phase 2) |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`) | `api/test/guardian/g7-offline-resilience.spec.ts` | Skeleton |
-| FR-8 reporting + cash-up | §5.4, §9 | `api/src/modules/cashup/cash-up.service.ts`, `mobile/lib/data/shift_repository.dart`, `mobile/lib/ui/cash_up_screen.dart`, `dashboard/src/pages/CashUpPage.tsx` | `api/test/guardian/g4-cash-up.spec.ts` (12), `mobile/test/guardian/g4_cash_up_test.dart` (10) | **Done** for cash-up (AC-8.1); daily sales summary (AC-8.2), stock/expiry report still open |
+| FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}`, `dashboard/src/pages/CashUpPage.tsx` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `dashboard/src/pages/{SalesSummaryPage,StockPage}.tsx` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | FR-9 single-writer sync | §7, §10 | `api/src/modules/sync/`, `mobile/lib/{sync,data/outbox.dart}` | `api/test/guardian/g2-sync-integrity.spec.ts`, `mobile/test/guardian/g2_sync_integrity_test.dart` | Skeleton |
 | FR-10 localization | §3 | UTC storage + edge formatting seams (`mobile/lib/core/money.dart`, `dashboard/src/lib/format.ts`) | `g4` suites | Open — Amharic + Ethiopian calendar is Phase 1 |
 | NFR-1 offline window | §7, §8 | `mobile/lib/data/local_db.dart`, `outbox.dart` | `mobile/test/guardian/g7_offline_durability_test.dart`; field UAT is the release gate | Skeleton — 72h harness is Phase 1 |
@@ -358,10 +358,14 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
 | NFR-5 retention | §5.6, §5.8 | no `DELETE` grant to the app role; `deleted_at` on every table | schema-level; ledger retention is Phase 2 | Partial |
 
-**Phase 1 progress.** FR-8's cash-up is complete end to end — contract v1.1.0, server
-recomputation, offline device flow, and the owner's console view — and is covered by 22
-guardian assertions across both halves. The rest of FR-8 (daily sales summary, stock and
-expiry reports) is next, followed by the full FR-2 matrix and FR-10 localization.
+**Phase 1 progress.** FR-8 is complete for V1's base report set: per-shift cash-up
+(AC-8.1), consolidated and per-branch sales summary (AC-8.2), and stock with expiry
+alerting (BR-3.4). Branch scoping — the **T** vs **B** distinction the FR-2 matrix draws,
+which RLS cannot express — is enforced at every report and tested per role. 39 guardian
+assertions cover this requirement across both halves.
+
+Next: the full FR-2 role × capability matrix, then FR-10 localization. The
+controlled-substance ledger report stays out until A-1 clears.
 
 **Not yet traced, and deliberately so:** FR-5 (inter-branch transfer, V1.x), FR-7a/7b and
 FR-8a (deferred), NFR-2 (V2 multi-writer). G3 (ledger immutability) and G6 (psychotropic
