@@ -15,6 +15,7 @@
 | [`staging.md`](staging.md) | What staging is, the one-time account setup, running it locally, rolling back |
 | [`walking-skeleton.md`](walking-skeleton.md) | Phase 0 scope, its guardian gate, and how to verify it |
 | [`device-matrix.md`](device-matrix.md) | NFR-3.2 on real handsets: why CI cannot answer it, how to run it, where the results live |
+| [`runbook.md`](runbook.md) | On-call: severity, signals, playbooks, rollback, restore — and what is not yet true |
 
 ---
 
