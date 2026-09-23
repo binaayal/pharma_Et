@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import * as dotenv from 'dotenv';
 import { AppModule } from './app.module';
+import { serveDashboard } from './serve-dashboard';
 
 dotenv.config();
 
@@ -19,6 +20,10 @@ async function bootstrap(): Promise<void> {
     origin: config.get<string[]>('corsOrigins') ?? ['http://localhost:5173'],
     credentials: true,
   });
+  // Registered after Nest's router, so API routes always win; unmatched requests fall
+  // through to the static handler and then to the SPA fallback (docs/03 §7).
+  serveDashboard(app);
+
   app.enableShutdownHooks();
 
   const port = config.get<number>('PORT', 3000);

@@ -112,6 +112,11 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/api/nope)
           [ "$code" = "404" ] || { echo "::error::/api fell through to the SPA (got $code)"; exit 1; }
           echo "unmatched /api routes still 404"
+          # A deep link or a refresh must land on the app, not a 404 — the one thing a
+          # static host gives for free and a hand-written fallback has to earn.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/tenants)
+          [ "$code" = "200" ] || { echo "::error::SPA deep link returned $code"; exit 1; }
+          echo "deep links fall back to the app"
 
       - name: Prove the migration is re-runnable (idempotent, forward-only)
         env:
