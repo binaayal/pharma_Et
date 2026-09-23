@@ -39,6 +39,21 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('invalid or expired token');
     }
 
+    // A token with no tenant is a platform-admin token (see PlatformJwtPayload). It is
+    // structurally incapable of naming a pharmacy, so it is refused here rather than allowed
+    // to travel on as an undefined scope.
+    //
+    // This is not belt-and-braces. Without it the request reaches `SET LOCAL
+    // app.current_tenant` holding `undefined` and fails there — which happens to deny the
+    // data, but denies it by crashing, as a 500. A boundary enforced by a downstream
+    // exception is a boundary that the next raw query added to a controller quietly removes,
+    // because that query would interpolate `undefined` instead of throwing. BR-2.2 says a
+    // platform administrator has no default access to tenant data; this is where that is
+    // actually said.
+    if (!payload.tid) {
+      throw new UnauthorizedException('this endpoint requires a tenant session');
+    }
+
     const scope: TenantScope = {
       tenantId: payload.tid,
       userId: payload.sub,

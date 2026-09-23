@@ -6,6 +6,7 @@ import * as argon2 from 'argon2';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import { AppUser, Tenant, UserBranch } from '../../entities';
 import type { JwtPayload } from '../../common/auth/jwt-payload';
+import { LoginThrottleService } from './login-throttle.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +14,7 @@ export class AuthService {
     private readonly db: ScopedDbService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly throttle: LoginThrottleService,
   ) {}
 
   /**
@@ -20,7 +22,23 @@ export class AuthService {
    * the offline window (BR-2.3) — offline PIN validation happens on the device, against that
    * cache, and never reaches this method.
    */
-  async login(request: LoginRequest): Promise<LoginResponse> {
+  async login(request: LoginRequest, sourceIp = 'unknown'): Promise<LoginResponse> {
+    // Checked BEFORE any lookup, and identically whatever was typed. Throttling only
+    // existing accounts would make "throttled" mean "this user is real" — an enumeration
+    // oracle that undoes the uniform error message below (NFR-4.2, ADR-017).
+    await this.throttle.assertNotThrottled(request.tenantCode, request.username, sourceIp);
+
+    try {
+      const response = await this.attemptLogin(request);
+      await this.throttle.record(request.tenantCode, request.username, sourceIp, true);
+      return response;
+    } catch (error) {
+      await this.throttle.record(request.tenantCode, request.username, sourceIp, false);
+      throw error;
+    }
+  }
+
+  private async attemptLogin(request: LoginRequest): Promise<LoginResponse> {
     // Authentication is inherently pre-tenant: we do not yet know which tenant to scope to,
     // so resolving the tenant from its code is an explicit, logged platform-scope read
     // (BR-2.2) rather than an accidental unscoped query.

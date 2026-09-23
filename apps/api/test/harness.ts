@@ -86,7 +86,8 @@ export class TestHarness {
       await this.platform.query(`
         TRUNCATE event, oversell_event, applied_op, payment, sale_line, sale,
                  goods_receipt_line, goods_receipt, stock_batch, product,
-                 user_branch, app_user, branch, tenant_change_seq, tenant
+                 user_branch, app_user, branch, tenant_change_seq, tenant,
+                 login_attempt
         RESTART IDENTITY CASCADE;
       `);
     } finally {
@@ -218,6 +219,28 @@ export class TestHarness {
       batchIds,
       users: tokens,
     };
+  }
+
+  /**
+   * A platform administrator, for the tests that probe the other side of the boundary.
+   *
+   * Seeded directly, because there is deliberately no endpoint that mints one: an API that
+   * creates platform identities is an escalation path however well it is guarded.
+   */
+  async seedPlatformAdmin(email = 'ops@pharmaet.test', password = 'platform-pass-1'): Promise<string> {
+    const hash = await argon2.hash(password, { type: argon2.argon2id });
+    await this.platform.query(`DELETE FROM platform_admin WHERE lower(email) = lower($1)`, [email]);
+    await this.platform.query(
+      `INSERT INTO platform_admin (id, email, display_name, password_hash)
+       VALUES ($1, $2, 'Test operator', $3)`,
+      [uuidv7(), email, hash],
+    );
+
+    const response = await request(this.app.getHttpServer())
+      .post('/api/platform/login')
+      .send({ email, password })
+      .expect(201);
+    return response.body.accessToken;
   }
 
   async login(tenantCode: string, username: string) {

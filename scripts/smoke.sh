@@ -113,5 +113,32 @@ CODE=$(curl -s -o /dev/null -w '%{http_code}' "$API/sync/pull?cursor=0" \
   -H "authorization: Bearer $TOKEN" -H "x-contract-version: 99.0.0")
 check "unknown contract refused loudly" "$CODE" "400"
 
+say "10. security response headers (NFR-4.3)"
+HEADERS=$(curl -sI "$API/health")
+for H in "x-content-type-options: nosniff" "x-frame-options: DENY" \
+         "referrer-policy: no-referrer" "cross-origin-opener-policy: same-origin"; do
+  if printf '%s' "$HEADERS" | tr 'A-Z' 'a-z' | grep -qi "^${H%%:*}:"; then
+    ok "${H%%:*} present"
+  else
+    bad "${H%%:*} missing"
+  fi
+done
+
+say "11. login throttling (NFR-4.2, ADR-017)"
+# Six attempts against a username that does NOT exist — which is the case worth smoking.
+# Counting attempts on names that are not real is what stops "throttled" meaning "this
+# account exists" (ADR-017). Five are answered; the sixth is refused.
+for i in 1 2 3 4 5 6; do
+  CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/auth/login" \
+    -H 'content-type: application/json' \
+    -d "{\"tenantCode\":\"abay\",\"username\":\"smoke-throttle\",\"secret\":\"000$i\",\"terminalId\":\"01930000-0000-7000-8000-00000000d00d\"}")
+done
+check "a sixth attempt is throttled" "$CODE" "429"
+# And the shop is still open — the property ADR-017 exists to protect.
+CODE=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$API/auth/login" \
+  -H 'content-type: application/json' \
+  -d '{"tenantCode":"abay","username":"owner","secret":"owner-dev-password","terminalId":"01930000-0000-7000-8000-00000000d00e"}')
+check "another user signs in regardless (no tenant lockout)" "$CODE" "200"
+
 printf '\n\033[1m%s\033[0m\n' "smoke: $PASS passed, $FAIL failed  ($API)"
 [ "$FAIL" -eq 0 ]

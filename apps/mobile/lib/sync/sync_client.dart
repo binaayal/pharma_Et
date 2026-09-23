@@ -113,11 +113,33 @@ class SyncClient {
     }
 
     if (response.statusCode >= 400) {
+      // A throttle is the one login failure whose server message is worth carrying back
+      // verbatim. Every other failure collapses to "invalid credentials" on purpose — a
+      // message that distinguished "no such pharmacy" from "wrong PIN" would enumerate real
+      // accounts. A 429 leaks nothing by the same reasoning: the server returns it
+      // identically for names that exist and names that do not (ADR-017), so it is reached
+      // by attempting rather than by guessing.
+      if (response.statusCode == 429) {
+        throw SyncTransportException(_messageOf(response.body),
+            statusCode: 429);
+      }
       throw SyncTransportException('invalid credentials',
           statusCode: response.statusCode);
     }
     return LoginResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  /// The server's own wording, or a usable fallback if the body is not what we expect.
+  static String _messageOf(String body) {
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final message = json['message'];
+      if (message is String && message.isNotEmpty) return message;
+    } catch (_) {
+      // Fall through: a login screen is not the place to surface a parse error.
+    }
+    return 'Too many sign-in attempts. Wait a few minutes and try again.';
   }
 
   void close() => _client.close();

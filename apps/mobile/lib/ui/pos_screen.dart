@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../auth/session.dart';
+import '../auth/offline_window.dart';
 import '../core/money.dart';
 import '../core/permissions.dart';
 import '../core/theme.dart';
@@ -65,7 +66,18 @@ class _PosScreenState extends State<PosScreen> {
   /// Controls for a denied capability are **not rendered at all**. A disabled button just
   /// teaches people to hunt for the way to enable it, and an action the server will refuse
   /// reads to a user as the product being broken.
-  bool _can(String capability) => widget.session.scope.role.can(capability);
+  ///
+  /// Two gates, not one. The matrix says what this *role* may ever do; the offline window
+  /// says what this *terminal* may still do on authority it has not refreshed (BR-2.3). A
+  /// cashier dismissed last week passes the first and must fail the second.
+  bool _can(String capability) {
+    if (!widget.session.scope.role.can(capability)) return false;
+    if (widget.session.offlineWindowExpired &&
+        !survivesOfflineExpiry(capability)) {
+      return false;
+    }
+    return true;
+  }
 
   @override
   void initState() {
@@ -330,6 +342,32 @@ class _PosScreenState extends State<PosScreen> {
       ),
       body: Column(
         children: [
+          // Said out loud rather than left as a silently missing button. The matrix rule —
+          // never render a denied control — is right when the role will *never* have it,
+          // because a disabled button teaches people to hunt for the switch. This is the
+          // other case: the user does hold the capability and it is temporarily unavailable,
+          // and a control that vanishes without explanation reads as the app being broken.
+          if (widget.session.offlineWindowExpired)
+            const Material(
+              color: PharmaColors.amberTint,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_off_outlined,
+                        size: 18, color: PharmaColors.amber),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        kOfflineExpiryMessage,
+                        style: TextStyle(
+                            color: PharmaColors.amber, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (_shift == null && _can(Capability.saleCreate))
             Material(
               color: PharmaColors.amberTint,
