@@ -21,5 +21,8 @@ export default defineConfig({
       '/api': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
+  // GitHub Pages serves a project site under /<repo>/, so assets need that prefix. Local
+  // dev and any root-served host set BASE_PATH to '/' (the default).
+  base: process.env.BASE_PATH ?? '/',
   build: { outDir: 'dist', sourcemap: true },
 });

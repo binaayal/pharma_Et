@@ -2,7 +2,7 @@
   "name": "@pharmaet/api",
   "version": "0.1.0",
   "private": true,
-  "description": "PharmaEt backend — NestJS modular monolith over PostgreSQL with RLS",
+  "description": "PharmaEt backend \u2014 NestJS modular monolith over PostgreSQL with RLS",
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
@@ -21,7 +21,10 @@
     "predev": "pnpm --filter @pharmaet/contracts build",
     "prebuild": "pnpm --filter @pharmaet/contracts build",
     "pretypecheck": "pnpm --filter @pharmaet/contracts build",
-    "pretest": "pnpm --filter @pharmaet/contracts build"
+    "pretest": "pnpm --filter @pharmaet/contracts build",
+    "typeorm:prod": "typeorm -d dist/config/data-source.js",
+    "migration:run:prod": "pnpm typeorm:prod migration:run",
+    "seed:prod": "node dist/seed.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.4",

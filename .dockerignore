@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/.dart_tool
+apps/mobile
+docs
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+.pgdata
+*.log

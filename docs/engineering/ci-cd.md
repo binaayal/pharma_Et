@@ -36,21 +36,32 @@ validate RLS, so they are not accepted as evidence for anything isolation-relate
 `cd.yml`:
 
 ```
-merge ── build artifacts ── deploy STAGING ── e2e + smoke + perf-smoke ── [manual approval] ── PRODUCTION ── health watch
+build & publish image (GHCR, immutable sha-<commit> tag)
+  └─ verify: stand THAT image up against a real Postgres, migrate, seed,
+             run scripts/smoke.sh over HTTP, re-run the migration to prove it no-ops
+       ├─ deploy API to Fly.io   → release command migrates → rolling → smoke the live URL
+       └─ deploy dashboard to GitHub Pages
+            └─ production: manual dispatch only, and currently refuses (GA checklist unmet)
 ```
 
-- **Migrations** run as a **gated, forward-only** step, rehearsed on staging against
-  production-like data. A migration that is not safe against live data does not ship.
-  Schema changes are **expand-then-contract** so the previous app version keeps working.
-- **Backend** deploys rolling / zero-downtime, and must keep **serving the N-1 sync
-  contract** throughout. Rollback = redeploy the previous image; because migrations are
-  forward-only, the schema must already tolerate it.
-- **Mobile** builds a signed Android artifact to an internal test track, then a staged store
-  rollout. iOS follows from the same codebase via TestFlight — **budget for review latency**;
-  it is not same-day.
-- **Dashboard** publishes a static bundle served alongside the API.
+The **verify** stage is the one that matters. It exercises the promotion path on a stack
+nobody depends on, so a deploy that would have failed fails there. Three things it proves
+that a unit test cannot: the image actually boots, the migrations actually apply from inside
+it, and the API actually serves the walking skeleton over HTTP.
 
-Clients update out-of-band. **The server never assumes a client has updated** (ADR-009).
+- **Migrations** run as Fly's `release_command`, from the **same image** that will serve the
+  traffic — a separate migration image drifts, and the drift surfaces as a schema the running
+  code does not expect. Forward-only and expand-then-contract, so the previous release still
+  works if this one is rolled back.
+- **Backend** deploys rolling, and must keep **serving the N-1 sync contract** throughout
+  (ADR-009). Rollback is redeploying the previous sha-tagged image; the schema is never
+  reversed.
+- **Dashboard** publishes a static bundle to Pages with the API base URL and the `/pharmaEt/`
+  path baked in at build time. `CORS_ORIGINS` on the API must name the Pages origin, or the
+  console loads perfectly and every request is blocked.
+- **Mobile** clients update out-of-band. **The server never assumes a client has updated.**
+
+Setup, rollback and running the whole thing locally: [`staging.md`](staging.md).
 
 ## 3. Environments
 
@@ -58,7 +69,7 @@ Clients update out-of-band. **The server never assumes a client has updated** (A
 |---|---|---|
 | Local | Synthetic, 2 tenants | Real Postgres in Docker so RLS runs |
 | CI | Synthetic, ephemeral | Real Postgres service container, multi-tenant seed |
-| Staging | **Synthetic only** | Same Postgres version, RLS policies, and object storage as production; low-end Android device lab |
+| Staging | **Synthetic only** — two fixture tenants | Fly.io (`fra`) + Neon Postgres 16; dashboard on GitHub Pages. Same Postgres major, same RLS policies, same non-owner app role as production will use. Low-end Android device lab is Phase 1. |
 | Production | Live | Single region; managed Postgres; backups sized to the **7-year** ledger retention |
 
 Staging and production share **no** credentials and **no** data. Staging never holds real
@@ -73,7 +84,9 @@ patient or controlled-substance data.
 | `api / no-unscoped-access` | A repository or query is reaching the database outside the request-scoped `EntityManager`. |
 | `api / migration-check` | Migration does not apply cleanly on a fresh database, or dropped an RLS policy. |
 | `api / contract-n1` | Your envelope change is not backward compatible. Make it additive, or cut a new contract version with dual support (ADR-009). |
-| `mobile / analyze` | `dart format` or analyzer findings. `dart format .` then re-run. |
+| `mobile / analyze` | `dart format` or analyzer findings. Format with the CI invocation — it skips the generated contract file — then re-run. |
+| `cd / verify` | The image did not boot, the migration did not apply inside it, or the smoke test failed. Reproduce exactly: `docker compose -f docker-compose.staging.yml up -d --wait && ./scripts/smoke.sh http://localhost:3100/api`. |
+| `cd / deploy-staging-api` | Usually a missing `FLY_API_TOKEN` — the job says so in its summary and does not fail the pipeline. Otherwise read the release-command output: it is the migration. |
 
 **Never** re-run a red guardian job hoping for green. A flaky guardian test is a blocking
 defect in its own right (`../05-qa` §4) — fix the flake, or you have no gate at all.

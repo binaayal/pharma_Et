@@ -37,7 +37,7 @@ the SRS is settled.
 | 05 | `05-qa-and-test-strategy.md` | ✅ Draft | Test pyramid, coverage targets that mean something, compliance test cases |
 | 06 | `06-delivery-plan.md` | ✅ Draft | SDLC model, phases, sprint plan, definition of done |
 | — | `adr/` | ✅ Draft | Architecture Decision Records (binding decisions + rationale) |
-| — | `engineering/` | ✅ Draft | How to build it: repo layout, local setup, workflow, CI/CD |
+| — | `engineering/` | ✅ Draft | How to build it: repo layout, local setup, workflow, CI/CD, staging |
 | — | `compliance-sign-off.md` | ✅ Live | Dated compliance evidence; A-1 status (ADR-011) |
 | — | `prototype/index.html` | ✅ Draft | Visual/UX prototype (27 screens). **Look only — no logic.** Behaviour is defined by `02`/`04`. |
 
@@ -80,7 +80,7 @@ answer, permanently.
 
 ## Current status (V1)
 
-Phase: **Phase 0 — Foundations + Walking Skeleton, mostly done.**
+Phase: **Phase 0 — Foundations + Walking Skeleton: complete.** ✅
 
 The documentation suite (`01`–`06`) and ADR-001–010 are drafted, cross-referenced, and
 traceable. The repository is built out — `apps/api` (NestJS + RLS), `apps/dashboard`
@@ -91,11 +91,15 @@ visible on the dashboard, exactly once, with the second tenant seeing none of it
 **Guardian gate G1, G2, G4, G7 is green** (see `engineering/walking-skeleton.md` §6), and
 the RTM (`02-srs.md` §6) records what is implemented against each requirement.
 
-**What is not done:** staging is not provisioned, so `cd.yml` cannot promote to it. Until
-that is true the Phase 0 exit gate in `06-delivery-plan.md` §2 is not met and Phase 1
-breadth work should not begin.
+**The exit gate in `06-delivery-plan.md` §2 is met:** guardian suites green, CI/CD
+auto-promotes on merge (image → verified against real Postgres → deployed), and staging is
+reachable — dashboard on GitHub Pages, API on Fly.io with Neon Postgres.
 
-See **`engineering/`** for repo layout, local setup, and the contribution workflow.
+**Next:** Phase 1 (`engineering/walking-skeleton.md` §7) — cash-up first, then the full
+permission matrix, then localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is
+verified and recorded in `compliance-sign-off.md`.
+
+See **`engineering/`** for repo layout, local setup, the contribution workflow, and staging.
 
 **Open blocker before compliance work (Phase 2):** `[ASSUMPTION]` A-1 — EFDA directive
 1121/2025 retention and psychotropic-dispensing rules must be verified by compliance review.

@@ -1,0 +1,52 @@
+# Fly.io staging (docs/06 §5).
+#
+# Single region — users are in Ethiopia, and `fra` is the closest Fly region with reasonable
+# latency to Addis. Revisit for latency and DR when production is provisioned; it is a
+# deployment detail, not an architectural one.
+#
+# Postgres is external (Neon), passed in as DATABASE_URL, so the database survives an app
+# rebuild and can be backed up on its own schedule — the retention window in NFR-5 belongs
+# to the data, not to the compute.
+
+app = "pharmaet-staging"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "staging"
+  PORT = "3000"
+  DATABASE_APP_USER = "pharmaet_app"
+
+[deploy]
+  # Migrations run once, before the new version takes traffic, from the same image that will
+  # serve it. Forward-only and expand-then-contract, so the previous release keeps working
+  # if this one is rolled back (docs/06 §6.2).
+  release_command = "/usr/local/bin/entrypoint migrate"
+  # Rolling, so the N-1 sync contract stays served throughout (ADR-009). An offline terminal
+  # reconnecting mid-deploy must not be told its envelope is unknown.
+  strategy = "rolling"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # Offline-first pushes availability responsibility to the client, so the backend targets
+  # 99.5% (NFR-1.4), not 99.9%. Scaling to zero would cost a cold start on a sync that a
+  # terminal has been queuing for days, so staging keeps one machine warm.
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "20s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    # Reports liveness AND the contract versions this instance serves, so a rolling deploy
+    # can be verified for the N-1 window without reading the code (ADR-009).
+    path = "/api/health"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

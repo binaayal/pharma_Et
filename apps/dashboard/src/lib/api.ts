@@ -19,7 +19,17 @@ export class ApiError extends Error {
   }
 }
 
-const BASE = '/api';
+/**
+ * In development the Vite proxy forwards `/api` to the local server, so a relative base
+ * keeps the browser same-origin and CORS out of the picture entirely.
+ *
+ * A deployed bundle is served from a different origin than the API — GitHub Pages and Fly —
+ * so the base is baked in at build time from VITE_API_BASE_URL, and the API's CORS_ORIGINS
+ * must name that origin. Both halves are set by the deploy workflow; if either is missing
+ * the console loads and every request fails, which is why the health probe on boot is worth
+ * having.
+ */
+const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {

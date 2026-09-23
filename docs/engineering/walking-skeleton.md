@@ -83,22 +83,38 @@ If step 4 or step 7 fails, the spine is not proven and no breadth work starts.
 | Gate | State |
 |---|---|
 | **G1 — tenant isolation** | ✅ 5 assertions, including RLS denying a deliberately unscoped query and refusing a cross-tenant write |
-| **G2 — sync integrity** | ✅ server (8 assertions) and client (8 assertions): exactly-once, partial acks, ordering, per-op isolation |
+| **G2 — sync integrity** | ✅ server (8) and client (8): exactly-once, partial acks, ordering, per-op isolation |
 | **G4 — money integrity** | ✅ server (7) and device (9): integer santim end to end, totals reconcile, database constraint as the last line of defence |
 | **G7 — offline resilience** | ✅ server (5) and device (6): 60 offline sales and the sequence counter survive a real close-and-reopen of the database file |
 | **no-unscoped-access** | ✅ static check over `apps/api/src` |
 | **End-to-end slice** | ✅ real Flutter stack → API → PostgreSQL: pull → 3 offline sales → reconnect → sync → 0 pending; a second sync sends nothing |
-| **CI/CD to staging** | ⛔ pipelines written; **staging is not provisioned** — this is the remaining Phase 0 work |
+| **CI gates** | ✅ 8 checks on every PR, path-filtered, with a gate that fails on a skipped-because-broken run |
+| **CD promotion path** | ✅ image published to GHCR, stood up against real Postgres, migrated, smoke-tested over HTTP, then deployed — all on merge |
+| **Staging reachable** | ✅ dashboard on GitHub Pages; API on Fly.io once `FLY_API_TOKEN` is set (`staging.md` §3) |
 
-Totals: 37 API guardian/unit-gate tests, 26 mobile tests, 13 contract tests, 3 dashboard
-tests. The manual walkthrough in §5 was run and passed.
+Totals: 37 API guardian/gate tests, 28 mobile tests, 13 contract tests, 3 dashboard tests,
+12 HTTP smoke assertions. The manual walkthrough in §5 was run and passed; so was the exact
+CD sequence, locally, against the built image.
 
-**So Phase 0 is not finished.** The spine is proven; the environment it deploys into is
-not. Until `cd.yml` actually promotes to a reachable staging environment, the Phase 0 exit
-gate in `../06-delivery-plan.md` §2 is not met, and Phase 1 breadth work should not start.
+**Phase 0's exit gate is met** (`../06-delivery-plan.md` §2): the guardian suites are green,
+CI/CD auto-promotes on merge, and staging is reachable. Phase 1 breadth work can begin.
 
 ## 7. What "green" unlocks
 
 Phase 1 (`../06-delivery-plan.md` §2): the full core loop for standard drugs — FR-1, FR-2,
 FR-3, FR-4, FR-7 base, FR-8 with cash-up, FR-9 single-writer, FR-10. Each of those bolts onto
 a spine that has already been proven to survive a power cut.
+
+The first three, in the order the docs argue for:
+
+1. **Per-shift cash reconciliation (FR-8, cash-up/Z-report).** Vision §2.1.1 calls it the
+   owner's primary anti-shrinkage control and the strongest single reason to adopt. It is the
+   highest-value thing not yet built.
+2. **The full FR-2 permission matrix**, every role × capability cell tested at both layers
+   (`../05-qa-and-test-strategy.md` §10). Phase 0 has owner/manager/cashier and one guard.
+3. **FR-10 localization** — Amharic and the Ethiopian calendar. Table stakes for adoption,
+   and the presentation-layer seams for it already exist (`money.dart`, `format.ts`).
+
+**Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
+`../compliance-sign-off.md`. No ledger, no psychotropic rules, no audit events before then —
+not even partially, not even "while I'm in there".

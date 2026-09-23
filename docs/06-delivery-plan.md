@@ -90,7 +90,7 @@ are cut from `main` by **tag**, not by a parallel branch.
 |---|---|---|
 | **Local** | Dev inner loop | Real Postgres (container) so RLS runs; synthetic seed. |
 | **CI** | Automated verification per PR | Ephemeral, real Postgres service container; multi-tenant seed harness (`05-qa` §11). No real data. |
-| **Staging** | Production-like validation, e2e, perf | **Same Postgres version + RLS policies + object storage** as prod; representative multi-tenant seed; **low-end Android device lab**. **No real patient/controlled-substance data — synthetic only.** |
+| **Staging** | Production-like validation, e2e, perf | **Fly.io (single region) + Neon managed Postgres 16**, dashboard on GitHub Pages. Same Postgres major + RLS policies + non-owner application role as prod; auto-deployed on merge and smoke-tested live. Representative multi-tenant seed and the **low-end Android device lab** are Phase 1. **No real patient/controlled-substance data — synthetic only.** See `engineering/staging.md`. |
 | **Production** | Live | Single region (Ethiopia users); managed Postgres with automated backups sized to the **7-year** retention window (NFR-5); monitoring/SLO. |
 
 **Config & secrets:** environment config is externalized; secrets live in a managed secret

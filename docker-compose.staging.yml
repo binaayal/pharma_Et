@@ -1,0 +1,65 @@
+# A production-like stack: the same image CD ships, the same Postgres major version as
+# production, the same RLS policies, the same non-owner application role.
+#
+# Two uses, and they are the same thing on purpose:
+#   - `docker compose -f docker-compose.staging.yml up` locally, to run what staging runs;
+#   - CI stands this up on every merge and runs scripts/smoke.sh against it, so the
+#     promotion path is exercised before anything reaches a hosted environment.
+#
+# Synthetic data only, always. No real patient or controlled-substance data ever lands in a
+# non-production environment (docs/06 §5).
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pharmaet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-staging_local_password}
+      POSTGRES_DB: pharmaet_staging
+    ports: ['5434:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pharmaet -d pharmaet_staging']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Migrations are a separate, gated step that must complete before the API starts —
+  # forward-only and expand-then-contract, so the previous app version keeps working
+  # (docs/06 §6.2). It runs the same image as the API, so the thing that migrates the schema
+  # is byte-identical to the thing that will serve it.
+  migrate:
+    image: ${API_IMAGE:-pharmaet-api:local}
+    command: ['migrate']
+    depends_on:
+      db: { condition: service_healthy }
+    environment: &api_env
+      NODE_ENV: staging
+      DATABASE_URL: postgres://pharmaet:${POSTGRES_PASSWORD:-staging_local_password}@db:5432/pharmaet_staging
+      DATABASE_APP_USER: pharmaet_app
+      DATABASE_APP_PASSWORD: ${DATABASE_APP_PASSWORD:-staging_app_password}
+      JWT_SECRET: ${JWT_SECRET:-staging-only-secret-never-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      PORT: '3000'
+
+  seed:
+    image: ${API_IMAGE:-pharmaet-api:local}
+    command: ['seed']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    environment: *api_env
+
+  api:
+    image: ${API_IMAGE:-pharmaet-api:local}
+    depends_on:
+      seed: { condition: service_completed_successfully }
+    environment: *api_env
+    ports: ['3100:3000']
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 12

@@ -12,6 +12,7 @@
 | `README.md` (this file) | Repo layout, prerequisites, local setup, day-to-day commands |
 | [`workflow.md`](workflow.md) | Branching, commits, PRs, reviews, change control, releases |
 | [`ci-cd.md`](ci-cd.md) | What runs on a PR, what runs on merge, how to read a red pipeline |
+| [`staging.md`](staging.md) | What staging is, the one-time account setup, running it locally, rolling back |
 | [`walking-skeleton.md`](walking-skeleton.md) | Phase 0 scope, its guardian gate, and how to verify it |
 
 ---
@@ -62,7 +63,7 @@ pharmaEt/
 |---|---|---|
 | Node.js | ≥ 22 LTS | Backend + dashboard + codegen |
 | pnpm | ≥ 9 | `corepack enable` then `corepack prepare pnpm@latest --activate` |
-| Docker | any recent | Only for the local PostgreSQL |
+| Docker | any recent, with the **compose** plugin | The local PostgreSQL, and the staging stack |
 | Flutter | **3.47.5 (stable)** | Pinned exactly — CI uses this version, and its Dart SDK decides how Dart source is formatted. With the Android SDK; **Android is the primary target**. |
 | PostgreSQL client | 16+ | Optional, for `psql` against the dev database |
 
@@ -97,6 +98,8 @@ by construction.
 | Lint + typecheck | `pnpm lint && pnpm typecheck` |
 | New migration | `pnpm --filter @pharmaet/api migration:generate -- src/migrations/Name` |
 | Reset the dev DB | `./scripts/dev-db.sh reset` |
+| Run staging locally | `docker compose -f docker-compose.staging.yml up -d --wait` |
+| Smoke a running API | `./scripts/smoke.sh http://localhost:3100/api` |
 
 ## 5. Local database
 
