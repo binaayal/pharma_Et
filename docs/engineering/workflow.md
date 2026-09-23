@@ -69,19 +69,27 @@ Use `.github/pull_request_template.md` — it is a checklist, not a formality. A
 3. Whether it touches a **controlled artifact** (§6).
 4. How it was verified — including, for offline behaviour, on what device.
 
-**Merge requirements** (`../06-delivery-plan.md` §4):
+**Merge requirements** (`../06-delivery-plan.md` §4, as adapted by **ADR-011** for a single
+maintainer):
 
 | | Ordinary change | Controlled artifact |
 |---|---|---|
 | CI gates green | required | required |
-| Reviews | ≥ 1 | **≥ 2**, one being the compliance owner for ledger/psychotropic changes |
-| ADR | if a decision is made | **always** |
+| Approvals | 0 — GitHub will not let you approve your own PR | 0, for the same reason |
+| Self-review on the PR | expected | **required**, and the CI job greps the PR body for it |
+| ADR | if a decision is made | **always** — enforced by CI |
 | Contract tests updated | if the contract moved | **always**, incl. N-1 (ADR-009) |
-| Guardian suite updated | if behaviour changed | **always** |
+| Guardian suite updated | if behaviour changed | **always** — enforced by CI |
 | RTM updated | for requirement work | **always** |
 
-Squash merge. Linear history. No direct pushes to `main` — ever, including for a one-line
-hotfix; a hotfix is a fast PR, not an exception to the rule.
+The head-count is gone because it was unsatisfiable, not because the scrutiny was optional.
+What replaced it — the `controlled-artifact` job — is stricter in the way that matters: it
+cannot be forgotten at the end of a long day.
+
+Linear history. **Merge commits for curated multi-commit PRs**, squash for single-commit
+ones (ADR-011 §5: squash exists to collapse review-fixup noise, which a solo PR does not
+accumulate). No direct pushes to `main` — ever, including for a one-line hotfix; a hotfix is
+a fast PR, not an exception to the rule.
 
 ## 6. Controlled artifacts
 
@@ -96,11 +104,14 @@ Four things break catastrophically and quietly, so they carry heavier process
 | Compliance rules (FR-4 / FR-6) | `apps/api/src/modules/pos/`, `apps/mobile/lib/domain/` | dispensing that violates the directive |
 
 Touching one of these is not a normal PR. It needs an ADR, both-side contract tests, a
-guardian-suite update, two reviews, and an RTM update — before merge, not after.
+guardian-suite update, a recorded self-review, and an RTM update — before merge, not after.
+The `controlled-artifact` workflow fails the build if the ADR, the guardian update or the
+self-review line is missing (ADR-011).
 
 ## 7. Reviewing
 
-Reviewers own these questions, in this order:
+You are the reviewer. Open the **Files changed** tab and read the diff there before merging
+— not in your editor, where you already know what you meant. These questions, in this order:
 
 1. **Does it cross a tenant boundary?** Any new query — does it run on the scoped
    `EntityManager`? Is there a test with a second tenant that proves it?
@@ -112,6 +123,9 @@ Reviewers own these questions, in this order:
 
 Review the diff against the requirement, not against your preference. If the requirement is
 wrong, say so on the issue — don't negotiate it in the PR.
+
+Leave the findings as PR comments even when you are the only reader. The comment is the
+record that the pass happened, and it is what an auditor or a future colleague can check.
 
 ## 8. Releases
 

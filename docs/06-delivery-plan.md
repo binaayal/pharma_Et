@@ -75,6 +75,13 @@ are cut from `main` by **tag**, not by a parallel branch.
 - ≥ 1 review; **2 reviews for controlled-artifact changes** (§7), one of whom owns compliance for ledger/psychotropic changes.
 - Linear history; squash merge.
 
+> **Amended by [ADR-011](adr/ADR-011-solo-maintainer-change-control.md) while the project has
+> a single maintainer.** The review counts above are unsatisfiable alone — GitHub does not
+> permit approving your own PR — so they are replaced by mechanical gates plus a recorded
+> self-review, and merge commits are allowed for curated multi-commit PRs. Everything else in
+> this section stands unchanged. **The rules above return the moment a second engineer
+> joins**; ADR-011 exists to be superseded.
+
 ---
 
 ## 5. Environments
@@ -147,6 +154,10 @@ RLS policies (ADR-007), and compliance rules (FR-4/FR-6).
 2. **Contract-test** update (and, for the sync envelope, N-1 compatibility verification, ADR-009).
 3. **Guardian-suite** update covering the change.
 4. **Two reviews**, one from the compliance owner for ledger/psychotropic changes.
+   → *While single-maintainer (ADR-011): the `controlled-artifact` CI job enforces 1, 3 and a
+   recorded self-review, and fails the build without them. Compliance sign-off moves to a
+   dated entry in `compliance-sign-off.md` — an approval click by the author would attest to
+   nothing, and the dated record is what an auditor actually asks for.*
 5. RTM updated.
 
 This is where traceability lives. It is deliberately heavier than ordinary feature work and

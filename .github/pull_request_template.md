@@ -16,8 +16,10 @@ Does this touch any of these? (docs/06-delivery-plan.md §7)
 - [ ] None of the above
 
 If any box above is ticked, this PR needs **an ADR, both-side contract tests including N-1,
-a guardian-suite update, two reviews** (one from the compliance owner for ledger or
-psychotropic changes) **and an RTM entry** — before merge, not after.
+a guardian-suite update, a completed self-review and an RTM entry** — before merge, not
+after. The `controlled-artifact` job checks the first three and the last mechanically and
+will fail the build without them (ADR-011 replaces the two-reviewer rule; there is one
+maintainer, and GitHub does not let you approve your own PR).
 
 ## Guardian suites
 
@@ -44,3 +46,8 @@ Which invariants does this touch or rely on? (docs/05-qa §4)
 - [ ] Generated contract code was regenerated, not hand-edited (`pnpm gen:contracts`)
 - [ ] Nothing here implements something the docs mark deferred to V1.x/V2
 - [ ] `docs/` updated if a contract or decision changed
+- [ ] I read the whole diff in the Files-changed view before merging
+
+<!-- The last line is required on any PR that touches a controlled artifact, and the CI job
+     greps for it. Reading your own diff in a different presentation, after the fact, catches
+     what reading it as you wrote it does not. -->

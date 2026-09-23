@@ -1,12 +1,13 @@
-# Review routing. Ordinary code needs one review; the paths below are controlled artifacts
-# and need two, one of which owns compliance for ledger and psychotropic changes
-# (docs/06-delivery-plan.md §4, §7).
+# A map of which paths are load-bearing.
 #
-# Replace the placeholder handles with real ones before enabling branch protection.
+# It no longer routes reviews to a second person — there isn't one (ADR-011). What it still
+# does is make GitHub show, on every PR, that the diff has entered a controlled artifact.
+# The enforcement lives in the `controlled-artifact` CI job, which fails the build unless
+# the change brings an ADR, a guardian-suite update, and a completed checklist.
 
 *                                   @binaayal
 
-# --- controlled artifacts -----------------------------------------------------
+# --- controlled artifacts (docs/06 §7) ----------------------------------------
 # The sync envelope. Drift here does not raise an error; it silently drops or duplicates
 # real transactions.
 /packages/contracts/                @binaayal

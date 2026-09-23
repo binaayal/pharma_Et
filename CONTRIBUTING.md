@@ -14,6 +14,10 @@ issue (FR/NFR id + acceptance criteria + RTM row)
 No direct pushes to `main`, ever — including for a one-line hotfix. A hotfix is a fast PR,
 not an exception.
 
+**One maintainer.** Required approvals is zero, because GitHub will not let you approve your
+own PR and a rule you have to switch off to ship is worse than no rule. The scrutiny did not
+go away — it moved into CI. See [ADR-011](docs/adr/ADR-011-solo-maintainer-change-control.md).
+
 ## Before you open a PR
 
 ```bash
@@ -57,8 +61,11 @@ Guardian: G6
 
 The sync envelope, the event/ledger schema, RLS policies, and the compliance rules. These
 break catastrophically and quietly, so they need an ADR, both-side contract tests including
-N-1, a guardian-suite update, two reviews, and an RTM entry. See
-[`docs/engineering/workflow.md`](docs/engineering/workflow.md) §6.
+N-1, a guardian-suite update, a recorded self-review, and an RTM entry.
+
+The **`controlled-artifact`** workflow enforces this: if the diff enters one of those paths
+and the PR has no ADR, no guardian-suite change, or no ticked self-review line, the build
+fails. See [`docs/engineering/workflow.md`](docs/engineering/workflow.md) §6 and ADR-011.
 
 ## The ADRs are binding
 

@@ -38,6 +38,7 @@ the SRS is settled.
 | 06 | `06-delivery-plan.md` | ✅ Draft | SDLC model, phases, sprint plan, definition of done |
 | — | `adr/` | ✅ Draft | Architecture Decision Records (binding decisions + rationale) |
 | — | `engineering/` | ✅ Draft | How to build it: repo layout, local setup, workflow, CI/CD |
+| — | `compliance-sign-off.md` | ✅ Live | Dated compliance evidence; A-1 status (ADR-011) |
 | — | `prototype/index.html` | ✅ Draft | Visual/UX prototype (27 screens). **Look only — no logic.** Behaviour is defined by `02`/`04`. |
 
 Status legend: ✅ Draft · ⏳ Next up · 🔜 Planned · 🔒 Frozen (change requires an ADR)
@@ -62,6 +63,7 @@ answer, permanently.
 | [ADR-008](adr/ADR-008-risk-tiered-testing.md) | Risk-tiered testing; guardian invariant suites are the CI gate | Accepted |
 | [ADR-009](adr/ADR-009-sync-backward-compatibility.md) | Sync API backward-compatibility window for offline clients | Accepted |
 | [ADR-010](adr/ADR-010-repository-layout-and-tooling.md) | Single polyglot repository, pnpm workspaces, generated contract types | Accepted |
+| [ADR-011](adr/ADR-011-solo-maintainer-change-control.md) | Change control for a single maintainer | Accepted |
 
 ---
 
