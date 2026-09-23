@@ -45,7 +45,11 @@ pharmaEt/
    `EntityManager` that has `SET LOCAL app.current_tenant` applied (ADR-007). CI has a test
    that fails if an unscoped path exists.
 2. **The contract is generated, never hand-written** on either side (ADR-010, `05-qa` §6).
-   Edit `packages/contracts/src/`, run `pnpm gen:contracts`, commit the output.
+   Edit `packages/contracts/src/`, run `pnpm gen:contracts`, commit the output. The
+   generated Dart is deliberately **not** run through `dart format` — CI compares its bytes,
+   and the formatter's output moves between SDK versions. Do not reformat it by hand either;
+   `dart format .` over the whole tree will, so format with
+   `find lib test -name '*.dart' -not -path 'lib/contracts/*'` as CI does.
 3. **Nothing is hard-deleted.** Relational rows get `deleted_at`; ledger and audit get
    tombstone events (ADR-004).
 4. **Money is `bigint` santim.** No float touches money, anywhere, in any language (`04` §3).
@@ -59,7 +63,7 @@ pharmaEt/
 | Node.js | ≥ 22 LTS | Backend + dashboard + codegen |
 | pnpm | ≥ 9 | `corepack enable` then `corepack prepare pnpm@latest --activate` |
 | Docker | any recent | Only for the local PostgreSQL |
-| Flutter | ≥ 3.24 (stable) | With the Android SDK; **Android is the primary target** |
+| Flutter | **3.47.5 (stable)** | Pinned exactly — CI uses this version, and its Dart SDK decides how Dart source is formatted. With the Android SDK; **Android is the primary target**. |
 | PostgreSQL client | 16+ | Optional, for `psql` against the dev database |
 
 Verify: `node -v && pnpm -v && docker info >/dev/null && flutter doctor`.
@@ -86,7 +90,7 @@ by construction.
 | Run API alone | `pnpm --filter @pharmaet/api dev` (http://localhost:3000) |
 | Run dashboard alone | `pnpm --filter @pharmaet/dashboard dev` (http://localhost:5173) |
 | Run the mobile app | `cd apps/mobile && flutter run` |
-| Regenerate contracts | `pnpm gen:contracts` (then commit the diff) |
+| Regenerate contracts | `pnpm gen:contracts` (then commit the diff) — pure Node, no Dart SDK needed |
 | Unit tests | `pnpm test` · `cd apps/mobile && flutter test` |
 | Guardian suites | `pnpm test:guardian` — **the merge gate** |
 | Integration tests | `pnpm test:integration` (needs the dev database up) |
