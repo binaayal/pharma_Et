@@ -352,7 +352,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`) | `api/test/guardian/g7-offline-resilience.spec.ts` | Skeleton |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}`, `dashboard/src/pages/CashUpPage.tsx` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `dashboard/src/pages/{SalesSummaryPage,StockPage}.tsx` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | FR-9 single-writer sync | §7, §10 | `api/src/modules/sync/`, `mobile/lib/{sync,data/outbox.dart}` | `api/test/guardian/g2-sync-integrity.spec.ts`, `mobile/test/guardian/g2_sync_integrity_test.dart` | Skeleton |
-| FR-10 localization | §3 | UTC storage + edge formatting seams (`mobile/lib/core/money.dart`, `dashboard/src/lib/format.ts`) | `g4` suites | Open — Amharic + Ethiopian calendar is Phase 1 |
+| FR-10 localization | §3 | calendar: `packages/contracts/src/ethiopian-calendar.ts` + `mobile/lib/core/ethiopian_date.dart` (two implementations, one shared vector table) · strings: `mobile/lib/l10n/` · console toggle: `dashboard/src/lib/format.ts` | `ethiopian_date_test.dart` (19), `strings_test.dart` (7), `calendar.spec.ts` (16), `g4-utc-storage.spec.ts` (5) | **Done** — AC-10.1 Amharic + Ethiopian calendar, AC-10.2 UTC storage asserted at the schema level |
 | NFR-1 offline window | §7, §8 | `mobile/lib/data/local_db.dart`, `outbox.dart` | `mobile/test/guardian/g7_offline_durability_test.dart`; field UAT is the release gate | Skeleton — 72h harness is Phase 1 |
 | NFR-3.2 local op < 100 ms | §7 | single local transaction, no network on the sale path | `g7` timing guard; real figure comes from the device matrix | Skeleton |
 | NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
@@ -364,14 +364,25 @@ alerting (BR-3.4). Branch scoping — the **T** vs **B** distinction the FR-2 ma
 which RLS cannot express — is enforced at every report and tested per role. 39 guardian
 assertions cover this requirement across both halves.
 
+FR-10 is complete: Amharic and English switchable per user, dates in the Ethiopian
+calendar, and AC-10.2 enforced by a guardian suite that checks every timestamp column is
+`timestamptz` and that no calendar or locale column exists in the domain schema at all.
+The conversion is implemented twice — TypeScript and Dart — because codegen translates data
+and not arithmetic; what is shared is the **evidence**, a generated vector table both
+implementations are verified against.
+
 FR-2 is now complete for tenant roles. The matrix lives in `packages/contracts` and is
 **generated into Dart**, so the app and the API read the same table — AC-2.1 requires the
 denial at both layers, and two copies of a permission table drift in the direction where
 the app offers what the server refuses. Branch reach (T vs B vs own) is enforced on every
 read and write.
 
-Next: FR-10 localization. The controlled-substance ledger report and the Platform-Admin
-surface stay out until A-1 and Phase 2 respectively.
+**Phase 1's requirement set is complete** for everything not gated on A-1. What remains
+before the phase can close is exit-gate work rather than requirements: full guardian suites
+green (they are), core e2e journeys, and NFR-3 performance measured on staging and on
+low-end Android — which needs the staging environment and the device lab. The
+controlled-substance ledger and the Platform-Admin surface stay out until A-1 and Phase 2
+respectively.
 
 **Not yet traced, and deliberately so:** FR-5 (inter-branch transfer, V1.x), FR-7a/7b and
 FR-8a (deferred), NFR-2 (V2 multi-writer). G3 (ledger immutability) and G6 (psychotropic

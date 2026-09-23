@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { CONTRACT_VERSION } from '../version.js';
 import { emitDart } from './dart.js';
 import { buildContractJsonSchema } from './json-schema.js';
+import { emitCalendarVectorsDart } from './calendar-dart.js';
 import { emitPermissionsDart } from './permissions-dart.js';
 
 /**
@@ -23,6 +24,7 @@ const targets = {
   jsonSchema: resolve(repoRoot, 'packages/contracts/generated/contract.schema.json'),
   dart: resolve(repoRoot, 'apps/mobile/lib/contracts/contracts.dart'),
   permissions: resolve(repoRoot, 'apps/mobile/lib/contracts/permissions.dart'),
+  calendar: resolve(repoRoot, 'apps/mobile/lib/contracts/calendar_vectors.dart'),
 };
 
 const schema = buildContractJsonSchema();
@@ -30,6 +32,7 @@ const outputs: Record<keyof typeof targets, string> = {
   jsonSchema: `${JSON.stringify(schema, null, 2)}\n`,
   dart: emitDart(schema, CONTRACT_VERSION),
   permissions: emitPermissionsDart(CONTRACT_VERSION),
+  calendar: emitCalendarVectorsDart(CONTRACT_VERSION),
 };
 
 for (const [label, path] of Object.entries(targets)) {

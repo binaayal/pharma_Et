@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type ShiftReconciliation } from '../lib/api';
-import { formatEtb, formatInstant, relativeAge } from '../lib/format';
+import { formatEtb, formatInstant, relativeAge, type Calendar } from '../lib/format';
 import type { Session } from '../lib/session';
 
 /**
@@ -18,7 +18,15 @@ import type { Session } from '../lib/session';
  *   - silently reconcile the terminal's expected figure with the server's. When they
  *     differ, that gap is shown and explained (ADR-012 §3).
  */
-export function CashUpPage({ session, onExpired }: { session: Session; onExpired: () => void }) {
+export function CashUpPage({
+  session,
+  onExpired,
+  calendar,
+}: {
+  session: Session;
+  onExpired: () => void;
+  calendar: Calendar;
+}) {
   const [rows, setRows] = useState<ShiftReconciliation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState(new Date().toISOString());
@@ -121,7 +129,7 @@ export function CashUpPage({ session, onExpired }: { session: Session; onExpired
               {rows.map((row) => (
                 <tr key={row.shiftId}>
                   <td>
-                    {formatInstant(row.openedAt)}
+                    {formatInstant(row.openedAt, calendar)}
                     <div className="mono">{row.userId.slice(0, 8)}</div>
                   </td>
                   <td>

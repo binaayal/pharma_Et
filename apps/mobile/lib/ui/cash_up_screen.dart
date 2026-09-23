@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/money.dart';
 import '../core/theme.dart';
 import '../data/shift_repository.dart';
+import '../l10n/locale_store.dart';
 
 /// Cash-up / Z-report (FR-8, AC-8.1).
 ///
@@ -96,7 +97,7 @@ class _CashUpScreenState extends State<CashUpScreen> {
     final counted = _countedSantim();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cash up')),
+      appBar: AppBar(title: Text(context.t('cashup.title'))),
       body: expected == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -108,12 +109,19 @@ class _CashUpScreenState extends State<CashUpScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('This shift',
-                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        Text(context.t('cashup.thisShift'),
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 10),
-                        _row('Opened', _time(widget.shift.openedAt)),
-                        _row('Sales', '${expected.saleCount}'),
-                        _row('Opening float',
+                        // The date renders in the Ethiopian calendar (BR-10.2); the
+                        // instant itself stays UTC in storage (AC-10.2).
+                        _row(
+                            context.t('cashup.opened'),
+                            '${context.l10n.date(widget.shift.openedAt)} '
+                            '${context.l10n.time(widget.shift.openedAt)}'),
+                        _row(
+                            context.t('cashup.sales'), '${expected.saleCount}'),
+                        _row(context.t('cashup.float'),
                             formatEtb(expected.openingFloatSantim)),
                         if (expected.unsyncedSaleCount > 0) ...[
                           const SizedBox(height: 10),
@@ -127,8 +135,8 @@ class _CashUpScreenState extends State<CashUpScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '${expected.unsyncedSaleCount} sale(s) have not synced yet. '
-                              'Counting now is fine — the office will see both figures.',
+                              '${expected.unsyncedSaleCount} '
+                              '${context.t('cashup.unsyncedWarning')}',
                               style: const TextStyle(
                                   color: PharmaColors.amber, fontSize: 12.5),
                             ),
@@ -139,13 +147,13 @@ class _CashUpScreenState extends State<CashUpScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('Count the drawer',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                Text(context.t('cashup.countDrawer'),
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                const Text(
-                  'Enter what is actually there. The expected figure appears once you have '
-                  'counted.',
-                  style: TextStyle(color: PharmaColors.muted, fontSize: 13),
+                Text(
+                  context.t('cashup.countHint'),
+                  style:
+                      const TextStyle(color: PharmaColors.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -153,9 +161,9 @@ class _CashUpScreenState extends State<CashUpScreen> {
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   enabled: !_revealed,
-                  decoration: const InputDecoration(
-                    labelText: 'Counted cash (ETB)',
-                    prefixIcon: Icon(Icons.payments_outlined),
+                  decoration: InputDecoration(
+                    labelText: context.t('cashup.counted'),
+                    prefixIcon: const Icon(Icons.payments_outlined),
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -164,14 +172,27 @@ class _CashUpScreenState extends State<CashUpScreen> {
                   controller: _note,
                   enabled: !_revealed,
                   maxLength: 500,
-                  decoration: const InputDecoration(
-                    labelText: 'Note (optional)',
-                    helperText: 'Anything that explains a difference',
+                  decoration: InputDecoration(
+                    labelText: context.t('cashup.note'),
+                    helperText: context.t('cashup.noteHint'),
                   ),
                 ),
                 const SizedBox(height: 8),
                 if (_revealed)
-                  _Result(expected: expected, countedSantim: counted ?? 0)
+                  _Result(
+                    expected: expected,
+                    countedSantim: counted ?? 0,
+                    labels: (
+                      expected: context.t('cashup.expected'),
+                      counted: context.t('cashup.counted'),
+                      difference: context.t('cashup.difference'),
+                      balanced: context.t('cashup.balanced'),
+                      short: context.t('cashup.short'),
+                      over: context.t('cashup.over'),
+                      closedOk: context.t('cashup.closedOk'),
+                      closedVariance: context.t('cashup.closedVariance'),
+                    ),
+                  )
                 else
                   FilledButton(
                     onPressed: counted == null || _busy ? null : _submit,
@@ -195,28 +216,38 @@ class _CashUpScreenState extends State<CashUpScreen> {
           ],
         ),
       );
-
-  static String _time(DateTime utc) {
-    final local = utc.toLocal();
-    return '${local.hour.toString().padLeft(2, '0')}:'
-        '${local.minute.toString().padLeft(2, '0')}';
-  }
 }
 
+typedef _ResultLabels = ({
+  String expected,
+  String counted,
+  String difference,
+  String balanced,
+  String short,
+  String over,
+  String closedOk,
+  String closedVariance,
+});
+
 class _Result extends StatelessWidget {
-  const _Result({required this.expected, required this.countedSantim});
+  const _Result({
+    required this.expected,
+    required this.countedSantim,
+    required this.labels,
+  });
 
   final ExpectedCash expected;
   final int countedSantim;
+  final _ResultLabels labels;
 
   @override
   Widget build(BuildContext context) {
     final variance = countedSantim - expected.expectedSantim;
     final (color, tint, label) = variance == 0
-        ? (PharmaColors.greenDark, PharmaColors.greenTint, 'Balanced')
+        ? (PharmaColors.greenDark, PharmaColors.greenTint, labels.balanced)
         : variance < 0
-            ? (PharmaColors.red, PharmaColors.redTint, 'Short')
-            : (PharmaColors.amber, PharmaColors.amberTint, 'Over');
+            ? (PharmaColors.red, PharmaColors.redTint, labels.short)
+            : (PharmaColors.amber, PharmaColors.amberTint, labels.over);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -229,16 +260,13 @@ class _Result extends StatelessWidget {
               style: TextStyle(
                   color: color, fontWeight: FontWeight.w800, fontSize: 16)),
           const SizedBox(height: 10),
-          _line('Expected', formatEtb(expected.expectedSantim), color),
-          _line('Counted', formatEtb(countedSantim), color),
+          _line(labels.expected, formatEtb(expected.expectedSantim), color),
+          _line(labels.counted, formatEtb(countedSantim), color),
           const Divider(height: 20),
-          _line('Difference', formatEtb(variance), color, bold: true),
+          _line(labels.difference, formatEtb(variance), color, bold: true),
           const SizedBox(height: 10),
           Text(
-            variance == 0
-                ? 'Recorded and queued. The shift is closed.'
-                : 'Recorded against you and this shift, and queued for the office. '
-                    'Nothing is blocked — the difference is what matters, not hiding it.',
+            variance == 0 ? labels.closedOk : labels.closedVariance,
             style: TextStyle(color: color, fontSize: 12.5),
           ),
         ],

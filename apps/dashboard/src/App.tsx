@@ -5,6 +5,7 @@ import { SalesPage } from './pages/SalesPage';
 import { SalesSummaryPage } from './pages/SalesSummaryPage';
 import { StockPage } from './pages/StockPage';
 import { api } from './lib/api';
+import type { Calendar } from './lib/format';
 import { clearSession, loadSession, saveSession, type Session } from './lib/session';
 
 /**
@@ -20,6 +21,24 @@ export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
   const [contractVersion, setContractVersion] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('cash-up');
+  // Presentation only (BR-10.2). Stored timestamps never change with this (AC-10.2), and
+  // localStorage is the right home: a per-viewer convenience, not shared state.
+  const [calendar, setCalendar] = useState<Calendar>(() => {
+    try {
+      return localStorage.getItem('pharmaet.calendar') === 'ethiopian' ? 'ethiopian' : 'gregorian';
+    } catch {
+      return 'gregorian';
+    }
+  });
+
+  function chooseCalendar(next: Calendar) {
+    setCalendar(next);
+    try {
+      localStorage.setItem('pharmaet.calendar', next);
+    } catch {
+      // Private browsing or blocked storage. The choice simply will not survive a reload.
+    }
+  }
 
   useEffect(() => {
     // Surfacing the server's contract version makes an N-1 mismatch visible to whoever is
@@ -92,6 +111,20 @@ export function App() {
           Subscriptions
         </button>
 
+        <div className="nav-group">Calendar</div>
+        <button
+          className={`nav-item${calendar === 'gregorian' ? ' active' : ''}`}
+          onClick={() => chooseCalendar('gregorian')}
+        >
+          Gregorian
+        </button>
+        <button
+          className={`nav-item${calendar === 'ethiopian' ? ' active' : ''}`}
+          onClick={() => chooseCalendar('ethiopian')}
+        >
+          Ethiopian · ኢትዮጵያዊ
+        </button>
+
         <div className="nav-group">Session</div>
         <button className="nav-item" onClick={signOut}>
           Sign out ({session.scope.displayName})
@@ -99,9 +132,13 @@ export function App() {
       </aside>
 
       <main className="main">
-        {page === 'cash-up' && <CashUpPage session={session} onExpired={signOut} />}
+        {page === 'cash-up' && (
+          <CashUpPage session={session} onExpired={signOut} calendar={calendar} />
+        )}
         {page === 'summary' && <SalesSummaryPage session={session} onExpired={signOut} />}
-        {page === 'stock' && <StockPage session={session} onExpired={signOut} />}
+        {page === 'stock' && (
+          <StockPage session={session} onExpired={signOut} calendar={calendar} />
+        )}
         {page === 'sales' && <SalesPage session={session} onExpired={signOut} />}
         <p className="footnote">
           Signed in to <strong>{session.tenantCode}</strong> as {session.scope.role}.

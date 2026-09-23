@@ -121,8 +121,15 @@ The first three, in the order the docs argue for:
    `packages/contracts/src/permissions.ts` and is generated into Dart, so the app and the
    API read one table (AC-2.1 requires the denial at both layers). Branch, staff, catalog
    and pricing endpoints added; every cell tested at both layers. 32 assertions.
-3. **FR-10 localization** — Amharic and the Ethiopian calendar. Table stakes for adoption,
-   and the presentation-layer seams for it already exist (`money.dart`, `format.ts`).
+3. ~~**FR-10 localization**~~ ✅ **Done.** Amharic and English switchable per user, dates in
+   the Ethiopian calendar on both clients. The conversion is implemented twice and verified
+   against one generated vector table, because two hand-ported calendars diverge silently.
+   AC-10.2 is asserted at the schema level: every timestamp column is `timestamptz`, and no
+   calendar or locale column exists in the domain at all.
+
+**Phase 1's requirements are done** apart from what A-1 gates. What is left to close the
+phase is exit-gate work — core e2e journeys and NFR-3 performance on staging and on low-end
+Android — and both need the staging environment (`staging.md` §3) and the device lab.
 
 **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
 `../compliance-sign-off.md`. No ledger, no psychotropic rules, no audit events before then —

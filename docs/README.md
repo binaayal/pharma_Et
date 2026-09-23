@@ -116,7 +116,14 @@ reconciliation (the owner's primary anti-shrinkage control, Vision §2.1.1), con
 and per-branch sales summary, and stock with expiry alerting. Cash-up works end to end
 offline on contract v1.1.0 (ADR-012); reports are branch-scoped by role. ✅ **FR-2 complete
 for tenant roles** — the permission matrix lives in `packages/contracts` and is generated
-into Dart, so the app and the API enforce one table (AC-2.1). Next: FR-10 localization. **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
+into Dart, so the app and the API enforce one table (AC-2.1). ✅ **FR-10 complete** —
+Amharic and English switchable per user, Ethiopian calendar on both clients, with UTC
+storage asserted at the schema level (AC-10.2).
+
+**Phase 1's requirements are complete** apart from what `[ASSUMPTION]` A-1 gates. Closing
+the phase needs the exit-gate work — core e2e journeys and NFR-3 performance on staging and
+on a low-end Android device matrix — which waits on the staging environment
+(`engineering/staging.md` §3). **Phase 2 stays shut** until `[ASSUMPTION]` A-1 is verified and recorded in
 `compliance-sign-off.md`.
 
 See **`engineering/`** for repo layout, local setup, the contribution workflow, and staging.
