@@ -130,6 +130,15 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 - BR-2.2 Platform Admin has **no** default access to tenant sales/clinical data; support access is explicit, least-privilege, and audited (FR-6 audit infra).
 - BR-2.3 Offline login is permitted only on a terminal with cached credentials no older than the supported offline window (NFR-1); beyond it, re-auth online is required for privileged actions but **not** to complete an in-progress sale.
 
+  *Implementation note (P3).* "Privileged" is read as **everything the FR-2 matrix grants
+  beyond the trading loop**. Two capabilities survive an expired window: `sale.create`,
+  which BR-2.3 names, and `cashup.perform`, which it does not. Cash-up is included on
+  BR-2.3's own reasoning rather than as an extension of it — a shift opened before the
+  window closed has cash in a drawer, and refusing to close it would leave that drawer
+  unreconciled overnight, which is precisely the loss FR-8 exists to prevent. The set is
+  pinned by a test, so widening it has to be a deliberate and reviewable act
+  (`mobile/lib/auth/offline_window.dart`).
+
 **Acceptance criteria:**
 - AC-2.1 *Given* a Cashier, *when* they attempt to change a product price, *then* the action is denied at both app and API layers.
 - AC-2.2 *Given* an offline terminal within the supported window, *when* a Cashier logs in with cached PIN, *then* login succeeds and POS is usable.
@@ -354,11 +363,14 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}`, `dashboard/src/pages/CashUpPage.tsx` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `dashboard/src/pages/{SalesSummaryPage,StockPage}.tsx` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | FR-9 single-writer sync | §7, §10 | `api/src/modules/sync/`, `mobile/lib/{sync,data/outbox.dart}` | `api/test/guardian/g2-sync-integrity.spec.ts`, `mobile/test/guardian/g2_sync_integrity_test.dart` | Skeleton |
 | FR-10 localization | §3 | calendar: `packages/contracts/src/ethiopian-calendar.ts` + `mobile/lib/core/ethiopian_date.dart` (two implementations, one shared vector table) · strings: `mobile/lib/l10n/` · console toggle: `dashboard/src/lib/format.ts` | `ethiopian_date_test.dart` (19), `strings_test.dart` (7), `calendar.spec.ts` (16), `g4-utc-storage.spec.ts` (5) | **Done** — AC-10.1 Amharic + Ethiopian calendar, AC-10.2 UTC storage asserted at the schema level |
-| NFR-1 offline window | §7, §8 | `mobile/lib/data/local_db.dart`, `outbox.dart` | `mobile/test/guardian/g7_offline_durability_test.dart`; field UAT is the release gate | Skeleton — 72h harness is Phase 1 |
+| NFR-1 offline window | §7, §8 | `mobile/lib/data/local_db.dart`, `outbox.dart`, `auth/offline_window.dart` | `g7_offline_durability_test.dart`, `g7_offline_window_test.dart` (6), `g7-offline-resilience.spec.ts`; field UAT is the release gate | **Done** — durability and the authority ceiling are both enforced; the 72h backlog replays in 3.4 s |
 | NFR-3.2 local op < 100 ms | §7 | single local transaction, no network on the sale path | `g7` timing guard; real figure comes from the device matrix | Partial — shape guarded, device figure outstanding (GA gate) |
 | NFR-3.3 sync < 10s after 72h | §7 | `api/src/modules/sync/`, 2 MB body limit derived from the contract cap | `test/perf/nfr3.perf-spec.ts` | **Met** — 3.4 s for 186 ops |
 | NFR-3.4 API p95 | §7, §9 | one query per report; lateral aggregates, no N+1 | `test/perf/nfr3.perf-spec.ts` | **Met** — sync 33 ms / 500, dashboard ≤ 36 ms / 1000 |
-| NFR-4 security/isolation | §8, ADR-007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema` | `g1` suite + `api/test/guardian/no-unscoped-access.spec.ts` | Skeleton |
+| NFR-4.1 tenant isolation | §8, ADR-003/007 | `api/src/common/db/scoped-db.service.ts`, RLS policies in `InitialSchema`, `common/auth/jwt-auth.guard.ts` | `g1` suite + `g1-cross-tenant-route-sweep.spec.ts` (50) + `no-unscoped-access.spec.ts` | **Done** — every route the app serves is attempted across the boundary, and a route nobody has classified fails the sweep |
+| NFR-4.2 credentials + rate limiting | §8, ADR-017 | `api/src/modules/auth/login-throttle.service.ts`, `migrations/LoginAttempts`, `mobile/lib/auth/{session,offline_window}.dart` | `g1-login-throttling.spec.ts` (7), `g7_offline_window_test.dart` (6) | **Done** — throttled, never locked out; the offline ceiling now actually closes (BR-2.3) |
+| NFR-4.3 transport + response headers | §8 | TLS terminates at the platform edge; `apps/api/src/main.ts` sets the response headers | manual `curl -I`; asserted by `scripts/smoke.sh` | **Done** for headers. TLS is a deployment property and is verified at staging, not in CI |
+| NFR-4.4 platform admin least-privilege | §8, BR-2.2 | `common/auth/platform-admin.guard.ts`, `modules/billing/platform-auth.service.ts` | `g1-cross-tenant-route-sweep.spec.ts` — both directions | **Done** — a platform token is refused by every tenant route and a tenant token by every platform route |
 | NFR-5 retention | §5.6, §5.8 | no `DELETE` grant to the app role; `deleted_at` on every table | schema-level; ledger retention is Phase 2 | Partial |
 
 **FR-1 complete.** Tenant onboarding, the manual payment loop and subscription control are

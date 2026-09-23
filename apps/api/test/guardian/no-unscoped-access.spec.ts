@@ -30,6 +30,14 @@ const ALLOWED = new Set([
   'config/data-source.ts',
   // Development seeding, outside request scope by nature.
   'seed.ts',
+  // Login throttling (NFR-4.2, ADR-017). `login_attempt` has no tenant_id and cannot have
+  // one: an attempt may name a tenant that does not exist, which is precisely the case that
+  // must be counted or the limiter becomes an account-enumeration oracle. Throttling also
+  // runs BEFORE any tenant is resolved, so there is no scope to run in.
+  //
+  // It is not routed through runAsPlatform either: that path logs a warning per call by
+  // design, and a warning on every login attempt would bury the ones that matter.
+  'modules/auth/login-throttle.service.ts',
 ]);
 
 const FORBIDDEN: Array<{ pattern: RegExp; why: string }> = [

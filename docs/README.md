@@ -70,6 +70,7 @@ answer, permanently.
 | [ADR-014](adr/ADR-014-calendar-implemented-twice.md) | The Ethiopian calendar is implemented twice, verified once | Accepted |
 | [ADR-015](adr/ADR-015-audit-log-before-a1.md) | Event store and audit log built before A-1; the regulated subset is not | Accepted |
 | [ADR-016](adr/ADR-016-what-suspension-blocks.md) | What a suspended subscription blocks — management writes only | Accepted |
+| [ADR-017](adr/ADR-017-login-throttling.md) | Login throttling: slow an attacker without closing a pharmacy | Accepted |
 
 ---
 

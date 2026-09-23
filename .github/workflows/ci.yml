@@ -157,15 +157,20 @@ jobs:
 
           # And the converse, so the rule cannot be satisfied by dropping the column: any
           # table WITHOUT a tenant_id must be one we have consciously decided is not tenant
-          # data. There is exactly one, and naming it here is cheaper than discovering a
-          # second by accident.
+          # data. Naming them here is cheaper than discovering one by accident.
+          #
+          #   platform_admin  — that is us, not a pharmacy (BR-2.2).
+          #   login_attempt   — an attempt may name a tenant that does not exist, and that
+          #                     case is the whole point of recording it: refusing to count
+          #                     attempts against unknown tenants would make "throttled" mean
+          #                     "this pharmacy is real" (ADR-017).
           NON_TENANT=$(psql "$DATABASE_URL" -tAc "
             SELECT string_agg(c.relname, ', ')
               FROM pg_class c
               JOIN pg_namespace n ON n.oid = c.relnamespace
              WHERE n.nspname = 'public'
                AND c.relkind = 'r'
-               AND c.relname NOT IN ('migrations', 'tenant', 'platform_admin')
+               AND c.relname NOT IN ('migrations', 'tenant', 'platform_admin', 'login_attempt')
                AND NOT EXISTS (
                  SELECT 1 FROM pg_attribute a
                   WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped

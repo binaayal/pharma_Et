@@ -56,12 +56,21 @@ class _LoginScreenState extends State<LoginScreen> {
       ));
       if (!mounted) return;
       widget.onSignedIn(response, _tenantCode.text.trim());
-    } catch (_) {
+    } catch (error) {
       // One message for every failure. Telling the difference between "no such pharmacy"
       // and "wrong PIN" tells an attacker which codes and usernames are real.
+      //
+      // The exception is a throttle (ADR-017). "Check the details and try again" is actively
+      // harmful advice to someone who has been rate-limited: they will try again, extend the
+      // window, and never learn that waiting is what works. The server's message says how
+      // long and says the shop keeps selling, which is what the person at the counter needs.
+      final throttled =
+          error is SyncTransportException && error.statusCode == 429;
       if (mounted) {
         setState(
-          () => _error = 'Could not sign in. Check the details and try again.',
+          () => _error = throttled
+              ? error.message
+              : 'Could not sign in. Check the details and try again.',
         );
       }
     } finally {
