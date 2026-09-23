@@ -344,7 +344,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | Req ID | Design ref (`04-system-design.md`) | Implementation | Test ref | Status |
 |---|---|---|---|---|
 | FR-1 tenant/branch | §5.1 | `api/src/entities/{tenant,branch}.entity.ts`, `migrations/InitialSchema` | `api/test/guardian/g1-tenant-isolation.spec.ts` | Skeleton |
-| FR-2 (+ matrix) | §8, §5.1 | `api/src/modules/auth/`, `common/auth/{jwt-auth.guard,roles.guard,branch-scope}.ts`, `mobile/lib/auth/session.dart` | G1 suites; branch-scope denial asserted per report | Partial — **branch scoping (T vs B) now enforced and tested**; the full role × capability matrix is the next slice |
+| FR-2 (+ matrix) | §8, §5.1 | **matrix: `packages/contracts/src/permissions.ts`** (generated into Dart) · enforcement: `api/src/common/auth/{capability.guard,branch-scope}.ts`, `api/src/modules/admin/` · client: `mobile/lib/core/permissions.dart` | `g1-permission-matrix.spec.ts` (21), `permissions_test.dart` (11), `g1-report-scoping.spec.ts` (17) | **Done** — every role × capability cell tested at both layers (`05-qa` §10); AC-2.1 verified on both. Platform-Admin capabilities are declared and denied to every tenant role; their own surface is FR-1 billing, still open. |
 | FR-3 inventory (FEFO, negative stock) | §5.3, §10 | `api/src/modules/inventory/inventory.service.ts`, `mobile/lib/data/catalog_repository.dart`, `api/src/modules/reporting/stock-report.service.ts` | `g5-oversell-detected.spec.ts`, `fefo_test.dart`, `g1-report-scoping.spec.ts` | Skeleton + **BR-3.4 expiry alerting done**; E-4.2 expired-stock override still open |
 | FR-4 POS (standard sale) | §5.4 | `mobile/lib/data/sale_repository.dart`, `api/src/modules/sync/sync.service.ts` | `mobile/test/guardian/g7_offline_durability_test.dart` | Skeleton |
 | FR-4 psychotropic rules | §6.4 | — | — | **Gated on A-1** (Phase 2) |
@@ -364,8 +364,14 @@ alerting (BR-3.4). Branch scoping — the **T** vs **B** distinction the FR-2 ma
 which RLS cannot express — is enforced at every report and tested per role. 39 guardian
 assertions cover this requirement across both halves.
 
-Next: the full FR-2 role × capability matrix, then FR-10 localization. The
-controlled-substance ledger report stays out until A-1 clears.
+FR-2 is now complete for tenant roles. The matrix lives in `packages/contracts` and is
+**generated into Dart**, so the app and the API read the same table — AC-2.1 requires the
+denial at both layers, and two copies of a permission table drift in the direction where
+the app offers what the server refuses. Branch reach (T vs B vs own) is enforced on every
+read and write.
+
+Next: FR-10 localization. The controlled-substance ledger report and the Platform-Admin
+surface stay out until A-1 and Phase 2 respectively.
 
 **Not yet traced, and deliberately so:** FR-5 (inter-branch transfer, V1.x), FR-7a/7b and
 FR-8a (deferred), NFR-2 (V2 multi-writer). G3 (ledger immutability) and G6 (psychotropic

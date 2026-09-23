@@ -2,12 +2,14 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CapabilityGuard } from './common/auth/capability.guard';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
 import { DbModule } from './common/db/db.module';
 import { PLATFORM_DATA_SOURCE } from './common/db/scoped-db.service';
 import { loadConfiguration } from './config/configuration';
 import { ALL_ENTITIES } from './entities';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
 import { InventoryModule } from './modules/inventory/inventory.module';
@@ -64,6 +66,7 @@ function appConnectionUrl(config: ConfigService): string {
 
     DbModule,
     AuthModule,
+    AdminModule,
     InventoryModule,
     SyncModule,
     ReportingModule,
@@ -75,6 +78,9 @@ function appConnectionUrl(config: ConfigService): string {
     // rather than a bug.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // The FR-2 matrix. Global, so a handler that forgets @RequireCapability is merely
+    // unrestricted-by-omission rather than silently bypassing a check it appeared to have.
+    { provide: APP_GUARD, useClass: CapabilityGuard },
   ],
 })
 export class AppModule {}
