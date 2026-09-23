@@ -37,7 +37,27 @@ jobs:
             echo "::error::a .env file is tracked; secrets belong in the secret store"
             exit 1
           fi
-          if git grep -nE 'postgres://[^ ]*:[^ @]{8,}@' -- ':!*.example' ':!*.md' ':!.github/**' ':!scripts/**'; then
-            echo "::error::a database URL with an embedded password is committed"
+
+          # Database URLs with a LITERAL password. A `${VAR}` or `${VAR:-default}` is a
+          # placeholder resolved from the environment at runtime, not a committed
+          # credential — flagging those trains people to ignore this check, which is how a
+          # real secret eventually walks past it.
+          HITS=$(git grep -nE 'postgres(ql)?://[^ ]*:[^ @]{8,}@' \
+                   -- ':!*.example' ':!*.md' ':!.github/**' ':!scripts/**' \
+                 | grep -vE '\$\{[A-Za-z_][A-Za-z0-9_]*(:-[^}]*)?\}' || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::a database URL with a literal password is committed; it belongs in the secret store"
             exit 1
           fi
+          echo "no literal credentials in tracked files"
+
+          # Deploy tokens and API keys, which have no legitimate reason to be in the tree.
+          KEYS=$(git grep -nE '(fly[_-]?api[_-]?token|FlyV1 fm2_|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' \
+                   -- ':!*.md' ':!.github/**' || true)
+          if [ -n "$KEYS" ]; then
+            echo "$KEYS"
+            echo "::error::what looks like a token or private key is committed"
+            exit 1
+          fi
+          echo "no tokens or private keys in tracked files"
