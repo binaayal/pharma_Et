@@ -128,9 +128,15 @@ jobs:
       - name: Migrations apply cleanly (schema AND RLS policies)
         run: pnpm --filter @pharmaet/api migration:run
 
-      - name: Every table carries an RLS policy
-        # The application role is non-owner, so RLS actually binds it. A table that reached
-        # production without a policy would look fine in every scoped test.
+      - name: Every tenant-scoped table carries an RLS policy
+        # The application role is non-owner, so RLS actually binds it. A tenant table that
+        # reached production without a policy would look fine in every scoped test and leak
+        # the first time a query forgot its predicate.
+        #
+        # Scoped by "has a tenant_id column" rather than by an exclusion list, so it stays
+        # true on its own: a new tenant table without RLS fails, and a legitimately
+        # non-tenant table — `platform_admin`, which is us — never has to be remembered and
+        # added to a list somebody would eventually pad to make the check pass.
         run: |
           UNPROTECTED=$(psql "$DATABASE_URL" -tAc "
             SELECT string_agg(c.relname, ', ')
@@ -139,9 +145,34 @@ jobs:
              WHERE n.nspname = 'public'
                AND c.relkind = 'r'
                AND c.relname <> 'migrations'
+               AND EXISTS (
+                 SELECT 1 FROM pg_attribute a
+                  WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped
+               )
                AND NOT c.relrowsecurity;")
           if [ -n "$UNPROTECTED" ]; then
-            echo "::error::tables without row-level security: $UNPROTECTED"
+            echo "::error::tenant-scoped tables without row-level security: $UNPROTECTED"
+            exit 1
+          fi
+
+          # And the converse, so the rule cannot be satisfied by dropping the column: any
+          # table WITHOUT a tenant_id must be one we have consciously decided is not tenant
+          # data. There is exactly one, and naming it here is cheaper than discovering a
+          # second by accident.
+          NON_TENANT=$(psql "$DATABASE_URL" -tAc "
+            SELECT string_agg(c.relname, ', ')
+              FROM pg_class c
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public'
+               AND c.relkind = 'r'
+               AND c.relname NOT IN ('migrations', 'tenant', 'platform_admin')
+               AND NOT EXISTS (
+                 SELECT 1 FROM pg_attribute a
+                  WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped
+               );")
+          if [ -n "$NON_TENANT" ]; then
+            echo "::error::tables with no tenant_id that are not on the known list: $NON_TENANT"
+            echo "::error::either add the column or add the table to this check, deliberately."
             exit 1
           fi
 
