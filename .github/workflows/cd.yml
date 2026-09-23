@@ -29,7 +29,6 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE: ghcr.io/${{ github.repository }}/api
 
 jobs:
   # ---------------------------------------------------------------- build
@@ -38,11 +37,17 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
     steps:
       - uses: actions/checkout@v4
 
       - id: meta
-        run: echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+        run: |
+          # GHCR rejects any uppercase in a repository name, and this repo is `pharmaEt`.
+          # github.repository preserves the owner's casing, so it is lowercased here rather
+          # than interpolated directly.
+          echo "image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/api" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -61,8 +66,8 @@ jobs:
           # Immutable sha tag is what gets deployed and what a rollback names; `latest` is a
           # convenience for humans and is never what a deploy references.
           tags: |
-            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
-            ${{ env.IMAGE }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+            ${{ steps.meta.outputs.image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -82,7 +87,7 @@ jobs:
 
       - name: Stand up the staging stack from the published image
         env:
-          API_IMAGE: ${{ env.IMAGE }}:${{ needs.image.outputs.tag }}
+          API_IMAGE: ${{ needs.image.outputs.image }}:${{ needs.image.outputs.tag }}
           JWT_SECRET: ci-verification-secret-not-a-real-one
         run: |
           docker compose -f docker-compose.staging.yml up -d --wait
@@ -93,7 +98,7 @@ jobs:
 
       - name: Prove the migration is re-runnable (idempotent, forward-only)
         env:
-          API_IMAGE: ${{ env.IMAGE }}:${{ needs.image.outputs.tag }}
+          API_IMAGE: ${{ needs.image.outputs.image }}:${{ needs.image.outputs.tag }}
         run: |
           # A deploy that retries must not fail on the migration step, and a re-run must not
           # re-apply. This is the cheapest place to find out.
