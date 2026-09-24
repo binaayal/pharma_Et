@@ -141,7 +141,13 @@ export const api = {
 
   onboard: (
     token: string,
-    body: { name: string; code: string; ownerUsername: string; ownerDisplayName: string; ownerPin: string },
+    body: {
+      name: string;
+      code: string;
+      ownerUsername: string;
+      ownerDisplayName: string;
+      ownerPin: string;
+    },
   ) =>
     request<{ tenantId: string }>(
       '/platform/tenants',
@@ -159,8 +165,7 @@ export const api = {
       token,
     ),
 
-  pendingProofs: (token: string) =>
-    request<PendingProof[]>('/platform/payment-proofs', {}, token),
+  pendingProofs: (token: string) => request<PendingProof[]>('/platform/payment-proofs', {}, token),
 
   decideProof: (token: string, id: string, body: { accept: boolean; reason?: string }) =>
     request<unknown>(

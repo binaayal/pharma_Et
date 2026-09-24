@@ -56,3 +56,9 @@ export function relativeAge(iso: string): string {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
   return `${Math.floor(seconds / 86400)} d ago`;
 }
+
+/** `+251921184477` → `+251 92 118 4477`, as people read it aloud on a verification call. */
+export function formatPhone(e164: string): string {
+  const m = /^\+251(\d{2})(\d{3})(\d{4})$/.exec(e164);
+  return m ? `+251 ${m[1]} ${m[2]} ${m[3]}` : e164;
+}
