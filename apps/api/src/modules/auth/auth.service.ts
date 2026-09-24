@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { LoginRequest, LoginResponse } from '@pharmaet/contracts';
+import type { LoginRequest, LoginResponse, RefreshRequest } from '@pharmaet/contracts';
 import * as argon2 from 'argon2';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import { AppUser, Tenant, UserBranch } from '../../entities';
@@ -84,6 +84,69 @@ export class AuthService {
     }
 
     return this.issueTokens(tenant.id, found.user, found.branchIds, request.terminalId);
+  }
+
+  /**
+   * Exchanges a refresh token for a new session (docs/04 §9, ADR-019).
+   *
+   * Two properties make this safe, and both are the point rather than defence in depth.
+   *
+   * **It accepts only a refresh token.** The `typ` claim is checked explicitly. Without that
+   * check an access token would extend itself indefinitely, which turns a fifteen-minute
+   * credential into a permanent one — the mirror image of the defect where a refresh token
+   * authenticated API calls.
+   *
+   * **It re-reads the user.** The new session's role and branches come from the database,
+   * not from the old token's claims. A cashier dismissed this morning cannot refresh their
+   * way through the afternoon, and a role changed at lunchtime takes effect now rather than
+   * whenever the offline window happens to end. Copying the claims forward would let a token
+   * outlive the authority it describes, which is exactly the staleness BR-2.3 bounds.
+   */
+  async refresh(request: RefreshRequest): Promise<LoginResponse> {
+    let payload: JwtPayload;
+    try {
+      payload = await this.jwt.verifyAsync<JwtPayload>(request.refreshToken);
+    } catch {
+      // Covers expired as well as forged. Both mean the same thing to the terminal: sign in.
+      throw new UnauthorizedException('invalid or expired refresh token');
+    }
+
+    if (payload.typ !== 'refresh' || !payload.tid) {
+      throw new UnauthorizedException('not a refresh token');
+    }
+
+    const scope = {
+      tenantId: payload.tid,
+      userId: payload.sub,
+      role: 'owner' as const,
+      branchIds: [],
+    };
+
+    const found = await this.db.runInScope(scope, async (em) => {
+      // An explicit `IS NULL` predicate, matching the login path. A `findOne` with
+      // `deletedAt: null` did not exclude the soft-deleted row here, and the failure mode is
+      // the worst kind: it looks correct, and it silently lets a dismissed user refresh.
+      const user = await em
+        .getRepository(AppUser)
+        .createQueryBuilder('u')
+        .where('u.id = :id', { id: payload.sub })
+        .andWhere('u.deleted_at IS NULL')
+        .getOne();
+      if (!user) return null;
+      const branches = await em.getRepository(UserBranch).find({ where: { userId: user.id } });
+      return { user, branchIds: branches.map((b) => b.branchId) };
+    });
+
+    // Deactivated between login and refresh. The token is still cryptographically perfect,
+    // and that is precisely why the check is a database read rather than a signature check.
+    if (!found) throw new UnauthorizedException('invalid or expired refresh token');
+
+    return this.issueTokens(
+      payload.tid,
+      found.user,
+      found.branchIds,
+      request.terminalId,
+    );
   }
 
   private async issueTokens(

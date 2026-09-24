@@ -151,6 +151,16 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
                     )
                   : PosScreen(
                       session: _session!,
+                      // A session renewed mid-sync is written back to secure storage and to
+                      // the running app, so the refresh token is redeemed once rather than
+                      // on every tick (ADR-019).
+                      onSessionRenewed: (renewed) async {
+                        await _sessions.save(renewed, _session!.tenantCode);
+                        final reloaded = await _sessions.load();
+                        if (mounted && reloaded != null) {
+                          setState(() => _session = reloaded);
+                        }
+                      },
                       catalog: _catalog!,
                       sales: _sales!,
                       shifts: _shifts!,

@@ -35,5 +35,10 @@ export const CONTRACT_SCHEMAS: Record<string, ZodTypeAny> = {
   // Auth
   LoginRequest: auth.loginRequest,
   LoginResponse: auth.loginResponse,
+  RefreshRequest: auth.refreshRequest,
   AuthScope: auth.authScope,
 };
+
+// `RefreshResponse` is deliberately absent: it IS `LoginResponse`, and emitting a second
+// Dart class with identical fields would let the two drift apart later for no reason. A
+// refresh returns a whole new session — see the note on `refreshResponse` in `auth.ts`.

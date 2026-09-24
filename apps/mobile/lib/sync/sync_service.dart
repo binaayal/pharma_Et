@@ -6,7 +6,20 @@ import '../data/inventory_repository.dart';
 import '../data/sale_repository.dart';
 import 'sync_client.dart';
 
-enum SyncState { idle, syncing, synced, offline, needsAttention }
+/// `sessionExpired` is deliberately NOT `offline` (ADR-019).
+///
+/// Before it existed, an expired access token produced a 401 that this service reported as
+/// `offline` — indistinguishable from a network outage, which is a state this product is
+/// designed to tolerate and a cashier is trained to ignore. The terminal stopped syncing
+/// fifteen minutes after login, kept taking sales, and nobody had any reason to look.
+enum SyncState {
+  idle,
+  syncing,
+  synced,
+  offline,
+  needsAttention,
+  sessionExpired
+}
 
 class SyncStatus {
   const SyncStatus({
@@ -79,7 +92,49 @@ class SyncService {
     required String branchId,
     required String actorId,
     required String terminalId,
+
+    /// Redeemed once, transparently, when the access token has expired (ADR-019). Empty for
+    /// a session cached before refresh existed; those fall back to signing in again.
+    String refreshToken = '',
+
+    /// Called with the renewed session so the caller can persist it. Without this the
+    /// terminal would refresh on every single sync — correct, but a request per sync for a
+    /// token it already holds.
+    Future<void> Function(LoginResponse renewed)? onRenewed,
   }) async {
+    var activeToken = token;
+    var sessionExpired = false;
+
+    /// Runs [call] with the current access token, and on a 401 refreshes once and retries.
+    ///
+    /// Once, not in a loop: if a freshly minted token is also refused, the problem is not
+    /// staleness, and retrying would turn a broken session into a request storm against a
+    /// server that has already said no.
+    Future<T> withAuth<T>(Future<T> Function(String token) call) async {
+      try {
+        return await call(activeToken);
+      } on SyncTransportException catch (error) {
+        if (error.statusCode != 401 || refreshToken.isEmpty) rethrow;
+
+        final LoginResponse renewed;
+        try {
+          renewed = await _client.refresh(
+            refreshToken: refreshToken,
+            terminalId: terminalId,
+          );
+        } on SyncTransportException {
+          // The refresh token is spent, expired, or its user was deactivated. The terminal
+          // cannot fix any of those by trying again — a human has to sign in.
+          sessionExpired = true;
+          rethrow;
+        }
+        activeToken = renewed.accessToken;
+        refreshToken = renewed.refreshToken;
+        await onRenewed?.call(renewed);
+        return call(activeToken);
+      }
+    }
+
     final pending = await _outbox.pending();
 
     if (pending.isNotEmpty) {
@@ -112,18 +167,18 @@ class SyncService {
       ];
 
       try {
-        final response = await _client.push(
-          token: token,
-          terminalId: terminalId,
-          operations: operations,
-        );
+        final response = await withAuth((t) => _client.push(
+              token: t,
+              terminalId: terminalId,
+              operations: operations,
+            ));
         await _outbox.applyAcks(response.acks);
       } on SyncTransportException catch (error) {
         // Nothing is removed. The queue is exactly as deep as it was, and every sale in it
         // is still on this device.
         await _outbox.recordFailure(pending, error.message);
         return SyncStatus(
-          state: SyncState.offline,
+          state: sessionExpired ? SyncState.sessionExpired : SyncState.offline,
           pending: await _outbox.depth(),
           needsAttention: await _outbox.attentionCount(),
           lastSyncedAt: _lastSyncedAt,
@@ -136,8 +191,8 @@ class SyncService {
       var cursor = int.tryParse(await _db.meta('pull_cursor') ?? '0') ?? 0;
       var pages = 0;
       while (pages < 20) {
-        final response = await _client.pull(
-            token: token, cursor: cursor, branchId: branchId);
+        final response = await withAuth(
+            (t) => _client.pull(token: t, cursor: cursor, branchId: branchId));
         await _catalog.applyPull(response);
         cursor = response.cursor;
         pages++;
@@ -148,7 +203,7 @@ class SyncService {
       _lastSyncedAt = DateTime.now();
     } on SyncTransportException catch (error) {
       return SyncStatus(
-        state: SyncState.offline,
+        state: sessionExpired ? SyncState.sessionExpired : SyncState.offline,
         pending: await _outbox.depth(),
         needsAttention: await _outbox.attentionCount(),
         lastSyncedAt: _lastSyncedAt,

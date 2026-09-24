@@ -132,6 +132,82 @@ describe('G1 — a token works only for what it was issued for, and only while i
     });
   });
 
+  describe('refresh (ADR-019)', () => {
+    const refresh = (token: string, terminalId = TEST_TERMINAL) =>
+      request(server())
+        .post('/api/auth/refresh')
+        .send({ refreshToken: token, terminalId });
+
+    it('exchanges a refresh token for a session that works', async () => {
+      const login = await harness.login(tenant.code, 'cashier');
+      const renewed = await refresh(login.refreshToken).expect(200);
+
+      await asProducts(renewed.body.accessToken).expect(200);
+      expect(renewed.body.scope.userId).toBe(login.scope.userId);
+    });
+
+    it('refuses an access token — the mirror image of the original defect', async () => {
+      const login = await harness.login(tenant.code, 'cashier');
+
+      // If an access token could refresh itself, a fifteen-minute credential would become a
+      // permanent one. That is the same confusion as a refresh token authenticating an API
+      // call, pointing the other way, and it is why `typ` is checked at both ends.
+      await refresh(login.accessToken).expect(401);
+    });
+
+    it('refuses a refresh token for a user who has since been deactivated', async () => {
+      // Its own tenant on purpose. Deactivating the shared fixture's cashier would leave
+      // every later test in this file signing in as a user that no longer exists — a suite
+      // where one test quietly breaks the next is worse than one test fewer.
+      const doomed = await harness.seedTenant('tok4');
+      const login = await harness.login(doomed.code, 'cashier');
+
+      await request(server())
+        .delete(`/api/users/${doomed.users.cashier.id}`)
+        .set('authorization', `Bearer ${doomed.users.owner.token}`)
+        .expect(200);
+
+      // The token is still cryptographically perfect. That is exactly why this check is a
+      // database read rather than a signature check: a dismissed cashier must not be able to
+      // refresh their way through the rest of the day.
+      await refresh(login.refreshToken).expect(401);
+    });
+
+    it('reflects a role changed since login, rather than copying the old claims', async () => {
+      const other = await harness.seedTenant('tok3');
+      const login = await harness.login(other.code, 'cashier');
+      expect(login.scope.role).toBe('cashier');
+
+      await harness.platformDataSource.query(
+        `UPDATE app_user SET role = 'branch_manager' WHERE id = $1`,
+        [other.users.cashier.id],
+      );
+
+      // Authority is re-read, not carried forward. Copying the claims would let a token
+      // outlive the authority it describes — the staleness BR-2.3 exists to bound — and it
+      // would cut both ways: a demotion would be ignored just as a promotion is.
+      const renewed = await refresh(login.refreshToken).expect(200);
+      expect(renewed.body.scope.role).toBe('branch_manager');
+    });
+
+    it('refuses an expired refresh token', async () => {
+      const expired = await jwt.signAsync(
+        { ...claimsFor(tenant), typ: 'refresh' },
+        { expiresIn: '-1s' },
+      );
+      await refresh(expired).expect(401);
+    });
+
+    it('refuses a refresh token signed by someone else', async () => {
+      const foreign = new JwtService({ secret: 'not-the-secret-this-server-uses' });
+      const forged = await foreign.signAsync(
+        { ...claimsFor(tenant), typ: 'refresh' },
+        { expiresIn: '30d' },
+      );
+      await refresh(forged).expect(401);
+    });
+  });
+
   describe('forgery', () => {
     it('refuses a token signed with a different secret', async () => {
       const foreign = new JwtService({ secret: 'not-the-secret-this-server-uses' });

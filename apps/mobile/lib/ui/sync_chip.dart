@@ -36,6 +36,16 @@ class SyncChip extends StatelessWidget {
           PharmaColors.amber,
           Icons.cloud_off_outlined,
         ),
+      // Red, and worded as an instruction rather than a status. Every other state here is
+      // something the terminal will resolve by itself; this one is the only one that needs a
+      // person, and showing it in the same amber as "waiting" is what let an expired session
+      // read as a network outage for fifteen minutes at a time (ADR-019).
+      SyncState.sessionExpired => (
+          'Sign in again',
+          PharmaColors.redTint,
+          PharmaColors.red,
+          Icons.lock_clock_outlined,
+        ),
       SyncState.needsAttention => (
           '${status.needsAttention} need attention',
           PharmaColors.redTint,

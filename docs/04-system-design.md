@@ -260,7 +260,7 @@ All routes are prefixed `/api`. Tenant-scoped unless marked otherwise.
 
 | Group | Routes |
 |---|---|
-| Auth | `POST /auth/login` |
+| Auth | `POST /auth/login`, `POST /auth/refresh` |
 | Branches | `GET /branches`, `POST /branches`, `PATCH /branches/:id` |
 | Users | `GET /users`, `POST /users`, `DELETE /users/:id` |
 | Catalog | `GET /products`, `POST /products`, `POST /products/:id/price` |
@@ -269,7 +269,7 @@ All routes are prefixed `/api`. Tenant-scoped unless marked otherwise.
 | Audit | `GET /audit`, `GET /audit/verify?streamId=` |
 | Billing (tenant's own) | `GET /billing/subscription`, `GET /billing/payment-proofs`, `POST /billing/payment-proofs` |
 | **Platform** (above tenant) | `POST /platform/login`, `GET /platform/tenants`, `POST /platform/tenants`, `GET /platform/payment-proofs`, `GET /platform/payment-proofs/:id/image`, `POST /platform/payment-proofs/:id/decide`, `POST /platform/subscriptions` |
-| Unauthenticated | `GET /health`, `POST /auth/login`, `POST /platform/login` |
+| Unauthenticated | `GET /health`, `POST /auth/login`, `POST /auth/refresh`, `POST /platform/login` |
 
 **Core-loop writes have no direct endpoint at all.** A sale, a goods receipt, a shift, a
 cash-up and a stock adjustment reach the server **only** through `POST /sync/push`. There is
@@ -283,11 +283,10 @@ would drift. The dashboard reads; it does not author core-loop records.
 > group — none of which exist — and stated that "the direct POSTs exist for the dashboard and
 > tests", which was simply untrue. The platform surface is `/platform/*`, not `/admin/*`.
 >
-> The `/auth/refresh` entry is worth singling out: the login response **does** return a
-> `refreshToken`, and there has never been an endpoint that accepts one. Until the guard was
-> fixed it was accepted as an access token instead — a thirty-day credential standing in for
-> a fifteen-minute one. The token is now refused everywhere and redeeming it is unbuilt; see
-> the open question in §10.
+> The `/auth/refresh` entry was the interesting one: it was listed here, never built, and the
+> login response returned a `refreshToken` that nothing accepted. It is built now (ADR-019),
+> and investigating it found that terminals had been silently ceasing to sync fifteen minutes
+> after login.
 
 ## 10. Concurrency, consistency & failure handling
 
@@ -297,18 +296,15 @@ would drift. The dashboard reads; it does not author core-loop records.
 - **Partial sync failure:** push is a batch of independent ops with per-op acks; a mid-batch network drop is safe because unacked ops remain in the outbox and are retried idempotently.
 - **Projection integrity:** `controlled_stock_view` is rebuildable from `event`; the event log, not the projection, is the source of truth.
 
-> **[OPEN] Token refresh.** `POST /auth/login` returns a `refreshToken` and nothing accepts
-> one: there is no refresh endpoint, and the access guard now rejects a refresh token
-> outright (`typ` must be `access`). So the client holds a thirty-day credential with no use.
+> **Session continuity (resolved 2026-09-24, ADR-019).** `POST /auth/refresh` exchanges a
+> refresh token for a whole new session, re-reading the user so a deactivated account or a
+> changed role takes effect immediately rather than at the end of the offline window. The
+> terminal redeems it transparently on a 401 and retries once.
 >
-> Two ways to close it, and the choice is a product decision rather than a technical one:
-> build `POST /auth/refresh`, so a terminal can extend a session without re-entering a PIN;
-> or drop `refreshToken` from `loginResponse`, which is a contract change under ADR-009/012
-> and needs an N-1 window.
->
-> Leaving it as-is is the one option with no argument for it: an unused long-lived credential
-> on a shared counter device is a liability that buys nothing. It is not urgent — the token is
-> inert — but it should not ship to GA undecided.
+> An unredeemable refresh is `SyncState.sessionExpired`, deliberately distinct from `offline`:
+> before this, an expired token reported as an outage, which is a state the product is built
+> to tolerate and staff are trained to ignore — so a terminal stopped syncing fifteen minutes
+> after sign-in and nothing gave anybody a reason to look. Selling is unaffected throughout.
 
 ---
 

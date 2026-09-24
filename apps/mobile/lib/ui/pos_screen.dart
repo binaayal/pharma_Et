@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../auth/session.dart';
 import '../auth/offline_window.dart';
+import '../contracts/contracts.dart';
 import '../core/money.dart';
 import '../core/permissions.dart';
 import '../core/theme.dart';
@@ -33,6 +34,7 @@ class PosScreen extends StatefulWidget {
     required this.syncService,
     required this.terminalId,
     required this.onSignOut,
+    required this.onSessionRenewed,
   });
 
   final CachedSession session;
@@ -43,6 +45,10 @@ class PosScreen extends StatefulWidget {
   final SyncService syncService;
   final String terminalId;
   final VoidCallback onSignOut;
+
+  /// Persists a session renewed mid-sync (ADR-019), so the terminal does not redeem its
+  /// refresh token again on the very next tick.
+  final Future<void> Function(LoginResponse) onSessionRenewed;
 
   @override
   State<PosScreen> createState() => _PosScreenState();
@@ -192,10 +198,12 @@ class _PosScreenState extends State<PosScreen> {
     });
     final status = await widget.syncService.sync(
       token: widget.session.accessToken,
+      refreshToken: widget.session.refreshToken,
       tenantId: widget.session.scope.tenantId,
       branchId: _branchId,
       actorId: widget.session.scope.userId,
       terminalId: widget.terminalId,
+      onRenewed: widget.onSessionRenewed,
     );
     if (!mounted) return;
     setState(() {

@@ -20,6 +20,7 @@ void main() {
   CachedSession sessionValidUntil(DateTime until, {String role = 'owner'}) =>
       CachedSession(
         accessToken: 'token',
+        refreshToken: 'refresh',
         tenantCode: 'test',
         offlineValidUntil: until,
         scope: AuthScope(
