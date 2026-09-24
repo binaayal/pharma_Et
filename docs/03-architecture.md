@@ -93,19 +93,18 @@ flowchart LR
     auth["Auth & RBAC"]
     tenant["Tenant & Branch"]
     inv["Inventory (standard)"]
-    pos["POS / Dispensing"]
     ledger["Controlled-Substance Ledger<br/>(event-sourced)"]
     audit["Action Audit Log<br/>(event-sourced)"]
-    purch["Purchasing / Goods Receipt"]
-    report["Reporting (incl. cash-up)"]
+    report["Reporting"]
+    cashup["Cash-up / Z-report"]
     sync["SyncService<br/>(push/pull, idempotent)"]
     billing["Admin / Billing<br/>(payment verify, subscription)"]
   end
   scope["Tenant Scope Guard<br/>(request-scoped context)"]
 
   sync --> scope
-  pos --> scope
   inv --> scope
+  cashup --> scope
   ledger --> scope
   scope --> db[("PostgreSQL + RLS")]
 ```
@@ -115,13 +114,25 @@ flowchart LR
 | Auth & RBAC | FR-2 | Resolves tenant/branch scope + permission matrix; issues tokens; supports offline cached auth. |
 | Tenant & Branch | FR-1 | Tenant/branch lifecycle; enforces "≥1 branch". |
 | Inventory (standard) | FR-3 | Mutable stock, batch/lot, expiry, negative-stock policy, FEFO. |
-| POS / Dispensing | FR-4 | Sale assembly, pricing, psychotropic rule enforcement (blocks, not warns). |
+| ~~POS / Dispensing~~ | FR-4 | **No such module, and there should not be one.** See the note below. |
 | Controlled-Substance Ledger | FR-6 | Append-only events; projections for current stock; compensating events only. |
 | Action Audit Log | FR-6 (generalized) | Who-did-what across the system; same event infra as the ledger. |
-| Purchasing / Goods Receipt | FR-7 (base) | Receipts → batches (standard) or receipt events (controlled). |
-| Reporting | FR-8 | Cash-up/Z-report, daily sales, stock/expiry, ledger report. |
+| ~~Purchasing / Goods Receipt~~ | FR-7 (base) | **No such module.** A receipt reaches the server as a sync operation, exactly like a sale; `SyncService.applyGoodsReceipt` hands off to Inventory. |
+| Reporting | FR-8 | Daily sales, sales summary, stock/expiry, oversells. |
+| Cash-up | FR-8 | Its own module rather than part of Reporting: a cash-up **writes** — it closes the shift and records the variance — and putting a write path inside a read module is how read modules acquire writes. |
 | **SyncService** | FR-9 | The seam (ADR-005). Ordered, idempotent push; delta pull. Concrete protocol hidden behind the interface. |
 | Admin / Billing | FR-1, payment flow | Screenshot verification, subscription state (pending/active/suspended). Runs above tenant scope. |
+
+> **Why there is no POS module (corrected 2026-09-24).** This table originally listed
+> "POS / Dispensing — sale assembly, pricing", describing a server that assembles sales. It
+> never did, and ADR-002 is the reason: the terminal assembles the sale **offline**, against
+> its own SQLite, and the server's whole job is to apply the operation that arrives later.
+> A server-side POS module would be a second place where a sale is constructed — and two
+> constructions of the same thing is precisely the drift `05-qa` §6 calls catastrophic.
+>
+> FR-4's server half is therefore `SyncService.applySale` plus Inventory, and FR-7's is
+> `applyGoodsReceipt`. The decomposition below now says so. The psychotropic rules that row
+> also claimed are Phase 2 and gated on A-1 (ADR-015) — they exist nowhere, by design.
 
 **Cross-cutting: the Tenant Scope Guard.** A request-scoped context carries `tenant_id`
 (and `branch_id`); it (a) sets the Postgres session variable RLS keys on, and (b) is
