@@ -11,8 +11,11 @@ import type { Session } from '../lib/session';
  * identify anybody (see LoginRequest in @pharmaet/contracts).
  */
 export function LoginPage({ onSignedIn }: { onSignedIn: (session: Session) => void }) {
-  const [tenantCode, setTenantCode] = useState('abay');
-  const [username, setUsername] = useState('owner');
+  // The development seed is offered in `vite dev` only. A built console is what a pharmacy
+  // opens, and it must not suggest a tenant, let alone print a password that works on every
+  // environment seeded from the same script — staging included.
+  const [tenantCode, setTenantCode] = useState(import.meta.env.DEV ? 'abay' : '');
+  const [username, setUsername] = useState(import.meta.env.DEV ? 'owner' : '');
   const [secret, setSecret] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,14 +96,16 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (session: Session) => vo
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
 
-        <div className="hint-box">
-          <strong>Development seed:</strong>
-          <br />
-          <code>abay / owner / owner-dev-password</code>
-          <br />
-          <code>tana / owner / owner-dev-password</code> — a second tenant, so isolation is visible
-          by just signing in as the other one.
-        </div>
+        {import.meta.env.DEV && (
+          <div className="hint-box">
+            <strong>Development seed:</strong>
+            <br />
+            <code>abay / owner / owner-dev-password</code>
+            <br />
+            <code>tana / owner / owner-dev-password</code> — a second tenant, so isolation is
+            visible by just signing in as the other one.
+          </div>
+        )}
       </form>
     </div>
   );

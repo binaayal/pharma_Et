@@ -30,7 +30,7 @@ export function PlatformPage() {
 }
 
 function PlatformLogin({ onSignedIn }: { onSignedIn: (token: string) => void }) {
-  const [email, setEmail] = useState('admin@pharmaet.local');
+  const [email, setEmail] = useState(import.meta.env.DEV ? 'admin@pharmaet.local' : '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

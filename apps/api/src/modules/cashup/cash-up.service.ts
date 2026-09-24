@@ -1,12 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { firstRow } from '../../common/db/raw-query';
-import { CashUp, Shift } from '../../entities';
+import { AppUser, Branch, CashUp, Shift } from '../../entities';
 
 export interface ShiftReconciliation {
   shiftId: string;
   branchId: string;
+  /** Named, because the report is read by a person: an id fragment is not "who" or "where". */
+  branchName: string;
   userId: string;
+  userName: string;
   openedAt: string;
   closedAt: string | null;
   openingFloatSantim: number;
@@ -84,11 +87,19 @@ export class CashUpService {
     const cashUp = await em
       .getRepository(CashUp)
       .findOne({ where: { shiftId, deletedAt: null as never } });
+    // Deliberately not filtered on deleted_at: a dismissed cashier's shortfall still has a
+    // name, and it is exactly the one an owner will want to read.
+    const [user, branch] = await Promise.all([
+      em.getRepository(AppUser).findOne({ where: { id: shift.userId } }),
+      em.getRepository(Branch).findOne({ where: { id: shift.branchId } }),
+    ]);
 
     return {
       shiftId: shift.id,
       branchId: shift.branchId,
+      branchName: branch?.name ?? shift.branchId,
       userId: shift.userId,
+      userName: user?.displayName ?? shift.userId,
       openedAt: shift.openedAt.toISOString(),
       closedAt: shift.closedAt?.toISOString() ?? null,
       openingFloatSantim: shift.openingFloatSantim,

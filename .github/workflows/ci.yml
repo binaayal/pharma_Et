@@ -180,13 +180,15 @@ jobs:
           #                     case is the whole point of recording it: refusing to count
           #                     attempts against unknown tenants would make "throttled" mean
           #                     "this pharmacy is real" (ADR-017).
+          #   signup_request  — a request for an account that does not exist yet, and may
+          #                     never; approval is what creates the tenant (ADR-022).
           NON_TENANT=$(psql "$DATABASE_URL" -tAc "
             SELECT string_agg(c.relname, ', ')
               FROM pg_class c
               JOIN pg_namespace n ON n.oid = c.relnamespace
              WHERE n.nspname = 'public'
                AND c.relkind = 'r'
-               AND c.relname NOT IN ('migrations', 'tenant', 'platform_admin', 'login_attempt')
+               AND c.relname NOT IN ('migrations', 'tenant', 'platform_admin', 'login_attempt', 'signup_request')
                AND NOT EXISTS (
                  SELECT 1 FROM pg_attribute a
                   WHERE a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped

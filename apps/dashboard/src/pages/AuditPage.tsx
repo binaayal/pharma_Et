@@ -103,7 +103,7 @@ export function AuditPage({
                   <td>{label(row.eventType)}</td>
                   <td>
                     {detail(row)}
-                    <div className="mono">by {row.actorId.slice(0, 8)}</div>
+                    <div className="who">by {row.actorName ?? 'the platform'}</div>
                   </td>
                 </tr>
               ))}

@@ -110,6 +110,7 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var
   font-size: 12.5px; }
 td.neg { color: var(--red); font-weight: 600; }
 .mono { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.who { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 .empty { padding: 44px 18px; text-align: center; color: var(--muted); font-size: 13.5px; }
 .empty strong { display: block; color: var(--ink); font-size: 14px; margin-bottom: 5px; }

@@ -74,22 +74,22 @@ export function CashUpPage({
         <div className="stat">
           <div className="label">Shifts</div>
           <div className="value">{rows?.length ?? '—'}</div>
-          <div className="hint">{reconciled.length} reconciled</div>
+          <div className="who">{reconciled.length} reconciled</div>
         </div>
         <div className="stat">
           <div className="label">Shifts short</div>
           <div className={`value${short.length ? ' warn' : ''}`}>{short.length}</div>
-          <div className="hint">{short.length ? 'worth a conversation' : 'none'}</div>
+          <div className="who">{short.length ? 'worth a conversation' : 'none'}</div>
         </div>
         <div className="stat">
           <div className="label">Total shortfall</div>
           <div className={`value${shortTotal < 0 ? ' warn' : ''}`}>{formatEtb(shortTotal)}</div>
-          <div className="hint">shortfalls only, not netted against overages</div>
+          <div className="who">shortfalls only, not netted against overages</div>
         </div>
         <div className="stat">
           <div className="label">Closed, not counted</div>
           <div className={`value${unreconciled.length ? ' warn' : ''}`}>{unreconciled.length}</div>
-          <div className="hint">tills nobody reconciled</div>
+          <div className="who">tills nobody reconciled</div>
         </div>
       </div>
 
@@ -127,7 +127,9 @@ export function CashUpPage({
                 <tr key={row.shiftId}>
                   <td>
                     {formatInstant(row.openedAt, calendar)}
-                    <div className="mono">{row.userId.slice(0, 8)}</div>
+                    <div className="who">
+                      {row.userName} · {row.branchName}
+                    </div>
                   </td>
                   <td>
                     {row.varianceSantim !== null

@@ -1,13 +1,12 @@
-import type { LoginRequest, LoginResponse } from '@pharmaet/contracts';
 import { CONTRACT_VERSION, CONTRACT_VERSION_HEADER } from '@pharmaet/contracts';
 
 /**
- * The dashboard's API client.
+ * The platform console's API client.
  *
- * Request and response types come from @pharmaet/contracts — the same schemas the server
- * validates against and the mobile app's Dart types are generated from (ADR-010). Nothing
- * here restates a shape the contract already defines; a drift between this file and the
- * server would be a type error rather than a runtime surprise in front of a customer.
+ * The web console is ours, not the pharmacies' (prototype screens 20–26): sign-up review,
+ * tenants, payment verification and subscriptions. Everything a pharmacy owner does lives in
+ * the mobile app. So every call here carries a **platform** token, which the server keeps
+ * structurally separate from any tenant token (BR-2.2).
  */
 
 export class ApiError extends Error {
@@ -22,11 +21,8 @@ export class ApiError extends Error {
 /**
  * Whether a caught value means "your session has ended" (401).
  *
- * One function because there was one rule and six spellings of it. Two pages — the audit
- * trail and the platform console, the two most sensitive — reached straight for
- * `(cause as {status?: number}).status` with no guard, so a rejection that was not an object
- * would throw a TypeError **inside the catch block**: the error handler itself failing, which
- * takes the page down instead of showing the owner a sign-in screen.
+ * One function, guarded: a rejection that is not an object must not throw a TypeError
+ * **inside the catch block**, which would take the page down instead of showing sign-in.
  *
  * `unknown` rather than `Error` on purpose. A catch block receives whatever was thrown, and
  * assuming otherwise is precisely the bug this replaces.
@@ -70,125 +66,34 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
   return (await response.json()) as T;
 }
 
-export interface SyncedSale {
-  id: string;
-  branchId: string;
-  branchName: string;
-  cashierId: string;
-  totalSantim: number;
-  soldAt: string;
-  syncedAt: string;
-  lineCount: number;
-}
-
-export interface OversellRow {
-  id: string;
-  branchId: string;
-  productId: string;
-  saleId: string;
-  resultingQty: number;
-  observedAt: string;
-}
-
-/** One shift's reconciliation, as the Z-report returns it (FR-8, AC-8.1). */
-export interface ShiftReconciliation {
-  shiftId: string;
-  branchId: string;
-  userId: string;
-  openedAt: string;
-  closedAt: string | null;
-  openingFloatSantim: number;
-  cashTakenSantim: number;
-  /** Recomputed by the server from sales that have actually synced. */
-  serverExpectedSantim: number;
-  saleCount: number;
-  countedSantim: number | null;
-  /** What the terminal showed the cashier at count time. Never recomputed (ADR-012 §3). */
-  terminalExpectedSantim: number | null;
-  varianceSantim: number | null;
-  /** serverExpected − terminalExpected. Non-zero means sales were still queued. */
-  expectationGapSantim: number | null;
-  countedAt: string | null;
-  note: string | null;
-}
-
-export interface BranchSalesRow {
-  branchId: string;
-  branchName: string;
-  saleCount: number;
-  grossSantim: number;
-  cashSantim: number;
-  otherTenderSantim: number;
-  itemsSold: number;
-}
-
-export interface SalesSummary {
-  from: string;
-  to: string;
-  branches: BranchSalesRow[];
-  total: Omit<BranchSalesRow, 'branchId' | 'branchName'>;
-  /** When the most recent sale in this window actually reached the server (BR-8.1). */
-  lastSyncedAt: string | null;
-}
-
-export interface StockRow {
-  batchId: string;
-  branchId: string;
-  branchName: string;
-  productId: string;
-  productName: string;
-  unit: string;
-  lotNo: string;
-  expiryDate: string;
-  qtyOnHand: number;
-  daysToExpiry: number;
-  status: 'expired' | 'expiring' | 'oversold' | 'ok';
-  valueSantim: number;
-}
-
-export interface StockReport {
-  asOf: string;
-  expiringWithinDays: number;
-  rows: StockRow[];
-  summary: {
-    expiredBatches: number;
-    expiringBatches: number;
-    oversoldBatches: number;
-    expiredValueSantim: number;
-    expiringValueSantim: number;
-  };
-}
-
-export interface AuditEntry {
-  id: string;
-  seq: number;
-  eventType: string;
-  streamId: string;
-  actorId: string;
-  branchId: string | null;
-  payload: Record<string, unknown>;
-  occurredAt: string;
-  recordedAt: string;
-}
-
-export interface SubscriptionView {
-  state: 'pending' | 'active' | 'suspended';
-  currentPeriodEnd: string | null;
-  priceSantim: number;
-  suspendedReason: string | null;
-  daysRemaining: number | null;
-  pendingProofCount: number;
-}
+export type SubscriptionState = 'pending' | 'active' | 'suspended';
 
 export interface PlatformTenant {
   id: string;
   name: string;
   code: string;
   status: string;
-  subscriptionState: 'pending' | 'active' | 'suspended' | null;
+  createdAt: string;
+  subscriptionState: SubscriptionState | null;
   currentPeriodEnd: string | null;
   suspendedReason: string | null;
+  priceSantim: number | null;
   pendingProofs: number;
+  branchCount: number;
+  branchNames: string | null;
+  ownerName: string | null;
+  ownerPhone: string | null;
+}
+
+export interface TenantDetail extends PlatformTenant {
+  branches: Array<{
+    id: string;
+    name: string;
+    address: string | null;
+    staffCount: number;
+    lastSyncAt: string | null;
+  }>;
+  lastPaymentAt: string | null;
 }
 
 export interface PendingProof {
@@ -202,68 +107,89 @@ export interface PendingProof {
   subscriptionState: string | null;
 }
 
+export interface SignupRequest {
+  id: string;
+  pharmacyName: string;
+  ownerName: string;
+  phone: string;
+  city: string;
+  branchBand: '1' | '2-3' | '4+';
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  decidedAt: string | null;
+  decisionReason: string | null;
+  tenantId: string | null;
+}
+
+export type SignupDecision =
+  | { accept: true; code: string; ownerUsername: string; ownerPin: string }
+  | { accept: false; reason: string };
+
 export const api = {
-  login: (body: LoginRequest) =>
-    request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
-
-  /**
-   * Exchanges a refresh token for a new session (ADR-019).
-   *
-   * Carries no access token, by definition: the point is that the old one has expired, and
-   * requiring a live one to get a live one would be circular.
-   */
-  refresh: (body: { refreshToken: string; terminalId: string }) =>
-    request<LoginResponse>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-
-  sales: (token: string) => request<SyncedSale[]>('/reports/sales', {}, token),
-
-  oversells: (token: string) => request<OversellRow[]>('/reports/oversells', {}, token),
-
-  cashUps: (token: string) => request<ShiftReconciliation[]>('/reports/cash-up', {}, token),
-
-  salesSummary: (token: string, from: string, to: string) =>
-    request<SalesSummary>(`/reports/sales-summary?from=${from}&to=${to}`, {}, token),
-
-  audit: (token: string, limit = 100) => request<AuditEntry[]>(`/audit?limit=${limit}`, {}, token),
-
-  stock: (token: string, expiringWithinDays: number) =>
-    request<StockReport>(`/reports/stock?expiringWithinDays=${expiringWithinDays}`, {}, token),
-
-  subscription: (token: string) => request<SubscriptionView>('/billing/subscription', {}, token),
-
   health: () => request<{ status: string; contractVersion: string }>('/health'),
 
+  login: (email: string, password: string) =>
+    request<{ accessToken: string; admin: { id: string; email: string; displayName: string } }>(
+      '/platform/login',
+      { method: 'POST', body: JSON.stringify({ email, password }) },
+    ),
+
+  tenants: (token: string) => request<PlatformTenant[]>('/platform/tenants', {}, token),
+
+  tenant: (token: string, id: string) =>
+    request<TenantDetail>(`/platform/tenants/${id}`, {}, token),
+
+  onboard: (
+    token: string,
+    body: { name: string; code: string; ownerUsername: string; ownerDisplayName: string; ownerPin: string },
+  ) =>
+    request<{ tenantId: string }>(
+      '/platform/tenants',
+      { method: 'POST', body: JSON.stringify(body) },
+      token,
+    ),
+
+  signupRequests: (token: string, status: SignupRequest['status']) =>
+    request<SignupRequest[]>(`/platform/signup-requests?status=${status}`, {}, token),
+
+  decideSignup: (token: string, id: string, decision: SignupDecision) =>
+    request<unknown>(
+      `/platform/signup-requests/${id}/decide`,
+      { method: 'POST', body: JSON.stringify(decision) },
+      token,
+    ),
+
+  pendingProofs: (token: string) =>
+    request<PendingProof[]>('/platform/payment-proofs', {}, token),
+
+  decideProof: (token: string, id: string, body: { accept: boolean; reason?: string }) =>
+    request<unknown>(
+      `/platform/payment-proofs/${id}/decide`,
+      { method: 'POST', body: JSON.stringify(body) },
+      token,
+    ),
+
   /**
-   * The platform console (us). A separate login with a distinct token type — a tenant token
-   * must never reach a route that can suspend a pharmacy (BR-2.2).
+   * The screenshot, fetched with the platform token.
+   *
+   * It used to be a plain link, which a browser follows without an Authorization header — so
+   * the guard refused it and the reviewer could never see the proof they were approving.
    */
-  platform: {
-    login: (email: string, password: string) =>
-      request<{ accessToken: string; admin: { id: string; email: string; displayName: string } }>(
-        '/platform/login',
-        { method: 'POST', body: JSON.stringify({ email, password }) },
-      ),
-    tenants: (token: string) => request<PlatformTenant[]>('/platform/tenants', {}, token),
-    pendingProofs: (token: string) =>
-      request<PendingProof[]>('/platform/payment-proofs', {}, token),
-    decide: (token: string, id: string, body: { accept: boolean; reason?: string }) =>
-      request<unknown>(
-        `/platform/payment-proofs/${id}/decide`,
-        { method: 'POST', body: JSON.stringify(body) },
-        token,
-      ),
-    setState: (
-      token: string,
-      body: { tenantId: string; state: 'active' | 'suspended'; reason?: string },
-    ) =>
-      request<unknown>(
-        '/platform/subscriptions',
-        { method: 'POST', body: JSON.stringify(body) },
-        token,
-      ),
-    proofImageUrl: (id: string) => `/api/platform/payment-proofs/${id}/image`,
+  proofImage: async (token: string, id: string): Promise<string> => {
+    const response = await fetch(`${BASE}/platform/payment-proofs/${id}/image`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new ApiError('could not load the screenshot', response.status);
+    return URL.createObjectURL(await response.blob());
   },
+
+  setState: (
+    token: string,
+    body: { tenantId: string; state: 'active' | 'suspended'; reason?: string },
+  ) =>
+    request<unknown>(
+      '/platform/subscriptions',
+      { method: 'POST', body: JSON.stringify(body) },
+      token,
+    ),
 };
