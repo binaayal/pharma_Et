@@ -85,7 +85,30 @@ for (const { line, n } of rows) {
   }
 }
 
-// ---------------------------------------------------------------- 2. ADRs are indexed
+// ---------------------------------------------------------------- 2. Markdown links resolve
+// Added after writing two ADR links in README.md from memory and getting both filenames
+// wrong. Nothing would have caught them: the RTM check above reads `docs/02-srs.md` only, and
+// a dead link in the file people read first is the worst place to have one — it is the
+// document that tells somebody where everything else is.
+let links = 0;
+const linked = ['README.md', 'CONTRIBUTING.md', 'docs/README.md', 'docs/adr/README.md'];
+for (const source of linked) {
+  if (!existsSync(join(repo, source))) continue;
+  const text = read(source);
+  const base = dirname(source);
+  for (const [, label, target] of text.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)) {
+    if (/^(https?:|#|mailto:)/.test(target)) continue;
+    const path = target.split('#')[0];
+    if (!path) continue;
+    links += 1;
+    // Relative to the file that links it, the way a reader's click resolves it.
+    if (!existsSync(join(repo, base, path))) {
+      failures.push(`${source} links to something that does not exist: [${label}](${target})`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- 3. ADRs are indexed
 // Two indexes list the ADRs, and both are maintained by hand. An ADR that is written but
 // unlisted is one nobody will find at the moment they are about to violate it, which is the
 // only moment it matters.
@@ -104,7 +127,7 @@ for (const file of adrFiles) {
   }
 }
 
-// ---------------------------------------------------------------- 3. ADR references resolve
+// ---------------------------------------------------------------- 4. ADR references resolve
 // A binding decision referred to by number must exist. `ADR-020` in a comment, with no such
 // file, reads as authority that was never written down.
 const numbers = new Set(adrFiles.map((f) => f.match(/^ADR-(\d+)/)[1]));
@@ -136,5 +159,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `traceability ok — ${cited} RTM citations resolve, ${adrFiles.length} ADRs indexed in both tables`,
+  `traceability ok — ${cited} RTM citations resolve, ${links} markdown links land, ` +
+    `${adrFiles.length} ADRs indexed in both tables`,
 );
