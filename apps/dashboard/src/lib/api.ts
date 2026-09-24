@@ -206,6 +206,18 @@ export const api = {
   login: (body: LoginRequest) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
 
+  /**
+   * Exchanges a refresh token for a new session (ADR-019).
+   *
+   * Carries no access token, by definition: the point is that the old one has expired, and
+   * requiring a live one to get a live one would be circular.
+   */
+  refresh: (body: { refreshToken: string; terminalId: string }) =>
+    request<LoginResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   sales: (token: string) => request<SyncedSale[]>('/reports/sales', {}, token),
 
   oversells: (token: string) => request<OversellRow[]>('/reports/oversells', {}, token),
