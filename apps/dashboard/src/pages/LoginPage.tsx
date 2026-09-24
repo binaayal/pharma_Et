@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../lib/api';
+import { terminalId } from '../lib/session';
 import type { Session } from '../lib/session';
 
 /**
@@ -26,11 +27,14 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (session: Session) => vo
         username,
         secret,
         // The console is a browser, not a provisioned terminal, but the contract records a
-        // terminal on every session so a sync dispute can always be traced to its origin.
-        terminalId: '01930000-0000-7000-8000-00000000d000',
+        // terminal on every session so a dispute can always be traced to its origin (BR-4.3).
+        // Per browser rather than one constant for all of them: a field that names the same
+        // phantom device for every owner on every machine records nothing.
+        terminalId: terminalId(),
       });
       onSignedIn({
         accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
         scope: response.scope,
         tenantCode,
       });

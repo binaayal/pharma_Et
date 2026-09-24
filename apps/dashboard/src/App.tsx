@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AuditPage } from './pages/AuditPage';
 import { CashUpPage } from './pages/CashUpPage';
 import { LoginPage } from './pages/LoginPage';
@@ -7,7 +7,7 @@ import { SalesSummaryPage } from './pages/SalesSummaryPage';
 import { StockPage } from './pages/StockPage';
 import { api } from './lib/api';
 import type { Calendar } from './lib/format';
-import { clearSession, loadSession, saveSession, type Session } from './lib/session';
+import { clearSession, loadSession, saveSession, terminalId, type Session } from './lib/session';
 
 /**
  * Phase 0 console: sign in, and see that sales really arrived (docs/04 §13).
@@ -20,6 +20,9 @@ type Page = 'sales' | 'cash-up' | 'summary' | 'stock' | 'audit';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(() => loadSession());
+  const renewing = useRef(false);
+  /** The access token our last renewal produced, so a token refused twice is not retried. */
+  const lastRenewedTo = useRef<string | null>(null);
   const [contractVersion, setContractVersion] = useState<string | null>(null);
   const [page, setPage] = useState<Page>('cash-up');
   // Presentation only (BR-10.2). Stored timestamps never change with this (AC-10.2), and
@@ -58,6 +61,53 @@ export function App() {
   function signOut() {
     clearSession();
     setSession(null);
+  }
+
+  /**
+   * A page reported a 401. Try to renew before giving up on the owner (ADR-019).
+   *
+   * One place, not six. Every page already funnels an expired session here, and each one's
+   * loader is keyed on `session.accessToken` — so replacing the token re-runs the fetch on
+   * its own and the page fills in. Putting the retry in the pages would have recreated
+   * exactly the duplication that left four spellings of the 401 check.
+   *
+   * Only sign out when the renewal itself fails, which means the refresh token is spent,
+   * expired, or its user has been deactivated — none of which the console can fix by asking
+   * again. Before this, an owner reviewing reports was signed out every fifteen minutes.
+   */
+  async function renewOrSignOut() {
+    if (!session?.refreshToken) return signOut();
+
+    // Guard against a stampede: several pages can report a 401 in the same tick, and each
+    // redemption would otherwise race the others for one token.
+    if (renewing.current) return;
+
+    // And against a loop. A renewal replaces the token, which re-runs the page's loader; if
+    // that is refused too, renewing again would produce a fresh token every time and never
+    // stop. One attempt per issued token, then the honest answer.
+    if (lastRenewedTo.current === session.accessToken) return signOut();
+
+    renewing.current = true;
+
+    try {
+      const renewed = await api.refresh({
+        refreshToken: session.refreshToken,
+        terminalId: terminalId(),
+      });
+      const next: Session = {
+        accessToken: renewed.accessToken,
+        refreshToken: renewed.refreshToken,
+        scope: renewed.scope,
+        tenantCode: session.tenantCode,
+      };
+      lastRenewedTo.current = renewed.accessToken;
+      saveSession(next);
+      setSession(next);
+    } catch {
+      signOut();
+    } finally {
+      renewing.current = false;
+    }
   }
 
   if (!session) return <LoginPage onSignedIn={signIn} />;
@@ -140,15 +190,15 @@ export function App() {
 
       <main className="main">
         {page === 'cash-up' && (
-          <CashUpPage session={session} onExpired={signOut} calendar={calendar} />
+          <CashUpPage session={session} onExpired={renewOrSignOut} calendar={calendar} />
         )}
-        {page === 'summary' && <SalesSummaryPage session={session} onExpired={signOut} />}
+        {page === 'summary' && <SalesSummaryPage session={session} onExpired={renewOrSignOut} />}
         {page === 'stock' && (
-          <StockPage session={session} onExpired={signOut} calendar={calendar} />
+          <StockPage session={session} onExpired={renewOrSignOut} calendar={calendar} />
         )}
-        {page === 'sales' && <SalesPage session={session} onExpired={signOut} />}
+        {page === 'sales' && <SalesPage session={session} onExpired={renewOrSignOut} />}
         {page === 'audit' && (
-          <AuditPage session={session} onExpired={signOut} calendar={calendar} />
+          <AuditPage session={session} onExpired={renewOrSignOut} calendar={calendar} />
         )}
         <p className="footnote">
           Signed in to <strong>{session.tenantCode}</strong> as {session.scope.role}.
