@@ -20,6 +20,27 @@ export class ApiError extends Error {
 }
 
 /**
+ * Whether a caught value means "your session has ended" (401).
+ *
+ * One function because there was one rule and six spellings of it. Two pages — the audit
+ * trail and the platform console, the two most sensitive — reached straight for
+ * `(cause as {status?: number}).status` with no guard, so a rejection that was not an object
+ * would throw a TypeError **inside the catch block**: the error handler itself failing, which
+ * takes the page down instead of showing the owner a sign-in screen.
+ *
+ * `unknown` rather than `Error` on purpose. A catch block receives whatever was thrown, and
+ * assuming otherwise is precisely the bug this replaces.
+ */
+export function isSessionExpired(cause: unknown): boolean {
+  return (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'status' in cause &&
+    (cause as { status: unknown }).status === 401
+  );
+}
+
+/**
  * In development the Vite proxy forwards `/api` to the local server, so a relative base
  * keeps the browser same-origin and CORS out of the picture entirely.
  *

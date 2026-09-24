@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type OversellRow, type SyncedSale } from '../lib/api';
+import { api, isSessionExpired, type OversellRow, type SyncedSale } from '../lib/api';
 import { formatEtb, formatInstant, relativeAge } from '../lib/format';
 import type { Session } from '../lib/session';
 
@@ -28,14 +28,7 @@ export function SalesPage({ session, onExpired }: { session: Session; onExpired:
       setFetchedAt(new Date().toISOString());
       setError(null);
     } catch (cause) {
-      if (
-        cause instanceof Error &&
-        'status' in cause &&
-        (cause as { status: number }).status === 401
-      ) {
-        onExpired();
-        return;
-      }
+      if (isSessionExpired(cause)) return onExpired();
       setError(cause instanceof Error ? cause.message : 'could not load');
     }
   }, [session.accessToken, onExpired]);

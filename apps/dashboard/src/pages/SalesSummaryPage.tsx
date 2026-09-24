@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type SalesSummary } from '../lib/api';
+import { api, isSessionExpired, type SalesSummary } from '../lib/api';
 import { formatEtb, formatInstant, relativeAge } from '../lib/format';
 import type { Session } from '../lib/session';
 
@@ -39,10 +39,7 @@ export function SalesSummaryPage({
       setData(await api.salesSummary(session.accessToken, window.from, window.to));
       setError(null);
     } catch (cause) {
-      if (cause instanceof Error && (cause as { status?: number }).status === 401) {
-        onExpired();
-        return;
-      }
+      if (isSessionExpired(cause)) return onExpired();
       setError(cause instanceof Error ? cause.message : 'could not load');
     }
   }, [session.accessToken, window, onExpired]);

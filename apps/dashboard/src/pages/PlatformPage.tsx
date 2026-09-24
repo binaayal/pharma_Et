@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type PendingProof, type PlatformTenant } from '../lib/api';
+import { api, isSessionExpired, type PendingProof, type PlatformTenant } from '../lib/api';
 import { formatEtb, formatInstant, relativeAge } from '../lib/format';
 
 /**
@@ -104,7 +104,7 @@ function PlatformConsole({ token, onSignOut }: { token: string; onSignOut: () =>
       setProofs(p);
       setError(null);
     } catch (cause) {
-      if ((cause as { status?: number }).status === 401) return onSignOut();
+      if (isSessionExpired(cause)) return onSignOut();
       setError(cause instanceof Error ? cause.message : 'could not load');
     }
   }, [token, onSignOut]);
