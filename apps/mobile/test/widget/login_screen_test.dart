@@ -39,6 +39,22 @@ void main() {
         ),
       );
 
+  testWidgets('a manager can type a password, not only a PIN', (tester) async {
+    await open(tester, _RefusingClient(401, 'invalid credentials'));
+    TextInputType keyboard() =>
+        tester.widget<TextField>(find.byType(TextField).at(2)).keyboardType;
+
+    // The number pad is the cashier's fast path and stays the default.
+    expect(keyboard(), TextInputType.number);
+
+    // Owners and managers have passwords. With only a number pad they could not sign in on
+    // the counter phone — and the manager is who authorises dispensing expired stock there.
+    await tester.tap(find.byTooltip('Use a password'));
+    await tester.pump();
+    expect(keyboard(), TextInputType.visiblePassword);
+    expect(find.text('Password'), findsOneWidget);
+  });
+
   testWidgets('a wrong PIN and an unknown pharmacy read identically',
       (tester) async {
     await open(tester, _RefusingClient(401, 'invalid credentials'));

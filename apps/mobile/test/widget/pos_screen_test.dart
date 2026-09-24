@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaet_mobile/contracts/contracts.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
@@ -28,7 +29,7 @@ void main() {
   late SaleRepository sales;
   late InventoryRepository inventory;
   late ShiftRepository shifts;
-  late SyncService syncService;
+  late _StubSync syncService;
 
   void addProduct(String id, String name,
           {bool controlled = false, int price = 1500}) =>
@@ -158,6 +159,58 @@ void main() {
     });
   });
 
+  group('sync is the system\'s job, not the cashier\'s (FR-9)', () {
+    // Found on a real phone, not by a test: every trigger was a screen transition or a
+    // button, so a cashier who never pressed "Sync now" kept the day's sales on the device
+    // until the app happened to restart. FR-9 names the actor "system (background)".
+    testWidgets('it tries again on an interval, untouched', (tester) async {
+      await open(tester, role: 'cashier');
+      final atOpen = syncService.calls;
+
+      await tester.pump(PosScreen.syncInterval);
+      await tester.pump();
+
+      expect(syncService.calls, atOpen + 1);
+    });
+
+    testWidgets('a committed sale is pushed without anyone asking',
+        (tester) async {
+      addProduct('p1', 'Paracetamol', price: 150);
+      await open(tester, role: 'cashier');
+      final atOpen = syncService.calls;
+
+      await tester.tap(find.text('Paracetamol'));
+      await tester.pump();
+      // The commit is a real SQLite transaction; let it complete outside fake async.
+      await tester.runAsync(() async {
+        await tester.tap(find.text('Take cash & commit'));
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      });
+      await tester.pump();
+
+      expect(find.textContaining('Sale committed'), findsOneWidget);
+      expect(syncService.calls, atOpen + 1);
+
+      // And the confirmation gets out of the way of the next customer's sale.
+      // Entrance animation, then the display timer, then the exit animation.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Sale committed'), findsNothing);
+    });
+
+    testWidgets('and the moment the app comes back to the foreground',
+        (tester) async {
+      await open(tester, role: 'cashier');
+      final atOpen = syncService.calls;
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      expect(syncService.calls, atOpen + 1);
+    });
+  });
+
   group('a controlled substance', () {
     testWidgets('is refused, and says why rather than failing quietly',
         (tester) async {
@@ -283,6 +336,11 @@ class _StubSync extends SyncService {
     required String terminalId,
     String refreshToken = '',
     Future<void> Function(LoginResponse renewed)? onRenewed,
-  }) async =>
-      const SyncStatus(state: SyncState.idle, pending: 0, needsAttention: 0);
+  }) async {
+    calls++;
+    return const SyncStatus(
+        state: SyncState.idle, pending: 0, needsAttention: 0);
+  }
+
+  int calls = 0;
 }

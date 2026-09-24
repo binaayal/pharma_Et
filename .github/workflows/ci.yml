@@ -305,6 +305,12 @@ jobs:
         # G7 closes a real on-disk database and reopens it — a process death from the data's
         # point of view. The device matrix on real low-end Android hardware is a release
         # gate, not a per-PR one (docs/05-qa §7).
+        #
+        # In the devices' time zone, not the runner's UTC. Where the two agree, a calendar
+        # date read as an instant looks correct — which is how every expiry date on a real
+        # phone in Addis Ababa came to display one day early with the whole suite green.
+        env:
+          TZ: Africa/Addis_Ababa
         run: flutter test
 
   # The single required check for branch protection.

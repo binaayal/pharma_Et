@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../auth/session.dart';
@@ -50,11 +52,20 @@ class PosScreen extends StatefulWidget {
   /// refresh token again on the very next tick.
   final Future<void> Function(LoginResponse) onSessionRenewed;
 
+  /// How often the counter tries to sync on its own (FR-9: "on connectivity, the client
+  /// pushes"). The actor is the system, not the cashier: a sale must not sit on the device
+  /// because nobody pressed a button. A retry interval stands in for a connectivity
+  /// listener — it needs no plugin, and it also catches the network that is "up" but not
+  /// reaching the server, which a connectivity event would report as online.
+  static const syncInterval = Duration(seconds: 30);
+
   @override
   State<PosScreen> createState() => _PosScreenState();
 }
 
-class _PosScreenState extends State<PosScreen> {
+class _PosScreenState extends State<PosScreen> with WidgetsBindingObserver {
+  Timer? _syncTimer;
+
   List<LocalProduct> _products = [];
   final List<CartLine> _cart = [];
   ActiveShift? _shift;
@@ -88,8 +99,23 @@ class _PosScreenState extends State<PosScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _sync();
+    _syncTimer = Timer.periodic(PosScreen.syncInterval, (_) => _sync());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Coming back to the app is the likeliest moment the network came back too.
+    if (state == AppLifecycleState.resumed) _sync();
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -126,14 +152,14 @@ class _PosScreenState extends State<PosScreen> {
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               decoration:
-                  const InputDecoration(labelText: 'Opening float (ETB)'),
+                  InputDecoration(labelText: context.t('shift.openingFloat')),
             ),
           ],
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text(context.t('shift.cancel'))),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(88, 40)),
             onPressed: () => Navigator.pop(context, true),
@@ -223,10 +249,7 @@ class _PosScreenState extends State<PosScreen> {
     // selling one through the standard path would put an unauditable record in the system.
     if (product.isControlled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Controlled dispensing arrives with the compliance phase.'),
-        ),
+        SnackBar(content: Text(context.t('pos.controlledLater'))),
       );
       return;
     }
@@ -294,23 +317,24 @@ class _PosScreenState extends State<PosScreen> {
       builder: (dialogContext) => AlertDialog(
         icon: const Icon(Icons.warning_amber_rounded,
             color: PharmaColors.red, size: 36),
-        title: const Text('This stock has expired'),
+        title: Text(dialogContext.t('expired.title')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'The only ${product.name} on this shelf is lot ${expired.lotNo}, '
-              'which expired on ${dialogContext.l10n.date(DateTime.parse(expired.expiryDate))}.',
+              dialogContext.tf('expired.body', {
+                'product': product.name,
+                'lot': expired.lotNo,
+                'date': dialogContext.l10n.calendarDate(expired.expiryDate),
+              }),
               style: const TextStyle(fontSize: 14.5, height: 1.4),
             ),
             const SizedBox(height: 12),
             Text(
-              mayOverride
-                  ? 'Dispensing it is recorded against your name.'
-                  : 'You cannot authorise dispensing expired stock. Ask the manager or '
-                      'owner. You can still complete the sale — it will not be recorded '
-                      'against this lot.',
+              dialogContext.t(mayOverride
+                  ? 'expired.mayOverride'
+                  : 'expired.cannotOverride'),
               style: const TextStyle(
                   fontSize: 13.5, height: 1.4, color: PharmaColors.muted),
             ),
@@ -319,13 +343,14 @@ class _PosScreenState extends State<PosScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(mayOverride ? 'Do not dispense it' : 'Continue'),
+            child: Text(dialogContext
+                .t(mayOverride ? 'expired.doNot' : 'common.continue')),
           ),
           if (mayOverride)
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: PharmaColors.red),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Authorise — dispense it'),
+              child: Text(dialogContext.t('expired.authorise')),
             ),
         ],
       ),
@@ -362,13 +387,15 @@ class _PosScreenState extends State<PosScreen> {
           '${context.t('pos.saleCommitted')} · ${formatEtb(sale.totalSantim)} · '
           '${context.t('pos.savedLocally')} (${elapsed}ms)',
         ),
-        action: SnackBarAction(
-          label: 'Sync now',
-          textColor: Colors.white,
-          onPressed: _sync,
-        ),
+        // No action button. A SnackBar with an action persists until dismissed, and this
+        // one sits exactly over "Take cash & commit" — found on a phone, where the next
+        // customer's sale could not be committed until the cashier swiped it away. The sale
+        // syncs itself below; the sync chip remains the manual control.
       ),
     );
+    // Push it now rather than on the next tick, without holding the counter for it: the
+    // sale is already durable, and the network is allowed to be slow or absent.
+    unawaited(_sync());
   }
 
   int get _cartTotal =>
@@ -383,7 +410,7 @@ class _PosScreenState extends State<PosScreen> {
           if (_can(Capability.goodsReceive))
             PopupMenuButton<String>(
               icon: const Icon(Icons.inventory_2_outlined),
-              tooltip: 'Stock',
+              tooltip: context.t('stock.menu'),
               onSelected: (choice) => _openInventory(
                 choice == 'receive'
                     ? ReceiveScreen(
@@ -397,9 +424,11 @@ class _PosScreenState extends State<PosScreen> {
                         branchId: _branchId,
                       ),
               ),
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'receive', child: Text('Receive stock')),
-                PopupMenuItem(value: 'count', child: Text('Count stock')),
+              itemBuilder: (_) => [
+                PopupMenuItem(
+                    value: 'receive', child: Text(context.t('stock.receive'))),
+                PopupMenuItem(
+                    value: 'count', child: Text(context.t('stock.count'))),
               ],
             ),
           // Switchable per user, from the screen they spend the day on — a language buried
@@ -463,22 +492,23 @@ class _PosScreenState extends State<PosScreen> {
               color: PharmaColors.amberTint,
               child: InkWell(
                 onTap: _openShift,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                   child: Row(
                     children: [
-                      Icon(Icons.point_of_sale_outlined,
+                      const Icon(Icons.point_of_sale_outlined,
                           size: 18, color: PharmaColors.amber),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'No till open — sales will not be attributed to a shift',
-                          style: TextStyle(
+                          context.t('shift.noTill'),
+                          style: const TextStyle(
                               color: PharmaColors.amber, fontSize: 12.5),
                         ),
                       ),
-                      Text('OPEN TILL',
-                          style: TextStyle(
+                      Text(context.t('shift.openTill'),
+                          style: const TextStyle(
                               color: PharmaColors.amber,
                               fontWeight: FontWeight.w800,
                               fontSize: 12)),
@@ -549,24 +579,24 @@ class _EmptyCatalog extends StatelessWidget {
   const _EmptyCatalog();
 
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.inventory_2_outlined,
+              const Icon(Icons.inventory_2_outlined,
                   size: 40, color: PharmaColors.faint),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
-                'No catalog yet',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                context.t('pos.noCatalog'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Tap the sync chip to pull products and stock from the server.',
+                context.t('pos.noCatalogHint'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: PharmaColors.muted, fontSize: 13),
+                style: const TextStyle(color: PharmaColors.muted, fontSize: 13),
               ),
             ],
           ),

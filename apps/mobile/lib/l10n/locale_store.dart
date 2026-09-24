@@ -58,4 +58,6 @@ class L10n extends InheritedWidget {
 extension L10nContext on BuildContext {
   Strings get l10n => L10n.of(this).strings;
   String t(String key) => L10n.of(this).strings.get(key);
+  String tf(String key, Map<String, Object> params) =>
+      L10n.of(this).strings.f(key, params);
 }

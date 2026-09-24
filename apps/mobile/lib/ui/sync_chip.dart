@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
+import '../l10n/locale_store.dart';
 import '../sync/sync_service.dart';
 
 /// The sync-state chip — the prototype calls it the app's signature, and it is always
@@ -19,19 +20,19 @@ class SyncChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, background, foreground, icon) = switch (status.state) {
       SyncState.synced => (
-          'Synced',
+          context.t('sync.synced'),
           PharmaColors.greenTint,
           PharmaColors.greenDark,
           Icons.cloud_done_outlined
         ),
       SyncState.syncing => (
-          'Syncing…',
+          context.t('sync.syncing'),
           PharmaColors.greenTint,
           PharmaColors.greenDark,
           Icons.sync
         ),
       SyncState.offline => (
-          '${status.pending} waiting',
+          '${status.pending} ${context.t('sync.waiting')}',
           PharmaColors.amberTint,
           PharmaColors.amber,
           Icons.cloud_off_outlined,
@@ -41,19 +42,21 @@ class SyncChip extends StatelessWidget {
       // person, and showing it in the same amber as "waiting" is what let an expired session
       // read as a network outage for fifteen minutes at a time (ADR-019).
       SyncState.sessionExpired => (
-          'Sign in again',
+          context.t('sync.signInAgain'),
           PharmaColors.redTint,
           PharmaColors.red,
           Icons.lock_clock_outlined,
         ),
       SyncState.needsAttention => (
-          '${status.needsAttention} need attention',
+          '${status.needsAttention} ${context.t('sync.needsAttention')}',
           PharmaColors.redTint,
           PharmaColors.red,
           Icons.error_outline,
         ),
       SyncState.idle => (
-          status.pending == 0 ? 'Up to date' : '${status.pending} queued',
+          status.pending == 0
+              ? context.t('sync.upToDate')
+              : '${status.pending} ${context.t('sync.queued')}',
           PharmaColors.greenTint,
           PharmaColors.greenDark,
           Icons.cloud_queue_outlined,
@@ -61,7 +64,7 @@ class SyncChip extends StatelessWidget {
     };
 
     return Semantics(
-      label: 'Sync status: $label',
+      label: '${context.t('sync.status')}: $label',
       button: onTap != null,
       child: InkWell(
         onTap: onTap,

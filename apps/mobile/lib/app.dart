@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'auth/branch_placement.dart';
 import 'auth/session.dart';
+import 'contracts/contracts.dart';
 import 'core/theme.dart';
 import 'data/catalog_repository.dart';
 import 'data/local_db.dart';
@@ -12,6 +14,7 @@ import 'l10n/locale_store.dart';
 import 'l10n/strings.dart';
 import 'sync/sync_client.dart';
 import 'sync/sync_service.dart';
+import 'ui/branch_picker_screen.dart';
 import 'ui/login_screen.dart';
 import 'ui/pos_screen.dart';
 
@@ -44,6 +47,10 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
 
   CachedSession? _session;
   String? _terminalId;
+
+  /// Set while the signed-in user's session does not settle which branch this device is
+  /// in, and nobody has chosen yet. The counter does not open until it is cleared.
+  Placement? _placement;
   bool _booting = true;
 
   /// Set when the local database could not be read and was replaced (ADR-018).
@@ -101,6 +108,65 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       _strings = strings;
       _booting = false;
     });
+    await _place();
+  }
+
+  /// Makes sure the counter never opens without a branch (see [placeTerminal]).
+  Future<void> _place() async {
+    final session = _session;
+    if (session == null || session.primaryBranchId != null) {
+      if (mounted) setState(() => _placement = null);
+      return;
+    }
+    final placement = await placeTerminal(
+      session: session,
+      fetchBranches: () => _fetchBranches(session),
+    );
+    if (placement is Placed) {
+      await _choose(placement.branchId);
+    } else if (mounted) {
+      setState(() => _placement = placement);
+    }
+  }
+
+  /// The branch list rides on the pull the terminal makes anyway. A session restored at
+  /// boot may be holding an access token that has aged out, so a 401 renews once first.
+  Future<List<BranchRef>> _fetchBranches(CachedSession session) async {
+    try {
+      return (await _client.pull(token: session.accessToken, cursor: 0))
+          .branches;
+    } on SyncTransportException catch (e) {
+      if (e.statusCode != 401 || session.refreshToken.isEmpty) rethrow;
+      final renewed = await _client.refresh(
+          refreshToken: session.refreshToken, terminalId: _terminalId!);
+      await _sessions.save(renewed, session.tenantCode);
+      return (await _client.pull(token: renewed.accessToken, cursor: 0))
+          .branches;
+    }
+  }
+
+  Future<void> _choose(String branchId) async {
+    await _sessions.setTerminalBranch(branchId);
+    final reloaded = await _sessions.load();
+    if (mounted) {
+      setState(() {
+        _session = reloaded;
+        _placement = null;
+      });
+    }
+  }
+
+  Future<void> _signOut() async {
+    // Signing out clears the cached scope. It does NOT touch the outbox: queued sales
+    // belong to the pharmacy, not to the session, and they must still reach the server
+    // after the next sign-in. Nor the terminal's branch: the device has not moved.
+    await _sessions.clear();
+    if (mounted) {
+      setState(() {
+        _session = null;
+        _placement = null;
+      });
+    }
   }
 
   @override
@@ -147,34 +213,41 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
                         await _sessions.save(response, tenantCode);
                         final loaded = await _sessions.load();
                         if (mounted) setState(() => _session = loaded);
+                        await _place();
                       },
                     )
-                  : PosScreen(
-                      session: _session!,
-                      // A session renewed mid-sync is written back to secure storage and to
-                      // the running app, so the refresh token is redeemed once rather than
-                      // on every tick (ADR-019).
-                      onSessionRenewed: (renewed) async {
-                        await _sessions.save(renewed, _session!.tenantCode);
-                        final reloaded = await _sessions.load();
-                        if (mounted && reloaded != null) {
-                          setState(() => _session = reloaded);
-                        }
-                      },
-                      catalog: _catalog!,
-                      sales: _sales!,
-                      shifts: _shifts!,
-                      inventory: _inventory!,
-                      syncService: _syncService!,
-                      terminalId: _terminalId!,
-                      onSignOut: () async {
-                        // Signing out clears the cached scope. It does NOT touch the outbox:
-                        // queued sales belong to the pharmacy, not to the session, and they
-                        // must still reach the server after the next sign-in.
-                        await _sessions.clear();
-                        if (mounted) setState(() => _session = null);
-                      },
-                    ),
+                  : _placement == null && _session!.primaryBranchId == null
+                      // Still resolving — a moment, and usually no network at all.
+                      ? const Scaffold(
+                          body: Center(child: CircularProgressIndicator()))
+                      : _placement != null
+                          ? BranchPickerScreen(
+                              placement: _placement!,
+                              onChosen: (id) => unawaited(_choose(id)),
+                              onRetry: () => unawaited(_place()),
+                              onSignOut: () => unawaited(_signOut()),
+                            )
+                          : PosScreen(
+                              session: _session!,
+                              // A session renewed mid-sync is written back to secure storage and to
+                              // the running app, so the refresh token is redeemed once rather than
+                              // on every tick (ADR-019).
+                              onSessionRenewed: (renewed) async {
+                                await _sessions.save(
+                                    renewed, _session!.tenantCode);
+                                final reloaded = await _sessions.load();
+                                if (mounted && reloaded != null) {
+                                  setState(() => _session = reloaded);
+                                }
+                              },
+                              catalog: _catalog!,
+                              sales: _sales!,
+                              shifts: _shifts!,
+                              inventory: _inventory!,
+                              syncService: _syncService!,
+                              terminalId: _terminalId!,
+                              onSignOut: _signOut,
+                            ),
     );
   }
 }
@@ -212,23 +285,20 @@ class _RecoveryNotice extends StatelessWidget {
                   const Icon(Icons.warning_amber_rounded,
                       size: 44, color: PharmaColors.amber),
                   const SizedBox(height: 16),
-                  const Text(
-                    'This terminal had to start a new local record',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  Text(
+                    context.t('recovery.title'),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 14),
-                  const Text(
-                    'The data stored on this device could not be read — usually after a '
-                    'power cut or a storage fault. Anything that had already reached the '
-                    'server is safe and will come back when you sync.',
-                    style: TextStyle(fontSize: 14.5, height: 1.45),
+                  Text(
+                    context.t('recovery.body'),
+                    style: const TextStyle(fontSize: 14.5, height: 1.45),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Sales taken on this device that had NOT yet synced are not in the new '
-                    'record. Tell the owner, and check the last cash-up against the takings '
-                    'you actually have.',
-                    style: TextStyle(
+                  Text(
+                    context.t('recovery.lost'),
+                    style: const TextStyle(
                         fontSize: 14.5,
                         height: 1.45,
                         fontWeight: FontWeight.w600),
@@ -243,9 +313,9 @@ class _RecoveryNotice extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'The old record has been kept, not deleted:',
-                          style: TextStyle(
+                        Text(
+                          context.t('recovery.kept'),
+                          style: const TextStyle(
                               fontSize: 12.5, color: PharmaColors.amber),
                         ),
                         const SizedBox(height: 6),
@@ -265,7 +335,7 @@ class _RecoveryNotice extends StatelessWidget {
                   const SizedBox(height: 22),
                   FilledButton(
                     onPressed: () => unawaited(onAcknowledge()),
-                    child: const Text('I understand — continue selling'),
+                    child: Text(context.t('recovery.ack')),
                   ),
                 ],
               ),

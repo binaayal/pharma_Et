@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../contracts/contracts.dart';
@@ -28,11 +29,20 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _tenantCode = TextEditingController(text: 'abay');
-  final _username = TextEditingController(text: 'cashier');
+  // Pre-filled with the development seed in debug builds only. A release build is what a
+  // pharmacy installs, and it must not suggest a tenant — let alone advertise a PIN that
+  // works on any environment seeded from the same script, staging included.
+  final _tenantCode = TextEditingController(text: kDebugMode ? 'abay' : '');
+  final _username = TextEditingController(text: kDebugMode ? 'cashier' : '');
   final _secret = TextEditingController();
   String? _error;
   bool _busy = false;
+
+  /// Cashiers sign in with a PIN on the number pad — the fast path the counter depends on.
+  /// Owners and managers have passwords (SRS FR-2: "PIN or password"), which a number pad
+  /// cannot type: found on a phone, where the manager whose sign-in authorises expired
+  /// stock could not sign in at all.
+  bool _usePassword = false;
 
   @override
   void dispose() {
@@ -168,9 +178,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _secret,
                     onChanged: (_) => setState(() {}),
                     obscureText: true,
-                    keyboardType: TextInputType.number,
-                    decoration:
-                        InputDecoration(labelText: context.t('login.pin')),
+                    keyboardType: _usePassword
+                        ? TextInputType.visiblePassword
+                        : TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: context
+                          .t(_usePassword ? 'login.password' : 'login.pin'),
+                      suffixIcon: IconButton(
+                        tooltip: context.t(_usePassword
+                            ? 'login.usePin'
+                            : 'login.usePassword'),
+                        icon: Icon(_usePassword
+                            ? Icons.dialpad
+                            : Icons.keyboard_outlined),
+                        onPressed: () =>
+                            setState(() => _usePassword = !_usePassword),
+                      ),
+                    ),
                     onSubmitted: (_) => _submit(),
                   ),
                   const SizedBox(height: 22),
@@ -180,12 +204,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? context.t('login.signingIn')
                         : context.t('login.signIn')),
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'Development seed: abay / cashier / 1234',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: PharmaColors.faint, fontSize: 12),
-                  ),
+                  if (kDebugMode) ...[
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Development seed: abay / cashier / 1234',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: PharmaColors.faint, fontSize: 12),
+                    ),
+                  ],
                 ],
               ),
             ),

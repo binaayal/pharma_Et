@@ -196,8 +196,8 @@ class _CashUpScreenState extends State<CashUpScreen> {
                 else
                   FilledButton(
                     onPressed: counted == null || _busy ? null : _submit,
-                    child: Text(
-                        _busy ? 'Recording…' : 'Record count & close shift'),
+                    child: Text(context
+                        .t(_busy ? 'cashup.recording' : 'cashup.record')),
                   ),
               ],
             ),

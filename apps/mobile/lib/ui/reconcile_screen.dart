@@ -74,7 +74,7 @@ class _ReconcileScreenState extends State<ReconcileScreen> {
     final oversold = _batches.where((b) => b.qtyOnHand < 0).length;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Count stock')),
+      appBar: AppBar(title: Text(context.t('stock.count'))),
       body: Column(
         children: [
           if (oversold > 0)
@@ -83,20 +83,19 @@ class _ReconcileScreenState extends State<ReconcileScreen> {
               color: PharmaColors.redTint,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
               child: Text(
-                '$oversold batch(es) show less than zero. The shelf and the system '
-                'disagree — count them first.',
+                context.tf('count.oversold', {'n': oversold}),
                 style: const TextStyle(color: PharmaColors.red, fontSize: 12.5),
               ),
             ),
           Expanded(
             child: _batches.isEmpty
-                ? const Center(
+                ? Center(
                     child: Padding(
-                      padding: EdgeInsets.all(32),
+                      padding: const EdgeInsets.all(32),
                       child: Text(
-                        'No stock on this device yet. Sync, or receive a delivery.',
+                        context.t('count.empty'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: PharmaColors.muted),
+                        style: const TextStyle(color: PharmaColors.muted),
                       ),
                     ),
                   )
@@ -112,8 +111,11 @@ class _ReconcileScreenState extends State<ReconcileScreen> {
                           title: Text(_productNames[batch.productId] ??
                               batch.productId),
                           subtitle: Text(
-                            'Lot ${batch.lotNo} · expires '
-                            '${context.l10n.date(DateTime.parse(batch.expiryDate))}',
+                            context.tf('stock.lotExpires', {
+                              'lot': batch.lotNo,
+                              'date':
+                                  context.l10n.calendarDate(batch.expiryDate),
+                            }),
                             style: const TextStyle(fontSize: 12.5),
                           ),
                           trailing: Text(
@@ -220,16 +222,19 @@ class _CountSheetState extends State<_CountSheet> {
               style:
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           Text(
-              'Lot ${widget.batch.lotNo} · system says ${widget.batch.qtyOnHand}',
+              context.tf('count.systemSays', {
+                'lot': widget.batch.lotNo,
+                'qty': widget.batch.qtyOnHand,
+              }),
               style: const TextStyle(color: PharmaColors.muted, fontSize: 13)),
           const SizedBox(height: 16),
           TextField(
             controller: _counted,
             autofocus: true,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'How many are actually there?',
-              helperText: 'Count the shelf. What you find is what is recorded.',
+            decoration: InputDecoration(
+              labelText: context.t('count.howMany'),
+              helperText: context.t('count.howManyHint'),
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -244,8 +249,8 @@ class _CountSheetState extends State<_CountSheet> {
               ),
               child: Text(
                 delta < 0
-                    ? '${delta.abs()} fewer than the system thought'
-                    : '$delta more than the system thought',
+                    ? context.tf('count.fewer', {'n': delta.abs()})
+                    : context.tf('count.more', {'n': delta}),
                 style: TextStyle(
                   color: delta < 0 ? PharmaColors.red : PharmaColors.greenDark,
                   fontWeight: FontWeight.w600,
@@ -257,23 +262,12 @@ class _CountSheetState extends State<_CountSheet> {
           const SizedBox(height: 14),
           DropdownButtonFormField<AdjustmentReason>(
             initialValue: _reason,
-            decoration: const InputDecoration(labelText: 'Reason'),
-            items: const [
-              DropdownMenuItem(
-                  value: AdjustmentReason.recount, child: Text('Recount')),
-              DropdownMenuItem(
-                  value: AdjustmentReason.damage, child: Text('Damaged')),
-              DropdownMenuItem(
-                  value: AdjustmentReason.expiryWriteoff,
-                  child: Text('Expired — written off')),
-              DropdownMenuItem(
-                  value: AdjustmentReason.theftOrLoss,
-                  child: Text('Theft or loss')),
-              DropdownMenuItem(
-                  value: AdjustmentReason.receiptCorrection,
-                  child: Text('Receipt entered wrongly')),
-              DropdownMenuItem(
-                  value: AdjustmentReason.other, child: Text('Other')),
+            decoration: InputDecoration(labelText: context.t('count.reason')),
+            items: [
+              for (final reason in AdjustmentReason.values)
+                DropdownMenuItem(
+                    value: reason,
+                    child: Text(context.t('reason.${reason.name}'))),
             ],
             onChanged: (r) =>
                 setState(() => _reason = r ?? AdjustmentReason.recount),
@@ -283,20 +277,21 @@ class _CountSheetState extends State<_CountSheet> {
             controller: _note,
             maxLength: 500,
             decoration: InputDecoration(
-              labelText:
-                  _reason.requiresNote ? 'Note (required)' : 'Note (optional)',
+              labelText: context.t(_reason.requiresNote
+                  ? 'count.noteRequired'
+                  : 'count.noteOptional'),
               // An unexplained write-off is indistinguishable from a covered-up one, which
               // is why the server refuses it too rather than trusting this field.
               helperText: _reason.requiresNote
-                  ? 'This reason needs an explanation'
-                  : 'Anything worth recording',
+                  ? context.t('count.noteNeeded')
+                  : context.t('count.noteHint'),
             ),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),
           FilledButton(
             onPressed: !_valid || _busy ? null : _submit,
-            child: Text(_busy ? 'Recording…' : 'Record count'),
+            child: Text(context.t(_busy ? 'cashup.recording' : 'count.record')),
           ),
         ],
       ),

@@ -23,6 +23,7 @@ class SessionStore {
 
   static const _sessionKey = 'pharmaet.session';
   static const _terminalKey = 'pharmaet.terminal_id';
+  static const _terminalBranchKey = 'pharmaet.terminal_branch';
 
   /// This device's stable identity, minted once and kept.
   ///
@@ -35,6 +36,17 @@ class SessionStore {
     await _storage.write(key: _terminalKey, value: minted);
     return minted;
   }
+
+  /// The branch this device stands in, once somebody has said which.
+  ///
+  /// A property of the terminal, not of whoever is signed in (SRS §2: a terminal is "a
+  /// single device … at a branch"), so it survives sign-out. It only matters for a user
+  /// whose scope does not already settle it — an owner is all-branch by role, and a sale
+  /// has to be recorded *somewhere*.
+  Future<String?> terminalBranchId() => _storage.read(key: _terminalBranchKey);
+
+  Future<void> setTerminalBranch(String branchId) =>
+      _storage.write(key: _terminalBranchKey, value: branchId);
 
   Future<void> save(LoginResponse response, String tenantCode) async {
     await _storage.write(
@@ -63,6 +75,7 @@ class SessionStore {
         tenantCode: json['tenantCode'] as String,
         offlineValidUntil: DateTime.parse(json['offlineValidUntil'] as String),
         scope: AuthScope.fromJson(json['scope'] as Map<String, dynamic>),
+        terminalBranchId: await terminalBranchId(),
       );
     } catch (_) {
       // A corrupt or older-format session. Treat it as signed out rather than crashing on
@@ -81,6 +94,7 @@ class CachedSession {
     required this.tenantCode,
     required this.offlineValidUntil,
     required this.scope,
+    this.terminalBranchId,
   });
 
   final String accessToken;
@@ -110,8 +124,28 @@ class CachedSession {
   /// tick of a deadline they cannot see.
   bool expiredAt(DateTime now) => now.isAfter(offlineValidUntil);
 
-  /// The branch this terminal acts in. Owners are all-branch by role, so a terminal signed
-  /// in as an owner uses whichever branch it was provisioned to.
-  String? get primaryBranchId =>
-      scope.branchIds.isEmpty ? null : scope.branchIds.first;
+  /// Where this device was placed, if anyone had to choose (see [SessionStore]).
+  final String? terminalBranchId;
+
+  /// The branch this terminal acts in: the one it was placed at, if this user may act
+  /// there; otherwise the user's only branch. Null means nobody has chosen yet, and the app
+  /// asks before the counter opens — an owner used to reach it with no branch at all, and
+  /// every sale they rang up was refused by the server for an empty branch id.
+  String? get primaryBranchId {
+    final placed = terminalBranchId;
+    if (placed != null &&
+        (scope.branchIds.isEmpty || scope.branchIds.contains(placed))) {
+      return placed;
+    }
+    return scope.branchIds.length == 1 ? scope.branchIds.single : null;
+  }
+
+  CachedSession placedAt(String branchId) => CachedSession(
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        tenantCode: tenantCode,
+        offlineValidUntil: offlineValidUntil,
+        scope: scope,
+        terminalBranchId: branchId,
+      );
 }

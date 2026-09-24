@@ -49,6 +49,34 @@ void main() {
     expect(Strings.en.date(instant), 'Meskerem 13, 2019');
   });
 
+  test('both languages carry the same placeholders', () {
+    // A placeholder missing from one side renders as a literal "{n}" to that reader, and
+    // only to that reader — the English screen looks perfect.
+    final pattern = RegExp(r'\{(\w+)\}');
+    Set<String> holes(String text) =>
+        pattern.allMatches(text).map((m) => m.group(1)!).toSet();
+    for (final key in _knownKeys) {
+      expect(holes(Strings.am.get(key)), holes(Strings.en.get(key)),
+          reason: key);
+    }
+    expect(Strings.en.f('count.fewer', {'n': 2}),
+        '2 fewer than the system thought');
+    expect(Strings.am.f('count.fewer', {'n': 2}), 'ሲስተሙ ካሰበው 2 ያንሳል');
+  });
+
+  test('an expiry date is a calendar date, whatever the time zone', () {
+    // 30 Sep 2027 is Meskerem 19, 2020 (Enkutatash falls on 12 Sep before a Gregorian leap
+    // year). Read as an instant it came out as Meskerem 18 on a phone in Addis Ababa —
+    // local midnight there is still the 29th in UTC. Run under TZ=Africa/Addis_Ababa too.
+    expect(Strings.en.calendarDate('2027-09-30'), 'Meskerem 19, 2020');
+    expect(Strings.am.calendarDate('2027-09-30'), 'መስከረም 19፣ 2020');
+    // The picker hands back a local DateTime; its ISO form must mean the same day.
+    expect(
+      Strings.en.calendarDate(DateTime(2027, 9, 30).toIso8601String()),
+      'Meskerem 19, 2020',
+    );
+  });
+
   test('times use the 24-hour clock in both', () {
     // Ethiopian clock time starts the day at dawn and is how people speak — but tills and
     // receipts in Ethiopian pharmacies use the 24-hour clock, so this follows practice.
@@ -83,6 +111,9 @@ const _knownKeys = [
   'login.pharmacyCode',
   'login.username',
   'login.pin',
+  'login.password',
+  'login.usePassword',
+  'login.usePin',
   'login.signIn',
   'login.signingIn',
   'login.failed',
@@ -132,4 +163,65 @@ const _knownKeys = [
   'sync.needsAttention',
   'settings.language',
   'settings.signOut',
+  'branch.title',
+  'branch.hint',
+  'branch.none',
+  'branch.unreachable',
+  'branch.retry',
+  'common.cancel',
+  'common.continue',
+  'stock.menu',
+  'stock.receive',
+  'stock.count',
+  'stock.lotExpires',
+  'receive.supplier',
+  'receive.supplierHint',
+  'receive.lines',
+  'receive.add',
+  'receive.noProducts',
+  'receive.lineCost',
+  'receive.totalCost',
+  'receive.saving',
+  'receive.record',
+  'receive.savedHint',
+  'receive.done',
+  'receive.addLineTitle',
+  'receive.product',
+  'receive.lotNo',
+  'receive.expiry',
+  'receive.qty',
+  'receive.unitCost',
+  'receive.addLine',
+  'count.oversold',
+  'count.empty',
+  'count.systemSays',
+  'count.howMany',
+  'count.howManyHint',
+  'count.fewer',
+  'count.more',
+  'count.reason',
+  'count.noteRequired',
+  'count.noteOptional',
+  'count.noteNeeded',
+  'count.noteHint',
+  'count.record',
+  'reason.recount',
+  'reason.damage',
+  'reason.expiryWriteoff',
+  'reason.theftOrLoss',
+  'reason.receiptCorrection',
+  'reason.other',
+  'expired.title',
+  'expired.body',
+  'expired.mayOverride',
+  'expired.cannotOverride',
+  'expired.doNot',
+  'expired.authorise',
+  'sync.signInAgain',
+  'sync.status',
+  'recovery.title',
+  'recovery.body',
+  'recovery.lost',
+  'recovery.kept',
+  'recovery.ack',
 ];

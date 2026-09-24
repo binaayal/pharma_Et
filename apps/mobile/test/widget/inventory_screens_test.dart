@@ -103,6 +103,42 @@ void main() {
     });
   });
 
+  group('in Amharic (AC-10.1: "any core screen")', () {
+    // Both stock screens shipped with every label hardcoded in English, under an RTM row
+    // that called FR-10 done — the strings were tested, the screens were not. Found by
+    // switching a real phone to Amharic and opening the stock menu.
+    testWidgets('receiving a delivery', (tester) async {
+      await pumpScreen(
+        tester,
+        ReceiveScreen(
+            catalog: catalog, inventory: inventory, branchId: branchId),
+        locale: 'am',
+      );
+      expect(find.text('ዕቃ መረከብ'), findsOneWidget);
+      expect(find.text('Receive stock'), findsNothing);
+      expect(find.text('Supplier'), findsNothing);
+    });
+
+    testWidgets('counting the shelf', (tester) async {
+      (inventory as _StubInventory).attention.add(const LocalBatch(
+            id: 'b1',
+            productId: 'p1',
+            lotNo: 'LOT-1',
+            expiryDate: '2030-01-01',
+            qtyOnHand: -3,
+          ));
+      await pumpScreen(
+        tester,
+        ReconcileScreen(
+            catalog: catalog, inventory: inventory, branchId: branchId),
+        locale: 'am',
+      );
+      expect(find.text('ክምችት መቁጠር'), findsOneWidget);
+      expect(find.textContaining('ሎት LOT-1'), findsOneWidget);
+      expect(find.textContaining('show less than zero'), findsNothing);
+    });
+  });
+
   group('correcting a count (BR-3.2)', () {
     Future<void> open(WidgetTester tester) => pumpScreen(
           tester,

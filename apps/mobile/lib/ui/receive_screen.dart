@@ -74,12 +74,12 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     );
 
     if (!mounted) return;
-    final count = _lines.length;
+    final done = context.tf('receive.done', {'count': _lines.length});
     Navigator.of(context).pop(true);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: PharmaColors.greenDark,
-        content: Text('Received $count line(s) · saved on this device'),
+        content: Text(done),
       ),
     );
   }
@@ -89,37 +89,37 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Receive stock')),
+      appBar: AppBar(title: Text(context.t('stock.receive'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           TextField(
             controller: _supplier,
-            decoration: const InputDecoration(
-              labelText: 'Supplier',
-              helperText: 'Free text in this version',
+            decoration: InputDecoration(
+              labelText: context.t('receive.supplier'),
+              helperText: context.t('receive.supplierHint'),
             ),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 18),
           Row(
             children: [
-              const Text('Lines',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
+              Text(context.t('receive.lines'),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
               const Spacer(),
               TextButton.icon(
                 onPressed: _products.isEmpty ? null : _addLine,
                 icon: const Icon(Icons.add),
-                label: const Text('Add'),
+                label: Text(context.t('receive.add')),
               ),
             ],
           ),
           if (_products.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
-                'No products yet — sync to pull the catalog before receiving stock.',
-                style: TextStyle(color: PharmaColors.muted, fontSize: 13),
+                context.t('receive.noProducts'),
+                style: const TextStyle(color: PharmaColors.muted, fontSize: 13),
               ),
             ),
           for (final (index, line) in _lines.indexed)
@@ -127,8 +127,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
               child: ListTile(
                 title: Text(line.product.name),
                 subtitle: Text(
-                  'Lot ${line.lotNo} · expires ${context.l10n.date(DateTime.parse(line.expiryDate))}'
-                  '\n${line.qty} × ${formatEtb(line.costSantim)} cost',
+                  '${context.tf('stock.lotExpires', {
+                        'lot': line.lotNo,
+                        'date': context.l10n.calendarDate(line.expiryDate),
+                      })}\n${context.tf('receive.lineCost', {
+                        'qty': line.qty,
+                        'cost': formatEtb(line.costSantim),
+                      })}',
                 ),
                 isThreeLine: true,
                 trailing: IconButton(
@@ -141,8 +146,8 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             const SizedBox(height: 12),
             Row(
               children: [
-                const Text('Total cost',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                Text(context.t('receive.totalCost'),
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
                 const Spacer(),
                 Text(formatEtb(_totalCost),
                     style: const TextStyle(
@@ -155,14 +160,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
             onPressed: _busy || _lines.isEmpty || _supplier.text.trim().isEmpty
                 ? null
                 : _commit,
-            child: Text(_busy ? 'Saving…' : 'Record receipt'),
+            child: Text(context.t(_busy ? 'receive.saving' : 'receive.record')),
           ),
           const SizedBox(height: 10),
-          const Text(
-            'Saved on this device and queued. Stock is available to sell immediately, '
-            'whether or not there is a network.',
+          Text(
+            context.t('receive.savedHint'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: PharmaColors.faint, fontSize: 12),
+            style: const TextStyle(color: PharmaColors.faint, fontSize: 12),
           ),
         ],
       ),
@@ -212,12 +216,14 @@ class _LineSheetState extends State<_LineSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('Add a line',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+          Text(context.t('receive.addLineTitle'),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 14),
           DropdownButtonFormField<LocalProduct>(
             initialValue: _product,
-            decoration: const InputDecoration(labelText: 'Product'),
+            decoration:
+                InputDecoration(labelText: context.t('receive.product')),
             items: widget.products
                 .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
                 .toList(),
@@ -226,7 +232,7 @@ class _LineSheetState extends State<_LineSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _lot,
-            decoration: const InputDecoration(labelText: 'Lot / batch number'),
+            decoration: InputDecoration(labelText: context.t('receive.lotNo')),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 12),
@@ -247,9 +253,9 @@ class _LineSheetState extends State<_LineSheet> {
               }
             },
             label: Text(_expiry == null
-                ? 'Expiry date (as printed on the box)'
+                ? context.t('receive.expiry')
                 : '${_expiry!.toIso8601String().substring(0, 10)}'
-                    '  ·  ${context.l10n.date(_expiry!)}'),
+                    '  ·  ${context.l10n.calendarDate(_expiry!.toIso8601String())}'),
           ),
           const SizedBox(height: 12),
           Row(
@@ -258,7 +264,8 @@ class _LineSheetState extends State<_LineSheet> {
                 child: TextField(
                   controller: _qty,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Quantity'),
+                  decoration:
+                      InputDecoration(labelText: context.t('receive.qty')),
                   onChanged: (_) => setState(() {}),
                 ),
               ),
@@ -269,7 +276,7 @@ class _LineSheetState extends State<_LineSheet> {
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   decoration:
-                      const InputDecoration(labelText: 'Unit cost (ETB)'),
+                      InputDecoration(labelText: context.t('receive.unitCost')),
                 ),
               ),
             ],
@@ -292,7 +299,7 @@ class _LineSheetState extends State<_LineSheet> {
                       ),
                     );
                   },
-            child: const Text('Add line'),
+            child: Text(context.t('receive.addLine')),
           ),
         ],
       ),
