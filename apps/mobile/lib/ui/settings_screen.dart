@@ -26,7 +26,9 @@ class SettingsScreen extends StatelessWidget {
     final sub = t.subscription;
 
     return Column(children: [
-      PTopBar(title: '${context.t('settings.title')}  /  ማስተካከያ'),
+      // Bilingual on purpose and in both languages, as the prototype titles it: whoever
+      // cannot read the current language must still recognise where they are.
+      const PTopBar(title: 'Settings  /  ማስተካከያ'),
       Expanded(
         child: PBody(children: [
           const PSection('Language / ቋንቋ', first: true),
