@@ -6,7 +6,7 @@
 // AC-2.1 requires a denial at both the app and the API layer. Both read this one table, so
 // the app cannot offer something the server will refuse.
 //
-// Contract version: 1.2.0
+// Contract version: 1.3.0
 
 // ignore_for_file: lines_longer_than_80_chars
 
@@ -30,6 +30,7 @@ abstract final class Capability {
   static const String goodsReceive = 'goods.receive';
   static const String saleCreate = 'sale.create';
   static const String controlledDispense = 'controlled.dispense';
+  static const String expiryOverride = 'expiry.override';
   static const String cashupPerform = 'cashup.perform';
   static const String reportBranch = 'report.branch';
   static const String reportTenant = 'report.tenant';
@@ -46,6 +47,7 @@ const Map<String, Map<String, Grant>> kPermissionMatrix = <String, Map<String, G
     'goods.receive': Grant.tenant,
     'sale.create': Grant.tenant,
     'controlled.dispense': Grant.tenant,
+    'expiry.override': Grant.tenant,
     'cashup.perform': Grant.tenant,
     'report.branch': Grant.tenant,
     'report.tenant': Grant.tenant,
@@ -60,6 +62,7 @@ const Map<String, Map<String, Grant>> kPermissionMatrix = <String, Map<String, G
     'goods.receive': Grant.branch,
     'sale.create': Grant.branch,
     'controlled.dispense': Grant.branch,
+    'expiry.override': Grant.branch,
     'cashup.perform': Grant.branch,
     'report.branch': Grant.branch,
     'report.tenant': Grant.denied,
@@ -74,6 +77,7 @@ const Map<String, Map<String, Grant>> kPermissionMatrix = <String, Map<String, G
     'goods.receive': Grant.branch,
     'sale.create': Grant.branch,
     'controlled.dispense': Grant.branch,
+    'expiry.override': Grant.denied,
     'cashup.perform': Grant.own,
     'report.branch': Grant.own,
     'report.tenant': Grant.denied,

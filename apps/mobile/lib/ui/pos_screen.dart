@@ -233,7 +233,30 @@ class _PosScreenState extends State<PosScreen> {
 
     // FEFO picks the batch (AC-3.2). A null batch does NOT stop the sale: the terminal may
     // simply not know about stock that exists, and the counter keeps running (BR-3.2).
-    final batch = await widget.catalog.fefoBatch(product.id, _branchId);
+    var batch = await widget.catalog.fefoBatch(product.id, _branchId);
+    String? overrideBy;
+
+    if (batch == null) {
+      // Nothing in date. Before asking the user to sell blind, find out whether the reason is
+      // "no stock" or "the only stock here is expired" — those are very different things to
+      // the person about to take a box off the shelf (E-4.2, ADR-020).
+      final expired =
+          await widget.catalog.expiredFallbackBatch(product.id, _branchId);
+      if (!mounted) return;
+
+      if (expired != null) {
+        final authorised = await _confirmExpiredDispense(product, expired);
+        if (!mounted) return;
+        if (authorised) {
+          batch = expired;
+          overrideBy = widget.session.scope.userId;
+        }
+        // Declined, or not authorised to override: the sale still proceeds, unattributed.
+        // Refusing it would not stop the box leaving the shelf — it would only stop the
+        // pharmacy trading (NFR-1.2), and the discrepancy surfaces at the next count.
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       final existing =
@@ -246,9 +269,68 @@ class _PosScreenState extends State<PosScreen> {
           batchId: line.batchId,
         );
       } else {
-        _cart.add(CartLine(product: product, qty: 1, batchId: batch?.id));
+        _cart.add(CartLine(
+          product: product,
+          qty: 1,
+          batchId: batch?.id,
+          expiryOverrideBy: overrideBy,
+        ));
       }
     });
+  }
+
+  /// Warns that the only stock is expired, and asks for an override (E-4.2, ADR-020).
+  ///
+  /// Returns true only when somebody who *may* authorise it has done so. A cashier sees the
+  /// warning too — they simply have no button, because the matrix denies them
+  /// `expiry.override` and this screen never renders a control the server would refuse.
+  Future<bool> _confirmExpiredDispense(
+      LocalProduct product, LocalBatch expired) async {
+    final mayOverride = _can(Capability.expiryOverride);
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded,
+            color: PharmaColors.red, size: 36),
+        title: const Text('This stock has expired'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The only ${product.name} on this shelf is lot ${expired.lotNo}, '
+              'which expired on ${dialogContext.l10n.date(DateTime.parse(expired.expiryDate))}.',
+              style: const TextStyle(fontSize: 14.5, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              mayOverride
+                  ? 'Dispensing it is recorded against your name.'
+                  : 'You cannot authorise dispensing expired stock. Ask the manager or '
+                      'owner. You can still complete the sale — it will not be recorded '
+                      'against this lot.',
+              style: const TextStyle(
+                  fontSize: 13.5, height: 1.4, color: PharmaColors.muted),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(mayOverride ? 'Do not dispense it' : 'Continue'),
+          ),
+          if (mayOverride)
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: PharmaColors.red),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Authorise — dispense it'),
+            ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   Future<void> _commit() async {

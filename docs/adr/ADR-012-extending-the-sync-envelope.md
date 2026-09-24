@@ -146,6 +146,7 @@ against a server that does not exist.
 | **1.1.0** | 2026-09-23 | Adds `shift` and `cash_up` entity types (FR-8). Pull response unchanged. | Additive. A 1.0.0 client is fully served; a 1.1.0 client against a 1.0.0 server has its new operations `rejected` with a reason and retried later, never dropped. |
 
 | **1.2.0** | 2026-09-23 | Adds `stock_adjustment` (FR-3, BR-3.2). Pull response unchanged. | Additive. Carries a signed **delta**, never a resulting total: a terminal offline for days counted against a figure the server may already disagree with, and an absolute would silently discard whatever synced in between — most likely the very sales that made the count wrong. |
+| **1.3.0** | 2026-09-24 | Adds `expiryOverrideBy` to a sale line (E-4.2, ADR-020). Pull response unchanged. | Additive and optional. A 1.2.0 terminal never sets it and its sales apply exactly as before; the server audits an expired dispense from the batch's own expiry date rather than from the field, so an older client is recorded just as accurately. |
 
 **Apply-side semantics added 2026-09-23 without a version change** (§4, §5 above): a
 `cash_up` now closes its shift if still open, and the server's body limit is derived from

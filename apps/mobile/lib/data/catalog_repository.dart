@@ -63,8 +63,11 @@ class CatalogRepository {
   /// Expiry order, not receipt order: what actually costs a pharmacy money is stock dying on
   /// the shelf, and that happens precisely when the longest-dated box goes out first.
   ///
-  /// Already-expired batches are excluded. Dispensing those needs an explicit authorised
-  /// override (E-4.2), which is Phase 1 — until then the batch is simply not offered.
+  /// Already-expired batches are excluded **from selection**, but no longer hidden: if the
+  /// only stock is expired, [expiredFallbackBatch] finds it so the counter can be warned and
+  /// an authorised person can override (E-4.2, ADR-020). Hiding it read to the user as "there
+  /// is no stock" rather than "the only stock here is expired", which removed exactly the
+  /// information they needed while they reached for the box.
   ///
   /// A null result does NOT stop the sale. The terminal may hold stock the server has not
   /// told it about, or none at all, and refusing to sell would close the counter over a
@@ -77,6 +80,34 @@ class CatalogRepository {
           'product_id = ? AND branch_id = ? AND deleted = 0 AND expiry_date >= ?',
       whereArgs: [productId, branchId, today],
       orderBy: 'expiry_date ASC, qty_on_hand DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final r = rows.first;
+    return LocalBatch(
+      id: r['id'] as String,
+      productId: r['product_id'] as String,
+      lotNo: r['lot_no'] as String,
+      expiryDate: r['expiry_date'] as String,
+      qtyOnHand: r['qty_on_hand'] as int,
+    );
+  }
+
+  /// The soonest-expiring **expired** batch for this product, or null if there is none.
+  ///
+  /// Only consulted when [fefoBatch] found nothing, so the ordinary path is untouched: a
+  /// pharmacy with good stock never sees this and never sees a warning.
+  Future<LocalBatch?> expiredFallbackBatch(
+      String productId, String branchId) async {
+    final today = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+    final rows = await _db.db.query(
+      'stock_batch',
+      where:
+          'product_id = ? AND branch_id = ? AND deleted = 0 AND expiry_date < ? AND qty_on_hand > 0',
+      whereArgs: [productId, branchId, today],
+      // Most-recently expired first: of a bad set of options it is the least bad, and it is
+      // the box a pharmacist would reach for if they were choosing deliberately.
+      orderBy: 'expiry_date DESC',
       limit: 1,
     );
     if (rows.isEmpty) return null;

@@ -7,12 +7,12 @@
 // needs an ADR, both-side contract tests including N-1 (ADR-009), a guardian-suite update,
 // two reviews, and an RTM entry.
 //
-// Contract version: 1.2.0
+// Contract version: 1.3.0
 
 // ignore_for_file: unnecessary_cast, lines_longer_than_80_chars, unnecessary_this
 
 /// The contract version this client speaks, sent as the `x-contract-version` header.
-const String kContractVersion = '1.2.0';
+const String kContractVersion = '1.3.0';
 
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) return true;
@@ -193,6 +193,7 @@ class SaleLinePayload {
     required this.qty,
     required this.unitPriceSantim,
     required this.lineTotalSantim,
+    this.expiryOverrideBy,
   });
 
   final String id;
@@ -205,6 +206,8 @@ class SaleLinePayload {
   final int unitPriceSantim;
   /// Money in santim (1 ETB = 100 santim)
   final int lineTotalSantim;
+  /// Client-generated UUIDv7 identifier
+  final String? expiryOverrideBy;
 
   factory SaleLinePayload.fromJson(Map<String, dynamic> json) => SaleLinePayload(
         id: json['id'] as String,
@@ -213,6 +216,7 @@ class SaleLinePayload {
         qty: json['qty'] as int,
         unitPriceSantim: json['unitPriceSantim'] as int,
         lineTotalSantim: json['lineTotalSantim'] as int,
+        expiryOverrideBy: json['expiryOverrideBy'] == null ? null : json['expiryOverrideBy'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -222,9 +226,10 @@ class SaleLinePayload {
         'qty': qty,
         'unitPriceSantim': unitPriceSantim,
         'lineTotalSantim': lineTotalSantim,
+        'expiryOverrideBy': expiryOverrideBy,
       };
 
-  List<Object?> get _props => <Object?>[id, productId, batchId, qty, unitPriceSantim, lineTotalSantim];
+  List<Object?> get _props => <Object?>[id, productId, batchId, qty, unitPriceSantim, lineTotalSantim, expiryOverrideBy];
 
   @override
   bool operator ==(Object other) =>

@@ -189,6 +189,8 @@ export class SyncService {
       });
     }
 
+    await this.auditExpiredDispenses(em, scope, operation, branchId);
+
     await this.inventory.applySaleDecrements(
       em,
       scope.tenantId,
@@ -200,6 +202,69 @@ export class SyncService {
         saleId: operation.entityId,
       })),
     );
+  }
+
+  /**
+   * Records any line that dispensed from an already-expired batch (E-4.2, ADR-020).
+   *
+   * Derived from the batch's own `expiry_date` rather than from anything the client claims,
+   * so an older terminal that does not know the field exists is audited exactly as accurately
+   * as a current one — and a client cannot make an expired dispense invisible by omitting a
+   * flag.
+   *
+   * It never rejects. Refusing the operation would leave a legitimate, properly authorised
+   * sale stranded in an outbox (BR-4.1), and would arrive days later at a terminal rather
+   * than at the counter where the box was actually handed over. The control is the warning at
+   * the till; this is the record that it happened.
+   */
+  private async auditExpiredDispenses(
+    em: EntityManager,
+    scope: TenantScope,
+    operation: Extract<Operation, { entityType: 'sale' }>,
+    branchId: string,
+  ): Promise<void> {
+    const batchIds = operation.payload.lines
+      .map((line) => line.batchId)
+      .filter((id): id is string => Boolean(id));
+    if (batchIds.length === 0) return;
+
+    const soldAt = new Date(operation.payload.soldAt);
+    const batches = await em
+      .getRepository(StockBatch)
+      .createQueryBuilder('b')
+      .where('b.id IN (:...ids)', { ids: batchIds })
+      .getMany();
+    const byId = new Map(batches.map((b) => [b.id, b]));
+
+    for (const line of operation.payload.lines) {
+      if (!line.batchId) continue;
+      const batch = byId.get(line.batchId);
+      if (!batch) continue;
+
+      // `expiry_date` is a calendar date; a batch expiring today is still good today.
+      const expiry = new Date(`${String(batch.expiryDate).slice(0, 10)}T23:59:59.999Z`);
+      if (expiry >= soldAt) continue;
+
+      await this.audit.record(em, scope, {
+        type: 'audit.expired_dispense',
+        streamId: batch.id,
+        branchId,
+        occurredAt: soldAt,
+        terminalId: operation.terminalId,
+        opId: operation.opId,
+        payload: {
+          saleId: operation.entityId,
+          productId: line.productId,
+          batchId: batch.id,
+          lotNo: batch.lotNo,
+          expiryDate: String(batch.expiryDate).slice(0, 10),
+          qty: line.qty,
+          soldBy: operation.actorId,
+          // Null means nobody authorised it — which is a finding, not a gap in the record.
+          authorisedBy: line.expiryOverrideBy ?? null,
+        },
+      });
+    }
   }
 
   private async applyGoodsReceipt(
