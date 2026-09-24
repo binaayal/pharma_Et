@@ -28,6 +28,7 @@ import {
   UserBranch,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
+import { TelemetryService } from '../../common/observability/telemetry.service';
 import { CashUpService } from '../cashup/cash-up.service';
 import { ChangeSeqService } from '../inventory/change-seq.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -63,6 +64,7 @@ export class SyncService {
     private readonly changeSeq: ChangeSeqService,
     private readonly cashUp: CashUpService,
     private readonly audit: AuditService,
+    private readonly telemetry: TelemetryService,
   ) {}
 
   async push(scope: TenantScope, request: PushRequest): Promise<PushResponse> {
@@ -76,6 +78,18 @@ export class SyncService {
     const changeSeq = await this.db.runInScope(scope, (em) =>
       this.changeSeq.current(em, scope.tenantId),
     );
+
+    // NFR-7. The rejected count is the one a status code hides: a push answers 201 with
+    // per-operation acks, so a batch can be refused in full while the transport looks
+    // perfectly healthy (ADR-005). Alerting on HTTP status alone would never see it.
+    this.telemetry.syncPush({
+      tenantId: scope.tenantId,
+      terminalId: request.terminalId,
+      received: acks.length,
+      applied: acks.filter((a) => a.status === 'applied').length,
+      duplicate: acks.filter((a) => a.status === 'duplicate').length,
+      rejected: acks.filter((a) => a.status === 'rejected').length,
+    });
 
     return { contractVersion: CONTRACT_VERSION, acks, changeSeq };
   }

@@ -46,15 +46,19 @@ incident."* **Suspected**, not confirmed. Rollback first, investigate from the p
 
 | Signal | Where it comes from | What a breach means |
 |---|---|---|
-| **Sync failure / retry rate** | non-2xx on `POST /api/sync/push`, and `rejected` acks inside 2xx responses | A 200 with rejected acks is the dangerous case: transport is fine and the data is not landing. Alert on ack status, not just HTTP status. |
-| **Oversell count** | rows in `oversell_event` | Expected to be non-zero — BR-3.2 records rather than prevents. A *spike* means either a real stock problem or a sync gap that made terminals disagree. |
-| **Error rate / p95 latency** | API logs | NFR-3.4 budgets: sync p95 < 500 ms, dashboard reads p95 < 1 s. |
+| **Sync failure / retry rate** | the `sync_push` signal's `rejected` count | A 200 with rejected acks is the dangerous case: transport is fine and the data is not landing. Alert on ack status, not just HTTP status. |
+| **Oversell count** | the `oversell` signal, and rows in `oversell_event` | Expected to be non-zero — BR-3.2 records rather than prevents. A *spike* means either a real stock problem or a sync gap that made terminals disagree. |
+| **Error rate / p95 latency** | the `http_request` signal's `status` and `durationMs` | NFR-3.4 budgets: sync p95 < 500 ms, dashboard reads p95 < 1 s. |
 | **Contract version served** | `GET /api/health` | `supportedContractVersions` must still include N-1 throughout a rolling deploy (ADR-009), or reconnecting terminals are refused. |
 
-> **Status: not yet wired.** There is no alerting stack. These are the signals to instrument
-> when there is one, and until then they are checked by hand. `../06` §11 lists
-> *"Runbook + monitoring/alerting live"* as a single GA line, and only the runbook half of it
-> exists. Saying so here is better than implying a pager exists.
+> **Status: emitted, not yet alerted on.** The application now writes all four as structured
+> JSON on stdout (NFR-7) — `http_request` for every request including the ones a guard
+> refused, `sync_push` with its ack breakdown, and `oversell`. Every platform this deploys to
+> collects stdout, so wiring a collector is configuration rather than code.
+>
+> **Nothing pages anybody yet.** `../06` §11 lists *"Runbook + monitoring/alerting live"* as a
+> single GA line; the runbook exists and the signals exist, and the collector and thresholds
+> need somewhere to run. Saying so here is better than implying a pager exists.
 
 ---
 
