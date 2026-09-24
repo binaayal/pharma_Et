@@ -53,6 +53,11 @@ jobs:
               - 'apps/api/**'
               - 'packages/contracts/**'
               - 'pnpm-lock.yaml'
+              # The workflow itself. Several gates live as steps INSIDE this job — the RLS
+              # policy check, the docs/04 §2 column convention — so a change to them would
+              # otherwise merge without ever executing, which is how a gate that does not
+              # work gets trusted. The same reasoning already applies to `rollback_safety`.
+              - '.github/workflows/ci.yml'
             dashboard:
               - 'apps/dashboard/**'
               - 'packages/contracts/**'
