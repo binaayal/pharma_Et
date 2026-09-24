@@ -17,6 +17,17 @@ export const saleLinePayload = z.object({
   qty: quantity.positive(),
   unitPriceSantim: santim.nonnegative(),
   lineTotalSantim: santim.nonnegative(),
+  /**
+   * Who authorised dispensing from an already-expired batch (E-4.2, ADR-020).
+   *
+   * Null in the ordinary case, and null too when nobody authorised it — a cashier may
+   * complete the sale without the `expiry.override` capability, they simply cannot attribute
+   * it to the expired batch. Either way the server audits the dispense, because it knows the
+   * batch's expiry date without being told.
+   *
+   * Added in contract 1.3.0. A 1.2.0 terminal never sets it and its sales apply unchanged.
+   */
+  expiryOverrideBy: uuidv7.nullable().optional(),
 });
 export type SaleLinePayload = z.infer<typeof saleLinePayload>;
 

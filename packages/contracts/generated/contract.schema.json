@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PharmaEt sync & API contract",
   "description": "Generated from packages/contracts/src by `pnpm gen:contracts`. Do not hand-edit. This is a controlled artifact — see docs/06-delivery-plan.md §7.",
-  "contractVersion": "1.2.0",
+  "contractVersion": "1.3.0",
   "definitions": {
     "Operation": {
       "anyOf": [
@@ -365,7 +365,7 @@
       "properties": {
         "contractVersion": {
           "type": "string",
-          "default": "1.2.0"
+          "default": "1.3.0"
         },
         "terminalId": {
           "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
@@ -735,6 +735,17 @@
           "type": "integer",
           "minimum": 0,
           "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "expiryOverrideBy": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Client-generated UUIDv7 identifier"
         }
       },
       "required": [

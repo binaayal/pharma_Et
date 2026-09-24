@@ -22,6 +22,10 @@ export const AUDIT_EVENT_TYPES = [
   'audit.branch_created',
   'audit.branch_updated',
   'audit.stock_adjusted',
+  // E-4.2 / ADR-020. Written whenever a sale names a batch that had already expired, whether
+  // or not anybody authorised it — the unauthorised case is the one most worth having, because
+  // it leaves expired stock on the books at full quantity while the medicine is in a bag.
+  'audit.expired_dispense',
   // Billing (FR-1). Recorded in the TENANT's own trail even when the actor is a platform
   // admin: an action by us that the affected pharmacy cannot see is exactly what BR-2.2
   // exists to prevent, and a suspension nobody can find a record of is a support call.

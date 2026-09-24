@@ -67,6 +67,11 @@ describe('G1 — FR-2 permission matrix', () => {
       ['owner', 'catalog.manage', 'tenant'],
       ['owner', 'report.tenant', 'tenant'],
       ['owner', 'settings.configure', 'tenant'],
+      // E-4.2 / ADR-020. A cashier is precisely the role the "authorized role" wording
+      // exists to exclude, so the denial is pinned here rather than left to the loops.
+      ['owner', 'expiry.override', 'tenant'],
+      ['branch_manager', 'expiry.override', 'branch'],
+      ['cashier', 'expiry.override', 'denied'],
       ['branch_manager', 'branch.manage', 'denied'],
       ['branch_manager', 'staff.manage', 'branch'],
       ['branch_manager', 'catalog.manage', 'branch'],

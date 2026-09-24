@@ -28,6 +28,13 @@ export const CAPABILITIES = [
   'goods.receive',
   'sale.create',
   'controlled.dispense',
+  /**
+   * Authorising a dispense from a batch that has already expired (E-4.2, ADR-020).
+   *
+   * Not the same thing as selling. A cashier without it still completes the sale — what they
+   * cannot do is record it against the expired batch on their own authority.
+   */
+  'expiry.override',
   'cashup.perform',
   'report.branch',
   'report.tenant',
@@ -66,6 +73,7 @@ export const PERMISSION_MATRIX: Record<TenantRole, Record<Capability, Grant>> = 
     'goods.receive': 'tenant',
     'sale.create': 'tenant',
     'controlled.dispense': 'tenant',
+    'expiry.override': 'tenant',
     'cashup.perform': 'tenant',
     'report.branch': 'tenant',
     'report.tenant': 'tenant',
@@ -81,6 +89,7 @@ export const PERMISSION_MATRIX: Record<TenantRole, Record<Capability, Grant>> = 
     'goods.receive': 'branch',
     'sale.create': 'branch',
     'controlled.dispense': 'branch',
+    'expiry.override': 'branch',
     'cashup.perform': 'branch',
     'report.branch': 'branch',
     // Tenant-wide figures span branches they do not run.
@@ -98,6 +107,7 @@ export const PERMISSION_MATRIX: Record<TenantRole, Record<Capability, Grant>> = 
     'goods.receive': 'branch',
     'sale.create': 'branch',
     'controlled.dispense': 'branch',
+    'expiry.override': 'denied',
     // "B (own shift)" in the matrix — a cashier reconciles their own till, nobody else's.
     'cashup.perform': 'own',
     'report.branch': 'own',

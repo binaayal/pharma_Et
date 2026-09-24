@@ -11,11 +11,17 @@ class CartLine {
     required this.product,
     required this.qty,
     required this.batchId,
+    this.expiryOverrideBy,
   });
 
   final LocalProduct product;
   final int qty;
   final String? batchId;
+
+  /// Who authorised dispensing from an already-expired batch (E-4.2, ADR-020). Null in the
+  /// ordinary case, and null too when nobody authorised it — in which case [batchId] is null
+  /// as well, and the sale goes through unattributed.
+  final String? expiryOverrideBy;
 
   /// Integer arithmetic only. The server and the database both assert
   /// `lineTotal == qty * unitPrice`, so a client that computed it any other way would have
@@ -101,6 +107,11 @@ class SaleRepository {
           'qty': line.qty,
           'unitPriceSantim': line.product.priceSantim,
           'lineTotalSantim': line.lineTotalSantim,
+          // Contract 1.3.0 (E-4.2). Omitted when null so the wire form is byte-identical to
+          // a 1.2.0 terminal's for every ordinary sale, which is the whole of the N-1
+          // promise in practice.
+          if (line.expiryOverrideBy != null)
+            'expiryOverrideBy': line.expiryOverrideBy,
         });
 
         if (line.batchId != null) {

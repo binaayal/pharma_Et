@@ -27,5 +27,6 @@ quietly work around an accepted ADR in code.
 | [ADR-017](ADR-017-login-throttling.md) | Login throttling: slow an attacker without closing a pharmacy | Accepted |
 | [ADR-018](ADR-018-corrupt-local-database.md) | A corrupt local database quarantines and continues, rather than stopping the till | Accepted |
 | [ADR-019](ADR-019-session-continuity.md) | A session renews itself; an expired one says so, instead of looking like an outage | Accepted |
+| [ADR-020](ADR-020-expired-stock-override.md) | Dispensing expired stock is warned, authorised and recorded — never blocked | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated
