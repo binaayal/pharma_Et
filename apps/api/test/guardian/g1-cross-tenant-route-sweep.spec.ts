@@ -38,6 +38,14 @@ const ROUTES: Record<string, RouteSpec> = {
     { cls: 'unauthenticated', why: 'establishes the scope; cannot require one' },
   'POST /api/platform/login':
     { cls: 'unauthenticated', why: 'platform-admin sign-in; issues a token with no tenant' },
+  'POST /api/auth/refresh':
+    {
+      cls: 'unauthenticated',
+      why:
+        'the access token has expired by definition — requiring one would be circular. The ' +
+        'refresh token IS the credential, and it names its own tenant, so the session it ' +
+        'returns is scoped by the token rather than by the caller (ADR-019).',
+    },
 
   'GET /api/platform/tenants':
     { cls: 'platform', why: 'the operator sees every tenant; that is the surface, not a leak' },

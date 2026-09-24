@@ -57,6 +57,9 @@ class SessionStore {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       return CachedSession(
         accessToken: json['accessToken'] as String,
+        // Optional on read: a session cached before refresh existed has no stored value, and
+        // signing those terminals out to introduce a convenience would be the wrong trade.
+        refreshToken: json['refreshToken'] as String? ?? '',
         tenantCode: json['tenantCode'] as String,
         offlineValidUntil: DateTime.parse(json['offlineValidUntil'] as String),
         scope: AuthScope.fromJson(json['scope'] as Map<String, dynamic>),
@@ -74,12 +77,18 @@ class SessionStore {
 class CachedSession {
   const CachedSession({
     required this.accessToken,
+    required this.refreshToken,
     required this.tenantCode,
     required this.offlineValidUntil,
     required this.scope,
   });
 
   final String accessToken;
+
+  /// Redeemed for a new session when the access token expires (ADR-019). Empty on a session
+  /// cached before this existed, in which case expiry falls back to signing in again.
+  final String refreshToken;
+
   final String tenantCode;
   final DateTime offlineValidUntil;
   final AuthScope scope;

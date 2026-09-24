@@ -1307,3 +1307,35 @@ class AuthScope {
   @override
   String toString() => 'AuthScope(${toJson()})';
 }
+
+class RefreshRequest {
+  const RefreshRequest({
+    required this.refreshToken,
+    required this.terminalId,
+  });
+
+  final String refreshToken;
+  final String terminalId;
+
+  factory RefreshRequest.fromJson(Map<String, dynamic> json) => RefreshRequest(
+        refreshToken: json['refreshToken'] as String,
+        terminalId: json['terminalId'] as String,
+      );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'refreshToken': refreshToken,
+        'terminalId': terminalId,
+      };
+
+  List<Object?> get _props => <Object?>[refreshToken, terminalId];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is RefreshRequest && _deepEquals(_props, other._props));
+
+  @override
+  int get hashCode => _deepHash(_props);
+
+  @override
+  String toString() => 'RefreshRequest(${toJson()})';
+}

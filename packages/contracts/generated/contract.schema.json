@@ -1028,6 +1028,23 @@
       ],
       "additionalProperties": false
     },
+    "RefreshRequest": {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string",
+          "minLength": 1
+        },
+        "terminalId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        }
+      },
+      "required": [
+        "refreshToken",
+        "terminalId"
+      ],
+      "additionalProperties": false
+    },
     "AuthScope": {
       "type": "object",
       "properties": {

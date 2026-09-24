@@ -50,3 +50,30 @@ export const loginResponse = z.object({
   offlineValidUntil: utcTimestamp,
 });
 export type LoginResponse = z.infer<typeof loginResponse>;
+
+/**
+ * Exchanging a refresh token for a new session (docs/04 §9).
+ *
+ * The terminal holds this from its last login and sends it when its access token expires.
+ * It carries no credential the user types: the whole point is that a till mid-shift does not
+ * stop for a PIN prompt because fifteen minutes elapsed.
+ */
+export const refreshRequest = z.object({
+  refreshToken: z.string().min(1),
+  /** The device asking. Kept so a refresh is attributable to a terminal, like a login. */
+  terminalId: uuidv7,
+});
+export type RefreshRequest = z.infer<typeof refreshRequest>;
+
+/**
+ * A refresh returns a **whole new session**, not merely a new access token.
+ *
+ * Deliberate, and the reason is authority rather than convenience. A refresh re-reads the
+ * user from the database, so a cashier dismissed this morning cannot refresh their way
+ * through the afternoon, and a role changed at lunchtime takes effect on the next refresh
+ * rather than at the end of the offline window. Returning only a token would leave the
+ * terminal running on the scope it cached at login, which is exactly the staleness BR-2.3
+ * exists to bound.
+ */
+export const refreshResponse = loginResponse;
+export type RefreshResponse = LoginResponse;

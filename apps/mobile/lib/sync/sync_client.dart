@@ -130,6 +130,40 @@ class SyncClient {
         jsonDecode(response.body) as Map<String, dynamic>);
   }
 
+  /// Exchanges a refresh token for a new session (ADR-019).
+  ///
+  /// Separate from [login] because it carries no PIN: the point is that a till mid-shift does
+  /// not stop for a prompt because fifteen minutes elapsed. A 401 here means the refresh
+  /// token is spent, expired, or belongs to somebody who has been deactivated — all of which
+  /// mean the same thing to the terminal, and none of which it can fix by retrying.
+  Future<LoginResponse> refresh({
+    required String refreshToken,
+    required String terminalId,
+  }) async {
+    late final http.Response response;
+    try {
+      response = await _client
+          .post(
+            Uri.parse('$baseUrl/auth/refresh'),
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode(
+              RefreshRequest(refreshToken: refreshToken, terminalId: terminalId)
+                  .toJson(),
+            ),
+          )
+          .timeout(const Duration(seconds: 20));
+    } catch (error) {
+      throw SyncTransportException('refresh failed: $error');
+    }
+
+    if (response.statusCode >= 400) {
+      throw SyncTransportException('session expired',
+          statusCode: response.statusCode);
+    }
+    return LoginResponse.fromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
   /// The server's own wording, or a usable fallback if the body is not what we expect.
   static String _messageOf(String body) {
     try {

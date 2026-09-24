@@ -73,6 +73,7 @@ void main() {
       ));
       session = CachedSession(
         accessToken: login.accessToken,
+        refreshToken: login.refreshToken,
         tenantCode: 'abay',
         offlineValidUntil: DateTime.parse(login.offlineValidUntil),
         scope: login.scope,
