@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type ShiftReconciliation } from '../lib/api';
+import { api, isSessionExpired, type ShiftReconciliation } from '../lib/api';
 import { formatEtb, formatInstant, relativeAge, type Calendar } from '../lib/format';
 import type { Session } from '../lib/session';
 
@@ -37,10 +37,7 @@ export function CashUpPage({
       setFetchedAt(new Date().toISOString());
       setError(null);
     } catch (cause) {
-      if (cause instanceof Error && (cause as { status?: number }).status === 401) {
-        onExpired();
-        return;
-      }
+      if (isSessionExpired(cause)) return onExpired();
       setError(cause instanceof Error ? cause.message : 'could not load');
     }
   }, [session.accessToken, onExpired]);

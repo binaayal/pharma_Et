@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type AuditEntry } from '../lib/api';
+import { api, isSessionExpired, type AuditEntry } from '../lib/api';
 import { formatEtb, formatInstant, relativeAge, type Calendar } from '../lib/format';
 import type { Session } from '../lib/session';
 
@@ -32,8 +32,11 @@ export function AuditPage({
       setFetchedAt(new Date().toISOString());
       setError(null);
     } catch (cause) {
-      const status = (cause as { status?: number }).status;
-      if (status === 401) return onExpired();
+      if (isSessionExpired(cause)) return onExpired();
+      const status =
+        typeof cause === 'object' && cause !== null && 'status' in cause
+          ? (cause as { status?: number }).status
+          : undefined;
       if (status === 403) {
         // The FR-2 matrix grants the audit trail to the owner alone. Saying so beats an
         // empty table, which would read as "nobody has done anything".

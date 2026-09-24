@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type StockReport, type StockRow } from '../lib/api';
+import { api, isSessionExpired, type StockReport, type StockRow } from '../lib/api';
 import { formatDateOnly, formatEtb, relativeAge, type Calendar } from '../lib/format';
 import type { Session } from '../lib/session';
 
@@ -34,10 +34,7 @@ export function StockPage({
       setData(await api.stock(session.accessToken, days));
       setError(null);
     } catch (cause) {
-      if (cause instanceof Error && (cause as { status?: number }).status === 401) {
-        onExpired();
-        return;
-      }
+      if (isSessionExpired(cause)) return onExpired();
       setError(cause instanceof Error ? cause.message : 'could not load');
     }
   }, [session.accessToken, days, onExpired]);
