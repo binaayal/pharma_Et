@@ -26,6 +26,7 @@ changed paths ────┼── api ─── lint ── typecheck ── u
 | **Guardian suites G1–G7** | `api`, `mobile` | The S1 list. No override, no flaky-retry (ADR-008). |
 | **Contract codegen freshness** | `contracts` | `pnpm gen:contracts` must produce no diff — proves both sides moved together (ADR-010). |
 | **Contract tests, current + N-1** | `api`, `mobile` | An offline terminal may reconnect on the previous contract (ADR-009). |
+| **Contract conformance (provider)** | `api` | Real server responses are parsed with the contract's own response schemas — the objects the Dart types are generated from. `../05-qa` §6 asks for *both* halves validated; requests were, responses were only typed, and types are erased at runtime. |
 | **No-unscoped-access** | `api` | A single unscoped query is a cross-tenant leak waiting to happen (ADR-007). |
 | **Migration + RLS policy check** | `api` | Migrations must apply cleanly *and* leave RLS policies in force. |
 | **Core e2e journeys** | `api` | The daily loop as a pharmacy performs it, pushed through `/sync/push` in outbox order. Phase 1 exit gate (`../06` §2). |
