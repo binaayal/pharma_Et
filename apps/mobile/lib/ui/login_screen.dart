@@ -42,6 +42,17 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Every field filled in.
+  ///
+  /// The button stays disabled until then, which is not merely tidiness: an empty submission
+  /// is a request that can only be refused, and ADR-017 counts attempts against whatever
+  /// strings were supplied — including empty ones. Five taps on a blank form would throttle
+  /// a cashier who had not yet tried a single credential.
+  bool get _complete =>
+      _tenantCode.text.trim().isNotEmpty &&
+      _username.text.trim().isNotEmpty &&
+      _secret.text.isNotEmpty;
+
   Future<void> _submit() async {
     setState(() {
       _busy = true;
@@ -139,6 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                   TextField(
                     controller: _tenantCode,
+                    onChanged: (_) => setState(() {}),
                     decoration:
                         const InputDecoration(labelText: 'Pharmacy code'),
                     textInputAction: TextInputAction.next,
@@ -146,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _username,
+                    onChanged: (_) => setState(() {}),
                     decoration:
                         InputDecoration(labelText: context.t('login.username')),
                     textInputAction: TextInputAction.next,
@@ -153,6 +166,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _secret,
+                    onChanged: (_) => setState(() {}),
                     obscureText: true,
                     keyboardType: TextInputType.number,
                     decoration:
@@ -161,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 22),
                   FilledButton(
-                    onPressed: _busy ? null : _submit,
+                    onPressed: _busy || !_complete ? null : _submit,
                     child: Text(_busy
                         ? context.t('login.signingIn')
                         : context.t('login.signIn')),
