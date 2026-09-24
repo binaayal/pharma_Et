@@ -144,14 +144,34 @@ runs single-tenant — cross-tenant leakage is only visible when a second tenant
 
 **CI gates (block merge):**
 1. All **guardian suites** (§4) green.
-2. **Contract tests** (§6) green on both client and server.
+2. **Contract tests** (§6) green on both client and server — including the **provider**
+   half: real server responses parsed against the contract's own response schemas
+   (`g2-contract-conformance.spec.ts`).
 3. **"No unscoped access"** lint + test (ADR-007) green.
-4. Per-tier coverage thresholds met (T1 ≥ 90% branch, T2 ≥ 80% line).
+4. ~~Per-tier coverage thresholds met (T1 ≥ 90% branch, T2 ≥ 80% line).~~ **Coverage is
+   reported, never a merge gate** — see the note below.
 5. Migration check (schema + RLS policies apply cleanly).
 6. Dependency scan clean of high-severity issues.
 
 **Release gates (block GA):** all merge gates + performance suite within NFR budgets +
 successful **field UAT** (§15).
+
+> **Coverage: resolved against §3 and §16 (2026-09-24).** This list originally made per-tier
+> coverage a merge gate, which contradicted two other sections of this same document: §3
+> classifies coverage as a *"Coverage signal (secondary)"* and marks the invariant tier
+> *"n/a — gated by suites passing, not %"*, and §16 asks for it *"as a trend, not a target"*.
+>
+> §3 and §16 win, because they carry the reasoning this file is built on — rigor follows
+> consequence, and the gate is the guardian suites. A percentage that blocks a merge invites
+> tests written to move the number rather than to catch the defect, which is the opposite of
+> what §2 asks for.
+>
+> There was a practical problem too: per-tier thresholds need per-tier measurement, and the
+> tooling produces one global figure. The threshold that used to sit in `jest.config.cjs`
+> could not run at all under `projects` with the v8 coverage provider.
+>
+> Coverage is now measured on every API change and printed into the CI run summary, where a
+> trend can actually be seen. The figure at the time of writing is 86.3% statements.
 
 ---
 

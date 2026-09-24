@@ -230,7 +230,7 @@ Go/no-go — **all** required:
 - [ ] **A-1 verified**; compliance tests final (not provisional); RTM complete for regulated reqs.
 - [ ] Backups verified by a **restore drill**; 7-year retention configured.
 - [x] Rollback tested (redeploy previous image; migration backward-compat confirmed). — *mechanised as the `rollback_safety` CI job: every migration PR runs the base branch's guardian suites against the new schema (`engineering/ci-cd.md` §1.1). Redeploying the previous image itself is exercised by CD's sha-tagged immutable images.*
-- [ ] **Field UAT pilot** signed off (real pharmacy, real outages).
+- [ ] **Field UAT pilot** signed off (real pharmacy, real outages). — *protocol defined in `engineering/field-uat.md`; signing its §6 is this gate. Not yet run: no pharmacy engaged.*
 - [ ] Runbook + monitoring/alerting live; on-call for launch defined.
 
 ---
