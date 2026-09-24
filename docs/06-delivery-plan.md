@@ -43,7 +43,7 @@ flowchart LR
 |---|---|---|
 | **P0 Foundations + Walking Skeleton** | Repos, CI/CD, environments (incl. staging) stood up; the thin vertical slice (`03`§9): one tenant/branch/terminal, receive→sell→decrement→sync→dashboard. | Skeleton passes guardian **G1, G2, G4, G7**; CI/CD auto-promotes to staging; staging reachable. |
 | **P1 Core loop** ✅ | FR-1, FR-2, FR-3 (standard, FEFO, negative-stock), FR-4 (standard sale), FR-7 (base receipt), FR-8 (+ cash-up), FR-9 (single-writer), FR-10. | All guardian suites full; core e2e journeys green; perf within NFR-3 on staging. **Closed 2026-09-23** — see the note below on where perf was measured. |
-| **P2 Compliance subset** | FR-6 (ledger), FR-4 (psychotropic rules), general audit log. **Entry gate: A-1 verified.** | Compliance tests **final** (not provisional); RTM complete for regulated reqs; sign-off. |
+| **P2 Compliance subset** ◐ | FR-6 (ledger), FR-4 (psychotropic rules), general audit log. **Entry gate: A-1 verified.** | Compliance tests **final** (not provisional); RTM complete for regulated reqs; sign-off. **Closed partial 2026-09-24** — see the note below. |
 | **P3 Hardening + Field UAT** | Performance + security passes, low-end Android device matrix, pilot in a real pharmacy through real outages. | Pilot sign-off; launch-readiness checklist (§11) green. |
 | **P4 GA** | Staged production rollout. | Post-deploy health within thresholds. |
 
@@ -59,6 +59,34 @@ flowchart LR
 > (`05-qa` §7). Both remain on the GA checklist (§11) and neither is a Phase 1 gate.
 >
 > Closing P1 without hosted staging is a deliberate, recorded decision, not an oversight.
+
+> **P2 closed partial (2026-09-24).** The phase is closed at the line ADR-015 drew, not
+> completed. What that means precisely:
+>
+> **Built, and carrying real traffic.** The append-only event store and the general action
+> audit log — who changed a price, added staff, deactivated an account — written inside the
+> transaction that did it. Immutability is enforced by database triggers that refuse UPDATE,
+> DELETE and TRUNCATE **including for the owner role**, and G3 asserts it (13 assertions).
+> `docs/01` §2.1.1 folds the audit log in as product infrastructure, not compliance, so none
+> of this asserts a regulatory fact.
+>
+> **Not built, and not partially built.** No `controlled.*` event type exists, the
+> `controlled_stock` stream has never been written to, no psychotropic rule exists, and there
+> is **no retention default at all** — not a placeholder, not a configurable with a guessed
+> value. A guardian assertion holds each of those true, so the boundary is enforced rather
+> than intended, and "we started it" cannot happen by accident.
+>
+> **Why it closes rather than waits.** The entry gate is A-1 verified, and A-1 is not a
+> matter of engineering effort: it needs the EFDA retail-pharmacy directive, which the owner
+> obtains. The directive supplied so far is **872/2022 (Import/Export/Wholesale)**, whose
+> Art. 3 scope excludes retail pharmacy — "1121" and "prescription" appear zero times in it,
+> and it carries no 5- or 7-year retention. That reading is recorded in
+> `../compliance-sign-off.md` as an engineering reading, explicitly not a compliance
+> sign-off. Holding the phase open would not move it.
+>
+> **What reopens it.** A-1 verified against the correct directive. At that point the
+> regulated half is a known, bounded build — the event store it needs is already in
+> production use — and `05-qa` §8's provisional compliance tests become final.
 
 **Post-V1:** V1.x — FR-5 inter-branch transfer (**online-only**), FR-8a advanced reporting,
 desktop (Flutter Windows). **V2** — multi-writer offline + conflict engine (full FR-9 +
@@ -223,15 +251,15 @@ Full product-level risks/assumptions: Vision & Scope §7.
 ## 11. Launch-readiness checklist (V1 GA gate)
 
 Go/no-go — **all** required:
-- [ ] All guardian suites (G1–G7) green on `main`.
-- [ ] Contract tests green, incl. **N-1** compatibility (ADR-009).
-- [ ] Performance within NFR-3 budgets on staging (incl. low-end Android).
-- [ ] Security pass: cross-tenant isolation, full authz matrix, dependency scan.
-- [ ] **A-1 verified**; compliance tests final (not provisional); RTM complete for regulated reqs.
-- [ ] Backups verified by a **restore drill**; 7-year retention configured.
+- [x] All guardian suites (G1–G7) green on `main`. — *enforced rather than reported: the CI gate in `.github/workflows/ci.yml` blocks every merge on them, with no override and no flaky-retry (ADR-008). 228 API assertions across `apps/api/test/guardian/`, 113 in `apps/mobile/test/`.*
+- [x] Contract tests green, incl. **N-1** compatibility (ADR-009). — *both halves: requests validated by `ZodValidationPipe`, responses parsed against the contract's own schemas in `apps/api/test/guardian/g2-contract-conformance.spec.ts`; N-1 in `apps/api/test/guardian/g7-offline-resilience.spec.ts`; codegen freshness in `.github/workflows/ci.yml`.*
+- [ ] Performance within NFR-3 budgets on staging (incl. low-end Android). — *server budgets met and measured under concurrency (`apps/api/test/perf/`), but **not on staging** (none stood up) and **no device figure** — NFR-3.2 needs a handset. Protocol: `engineering/device-matrix.md`.*
+- [x] Security pass: cross-tenant isolation, full authz matrix, dependency scan. — *all three named parts: every route attempted across the boundary in `apps/api/test/guardian/g1-cross-tenant-route-sweep.spec.ts` (which fails on any unclassified route), every role × capability cell in `apps/api/test/guardian/g1-permission-matrix.spec.ts`, and `.github/workflows/security.yml` for advisories. Token expiry and purpose in `apps/api/test/guardian/g1-token-lifecycle.spec.ts`.*
+- [ ] **A-1 verified**; compliance tests final (not provisional); RTM complete for regulated reqs. — *needs the EFDA **retail-pharmacy** directive. The one supplied (872/2022) is Import/Export/Wholesale and its Art. 3 scope excludes retail; reading recorded in `compliance-sign-off.md`. Blocks P2's regulated half (ADR-015).*
+- [ ] Backups verified by a **restore drill**; 7-year retention configured. — *needs hosted infrastructure. The drill is described in `engineering/runbook.md` §6, which states plainly that it is a plan and not a procedure until it has been rehearsed. Retention depends on A-1.*
 - [x] Rollback tested (redeploy previous image; migration backward-compat confirmed). — *mechanised as the `rollback_safety` CI job: every migration PR runs the base branch's guardian suites against the new schema (`engineering/ci-cd.md` §1.1). Redeploying the previous image itself is exercised by CD's sha-tagged immutable images.*
 - [ ] **Field UAT pilot** signed off (real pharmacy, real outages). — *protocol defined in `engineering/field-uat.md`; signing its §6 is this gate. Not yet run: no pharmacy engaged.*
-- [ ] Runbook + monitoring/alerting live; on-call for launch defined.
+- [ ] Runbook + monitoring/alerting live; on-call for launch defined. — *half met. `engineering/runbook.md` exists, with severity, signals and playbooks. **Alerting does not** — its §7 says so rather than implying a pager nobody carries, and wiring it needs hosted infrastructure.*
 
 ---
 

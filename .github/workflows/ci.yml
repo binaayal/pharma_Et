@@ -427,6 +427,13 @@ jobs:
       # standing and silently false. This is the thing that fails.
       - run: node scripts/check-traceability.mjs
 
+      # Outstanding gates are the normal condition of a project before GA and must not turn
+      # every build red. A ticked box citing evidence that does not exist is a different
+      # thing: it is a false claim about release readiness, and the day to catch it is the
+      # day it is written rather than the day somebody tries to ship on it.
+      - name: Launch-readiness claims are substantiated (docs/06 §11)
+        run: node scripts/release-readiness.mjs --evidence-only
+
 
   coverage:
     name: coverage · a trend, not a gate

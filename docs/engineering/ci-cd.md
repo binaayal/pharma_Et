@@ -33,6 +33,7 @@ changed paths ────┼── api ─── lint ── typecheck ── u
 | **NFR-3 budgets** | `api` | Sync p95, dashboard p95, a 72h backlog, and an index behind every tenant predicate — sequentially **and** under concurrency, since a p95 with nothing to contend against is not a load test (`../05-qa` §9). RLS overhead is measured too. Printed with margins. |
 | **Traceability** | `traceability` | Every path the RTM cites exists, and every ADR is in both indexes. `../05-qa` §8 makes the RTM the evidence; prose does not compile, so a rename leaves the claim standing and false. |
 | **Dependency scan** | `security` | No high-severity advisories. |
+| **Launch-readiness claims** | `traceability` | A ticked §11 box must cite evidence that exists. Outstanding gates do not fail CI — being pre-GA is not a defect — but an unsubstantiated claim is. |
 | **Rollback safety** | `rollback_safety` | Migrations are forward-only, so a rollback is "redeploy the previous image" against a database that has *already* migrated. The job checks the only thing that then matters — see §1.1. |
 
 ### 1.1 Rollback safety
