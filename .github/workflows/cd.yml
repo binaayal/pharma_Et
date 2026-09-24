@@ -208,12 +208,27 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.deploy_production
     runs-on: ubuntu-latest
     # A protected environment with required reviewers is the manual release gate
-    # (docs/06 §6.2). Production is also gated on the GA checklist in §11 — A-1 verified,
-    # a restore drill, field UAT — none of which is met during Phase 0.
+    # (docs/06 §6.2). Production is ALSO gated on the GA checklist in §11, evaluated
+    # mechanically by `scripts/release-readiness.mjs` — two independent gates, because a
+    # reviewer approving a release is exactly the moment somebody is least likely to re-read
+    # a nine-line checklist.
     environment: production
     steps:
-      - name: Refuse until the GA checklist is met
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      # The gate reads docs/06 §11 itself rather than restating it, so it cannot drift from
+      # the checklist it enforces, and it names what is actually outstanding today instead of
+      # a message written months ago. A box counts only when it is ticked AND cites evidence
+      # that exists — because the failure this guards against is not forgetting to check, it
+      # is ticking on a day when shipping feels more urgent than the checklist.
+      - name: Launch readiness (docs/06 §11)
+        run: node scripts/release-readiness.mjs
+
+      # Everything below runs only once the gate passes. It has never passed.
+      - name: Deploy
         run: |
-          echo "::error::production is gated on the launch-readiness checklist (docs/06 §11)."
-          echo "::error::Outstanding: A-1 unverified, no restore drill, no field UAT, compliance tests provisional."
+          echo "::error::no production environment is configured yet."
+          echo "::error::Stand one up per engineering/staging.md before enabling this step."
           exit 1
