@@ -192,6 +192,51 @@ jobs:
             exit 1
           fi
 
+      - name: Tenant-scoped tables follow the column convention (docs/04 §2)
+        # docs/04 §2 states a column set that every tenant-scoped domain table carries. Stated
+        # and unenforced, it decays the ordinary way: the next table is written by copying a
+        # neighbour, and the first one copied from a partial example spreads the omission.
+        #
+        # The exceptions are named here rather than inferred, and each is a real design
+        # decision. `event` and `oversell_event` are append-only, so `updated_at`/`deleted_at`
+        # would describe operations the immutability triggers refuse (ADR-015). `applied_op`
+        # is an idempotency key whose identity IS (tenant_id, op_id), so a surrogate `id`
+        # would be a second, weaker key. `payment_proof` and `subscription` sit above the
+        # terminal sync path, so no `change_seq`. `tenant_change_seq` is the allocator that
+        # hands out `change_seq` — a counter of (tenant_id, value), and giving it a sync
+        # cursor of its own would be circular.
+        run: |
+          MISSING=$(psql "$DATABASE_URL" -tAc "
+            SELECT string_agg(format('%s (missing: %s)', relname, missing), '; ')
+              FROM (
+                SELECT c.relname,
+                       array_to_string(array_remove(ARRAY[
+                         CASE WHEN NOT bool_or(a.attname='id')          THEN 'id' END,
+                         CASE WHEN NOT bool_or(a.attname='created_at')  THEN 'created_at' END,
+                         CASE WHEN NOT bool_or(a.attname='updated_at')  THEN 'updated_at' END,
+                         CASE WHEN NOT bool_or(a.attname='deleted_at')  THEN 'deleted_at' END,
+                         CASE WHEN NOT bool_or(a.attname='row_version') THEN 'row_version' END,
+                         CASE WHEN NOT bool_or(a.attname='change_seq')  THEN 'change_seq' END
+                       ], NULL), ', ') AS missing
+                  FROM pg_class c
+                  JOIN pg_namespace n ON n.oid = c.relnamespace
+                  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+                 WHERE n.nspname = 'public' AND c.relkind = 'r'
+                   AND c.relname NOT IN ('event','oversell_event','applied_op','tenant',
+                                         'payment_proof','subscription','tenant_change_seq')
+                   AND EXISTS (SELECT 1 FROM pg_attribute t
+                                WHERE t.attrelid = c.oid AND t.attname = 'tenant_id'
+                                  AND NOT t.attisdropped)
+                 GROUP BY c.relname
+              ) x
+             WHERE missing <> '';")
+          if [ -n "$MISSING" ]; then
+            echo "::error::tenant-scoped tables missing convention columns: $MISSING"
+            echo "::error::docs/04 §2 — add the columns, or add the table to this check with a reason."
+            exit 1
+          fi
+          echo "every tenant-scoped table carries the docs/04 §2 column set"
+
       - name: Unit tests
         run: pnpm --filter @pharmaet/api test
 

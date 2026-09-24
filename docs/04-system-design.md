@@ -29,7 +29,17 @@
 
 ## 2. Conventions
 
-- All synced tables have: `id uuid` (UUIDv7 PK), `tenant_id uuid`, `created_at timestamptz`, `updated_at timestamptz`, `deleted_at timestamptz NULL` (soft-delete), `row_version int` (optimistic concurrency), `change_seq bigint` (sync cursor, §7). Branch-scoped tables also have `branch_id uuid`.
+- **Tenant-scoped domain tables** carry the full set: `id uuid` (UUIDv7 PK), `tenant_id uuid`, `created_at timestamptz`, `updated_at timestamptz`, `deleted_at timestamptz NULL` (soft-delete), `row_version int` (optimistic concurrency), `change_seq bigint` (sync cursor, §7). Branch-scoped tables also have `branch_id uuid`. **CI enforces this** — a new table either carries the set or is added to the exception list on purpose.
+- **Four tables are deliberate exceptions**, because the convention encodes assumptions they do not share:
+
+  | Table | Why |
+  |---|---|
+  | `event` | Append-only (ADR-015). `updated_at` and `deleted_at` would describe operations the immutability triggers refuse — carrying them would imply a mutability that does not exist. |
+  | `oversell_event` | The same: a recorded observation, never revised. |
+  | `applied_op` | An idempotency key, not a domain row. Its identity **is** `(tenant_id, op_id)`, so a surrogate `id` would be a second, weaker key beside the one that matters (ADR-006). |
+  | `tenant` | It *is* the tenant; a `tenant_id` on it would be a self-reference with nothing to scope. |
+
+  `payment_proof` and `subscription` sit above the terminal sync path and carry no `change_seq`: nothing about a billing artifact is delta-pulled to a till. `tenant_change_seq` is the allocator that hands `change_seq` out — a counter of `(tenant_id, value)`, and a sync cursor of its own would be circular.
 - **No hard deletes** on domain data. Relational → `deleted_at`; event store → tombstone events.
 - **No unscoped queries.** Every access goes through the request-scoped `EntityManager` (ADR-007).
 
@@ -239,27 +249,45 @@ require online re-auth after the window, but an in-progress **sale is never bloc
 
 ---
 
-## 9. Core API surface (representative)
+## 9. Core API surface
 
-Scoped under a tenant context except the admin group. Not exhaustive — the contract, not the catalog.
+Every route the application serves, generated from the router and verified against it by
+`g1-cross-tenant-route-sweep.spec.ts` — which fails on any route not classified as
+tenant-scoped, platform, or unauthenticated. The table is therefore exhaustive by
+construction rather than by intent.
 
-| Group | Endpoints (representative) |
+All routes are prefixed `/api`. Tenant-scoped unless marked otherwise.
+
+| Group | Routes |
 |---|---|
-| Auth | `POST /auth/login`, `POST /auth/refresh` |
-| Tenant/Branch | `POST /branches`, `GET /branches`, `POST /users`, `POST /users/:id/branches` |
-| Catalog | `POST /products`, `PATCH /products/:id`, `POST /products/:id/price` |
-| Inventory | `GET /stock?product=`, `POST /stock/adjust` |
-| POS | `POST /sales` *(offline-first; normally arrives via sync)*, `GET /sales/:id` |
-| Purchasing | `POST /goods-receipts` |
-| Controlled | `POST /controlled/dispense`, `GET /controlled/ledger?from=&to=`, `GET /controlled/stock` |
-| Reporting | `GET /reports/cash-up?shift=`, `GET /reports/sales-summary`, `GET /reports/expiry` |
-| **Sync** | `POST /sync/push`, `GET /sync/pull?cursor=` |
-| Admin (above tenant) | `POST /admin/tenants`, `POST /admin/payment-proofs/:id/verify`, `POST /admin/subscriptions/:id/(suspend\|activate)` |
+| Auth | `POST /auth/login` |
+| Branches | `GET /branches`, `POST /branches`, `PATCH /branches/:id` |
+| Users | `GET /users`, `POST /users`, `DELETE /users/:id` |
+| Catalog | `GET /products`, `POST /products`, `POST /products/:id/price` |
+| Sync | `POST /sync/push`, `GET /sync/pull?cursor=` |
+| Reporting | `GET /reports/sales`, `GET /reports/sales-summary`, `GET /reports/stock`, `GET /reports/oversells`, `GET /reports/cash-up`, `GET /reports/cash-up/:shiftId` |
+| Audit | `GET /audit`, `GET /audit/verify?streamId=` |
+| Billing (tenant's own) | `GET /billing/subscription`, `GET /billing/payment-proofs`, `POST /billing/payment-proofs` |
+| **Platform** (above tenant) | `POST /platform/login`, `GET /platform/tenants`, `POST /platform/tenants`, `GET /platform/payment-proofs`, `GET /platform/payment-proofs/:id/image`, `POST /platform/payment-proofs/:id/decide`, `POST /platform/subscriptions` |
+| Unauthenticated | `GET /health`, `POST /auth/login`, `POST /platform/login` |
 
-Core-loop writes (sales, receipts, dispenses, cash-up) normally reach the server **through
-`/sync/push`**, not direct calls — the direct POSTs exist for the dashboard and tests.
+**Core-loop writes have no direct endpoint at all.** A sale, a goods receipt, a shift, a
+cash-up and a stock adjustment reach the server **only** through `POST /sync/push`. There is
+no `POST /sales` and no `POST /goods-receipts`, and that is the design rather than an
+omission: a second way in would be a second implementation of the same write, and the two
+would drift. The dashboard reads; it does not author core-loop records.
 
----
+> **Corrected 2026-09-24.** This section previously listed `POST /auth/refresh`,
+> `POST /sales`, `GET /sales/:id`, `POST /goods-receipts`, `PATCH /products/:id`,
+> `POST /stock/adjust`, `GET /reports/expiry`, `POST /users/:id/branches` and an `/admin/*`
+> group — none of which exist — and stated that "the direct POSTs exist for the dashboard and
+> tests", which was simply untrue. The platform surface is `/platform/*`, not `/admin/*`.
+>
+> The `/auth/refresh` entry is worth singling out: the login response **does** return a
+> `refreshToken`, and there has never been an endpoint that accepts one. Until the guard was
+> fixed it was accepted as an access token instead — a thirty-day credential standing in for
+> a fifteen-minute one. The token is now refused everywhere and redeeming it is unbuilt; see
+> the open question in §10.
 
 ## 10. Concurrency, consistency & failure handling
 
@@ -268,6 +296,19 @@ Core-loop writes (sales, receipts, dispenses, cash-up) normally reach the server
 - **Oversell:** allowed for standard drugs (BR-3.2); each oversell increments an observable counter (NFR-7) and is surfaced for physical reconciliation. It is **detected and reported, never silently swallowed** (ADR-002).
 - **Partial sync failure:** push is a batch of independent ops with per-op acks; a mid-batch network drop is safe because unacked ops remain in the outbox and are retried idempotently.
 - **Projection integrity:** `controlled_stock_view` is rebuildable from `event`; the event log, not the projection, is the source of truth.
+
+> **[OPEN] Token refresh.** `POST /auth/login` returns a `refreshToken` and nothing accepts
+> one: there is no refresh endpoint, and the access guard now rejects a refresh token
+> outright (`typ` must be `access`). So the client holds a thirty-day credential with no use.
+>
+> Two ways to close it, and the choice is a product decision rather than a technical one:
+> build `POST /auth/refresh`, so a terminal can extend a session without re-entering a PIN;
+> or drop `refreshToken` from `loginResponse`, which is a contract change under ADR-009/012
+> and needs an N-1 window.
+>
+> Leaving it as-is is the one option with no argument for it: an unused long-lived credential
+> on a shared counter device is a liability that buys nothing. It is not urgent — the token is
+> inert — but it should not ship to GA undecided.
 
 ---
 
