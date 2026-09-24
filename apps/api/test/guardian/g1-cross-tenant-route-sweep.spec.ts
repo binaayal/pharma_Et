@@ -32,33 +32,70 @@ interface RouteSpec {
  * Adding a route without adding it here fails the first test in this file.
  */
 const ROUTES: Record<string, RouteSpec> = {
-  'GET /api/health':
-    { cls: 'unauthenticated', why: 'liveness for the load balancer; returns no tenant data' },
-  'POST /api/auth/login':
-    { cls: 'unauthenticated', why: 'establishes the scope; cannot require one' },
-  'POST /api/platform/login':
-    { cls: 'unauthenticated', why: 'platform-admin sign-in; issues a token with no tenant' },
-  'POST /api/auth/refresh':
-    {
-      cls: 'unauthenticated',
-      why:
-        'the access token has expired by definition — requiring one would be circular. The ' +
-        'refresh token IS the credential, and it names its own tenant, so the session it ' +
-        'returns is scoped by the token rather than by the caller (ADR-019).',
-    },
+  'GET /api/health': {
+    cls: 'unauthenticated',
+    why: 'liveness for the load balancer; returns no tenant data',
+  },
+  'POST /api/auth/login': {
+    cls: 'unauthenticated',
+    why: 'establishes the scope; cannot require one',
+  },
+  'POST /api/platform/login': {
+    cls: 'unauthenticated',
+    why: 'platform-admin sign-in; issues a token with no tenant',
+  },
+  'POST /api/signup-requests': {
+    cls: 'unauthenticated',
+    why:
+      'the person asking has no account yet. It can only create a request that a human ' +
+      'reviews — never a tenant, user or subscription (ADR-022)',
+  },
+  'POST /api/auth/refresh': {
+    cls: 'unauthenticated',
+    why:
+      'the access token has expired by definition — requiring one would be circular. The ' +
+      'refresh token IS the credential, and it names its own tenant, so the session it ' +
+      'returns is scoped by the token rather than by the caller (ADR-019).',
+  },
 
-  'GET /api/platform/tenants':
-    { cls: 'platform', why: 'the operator sees every tenant; that is the surface, not a leak' },
-  'POST /api/platform/tenants':
-    { cls: 'platform', why: 'onboarding creates the tenant a scope would have to name' },
-  'GET /api/platform/payment-proofs':
-    { cls: 'platform', why: 'the operator reconciles payments across tenants' },
-  'GET /api/platform/payment-proofs/:id/image':
-    { cls: 'platform', why: 'the bank slip the operator is deciding on' },
-  'POST /api/platform/payment-proofs/:id/decide':
-    { cls: 'platform', why: 'approval is the operator’s act, never the tenant’s' },
-  'POST /api/platform/subscriptions':
-    { cls: 'platform', why: 'the operator grants the subscription a tenant cannot grant itself' },
+  'GET /api/platform/tenants': {
+    cls: 'platform',
+    why: 'the operator sees every tenant; that is the surface, not a leak',
+  },
+  'POST /api/platform/tenants': {
+    cls: 'platform',
+    why: 'onboarding creates the tenant a scope would have to name',
+  },
+  'GET /api/platform/payment-proofs': {
+    cls: 'platform',
+    why: 'the operator reconciles payments across tenants',
+  },
+  'GET /api/platform/payment-proofs/:id/image': {
+    cls: 'platform',
+    why: 'the bank slip the operator is deciding on',
+  },
+  'POST /api/platform/payment-proofs/:id/decide': {
+    cls: 'platform',
+    why: 'approval is the operator’s act, never the tenant’s',
+  },
+  'POST /api/platform/subscriptions': {
+    cls: 'platform',
+    why: 'the operator grants the subscription a tenant cannot grant itself',
+  },
+  'GET /api/platform/tenants/:id': {
+    cls: 'platform',
+    why:
+      'one pharmacy as the operator sees it — branch names, staff counts and when data last ' +
+      'arrived; operational health, never what a sale said (BR-2.2)',
+  },
+  'GET /api/platform/signup-requests': {
+    cls: 'platform',
+    why: 'the onboarding queue; a request has no tenant yet (ADR-022)',
+  },
+  'POST /api/platform/signup-requests/:id/decide': {
+    cls: 'platform',
+    why: 'opening an account is the operator’s act, never the requester’s',
+  },
 
   'GET /api/audit': { cls: 'tenant', why: 'one pharmacy’s action history' },
   'GET /api/audit/verify': { cls: 'tenant', why: 'hash-chain verification over that history' },
@@ -141,8 +178,10 @@ describe('G1 — every route, attempted across the tenant boundary', () => {
 
     it.each(platformRoutes)('%s refuses a tenant owner', async (route) => {
       const [method, path] = route.split(' ') as ['GET' | 'POST', string];
-      const response = await asA(method.toLowerCase() as 'get' | 'post', path.replace(':id', b.id))
-        .send({});
+      const response = await asA(
+        method.toLowerCase() as 'get' | 'post',
+        path.replace(':id', b.id),
+      ).send({});
 
       // An owner is the most privileged principal inside a pharmacy and still has no standing
       // here. The guard checks `typ: 'platform'` rather than merely "is authenticated",
@@ -196,8 +235,10 @@ describe('G1 — every route, attempted across the tenant boundary', () => {
       const path = template.replace(/:[A-Za-z]+/, idOf());
       const before = await snapshot(harness, b.id);
 
-      const response = await asA(method.toLowerCase() as 'patch' | 'delete' | 'post' | 'get', path)
-        .send({ name: 'seized', priceSantim: 1, effectiveFrom: '2026-01-01' });
+      const response = await asA(
+        method.toLowerCase() as 'patch' | 'delete' | 'post' | 'get',
+        path,
+      ).send({ name: 'seized', priceSantim: 1, effectiveFrom: '2026-01-01' });
 
       expect(response.status).not.toBe(200);
       expect(response.status).not.toBe(201);
@@ -215,11 +256,24 @@ describe('G1 — every route, attempted across the tenant boundary', () => {
       ['POST /api/branches', () => ({ name: 'planted', tenantId: b.id })],
       [
         'POST /api/users',
-        () => ({ username: 'planted', displayName: 'Planted', role: 'cashier', pin: '4321', tenantId: b.id, branchIds: [b.branchIds[0]] }),
+        () => ({
+          username: 'planted',
+          displayName: 'Planted',
+          role: 'cashier',
+          pin: '4321',
+          tenantId: b.id,
+          branchIds: [b.branchIds[0]],
+        }),
       ],
       [
         'POST /api/products',
-        () => ({ name: 'planted', unit: 'tablet', isControlled: false, currentPriceSantim: 100, tenantId: b.id }),
+        () => ({
+          name: 'planted',
+          unit: 'tablet',
+          isControlled: false,
+          currentPriceSantim: 100,
+          tenantId: b.id,
+        }),
       ],
     ];
 

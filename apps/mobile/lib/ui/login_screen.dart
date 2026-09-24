@@ -1,28 +1,37 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../auth/session.dart';
 import '../contracts/contracts.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import '../sync/sync_client.dart';
+import 'kit.dart';
 
-/// Online sign-in.
+/// Login (prototype screen 03; FR-2, ADR-017).
 ///
-/// A terminal must log in online at least once; after that it works through the offline
-/// window against its cached scope (BR-2.3). The pharmacy code is asked for because
-/// usernames are unique per tenant, not globally — authentication happens before any tenant
-/// scope exists.
+/// The PIN keypad is the counter's fast path. The first sign-in on a device also asks for
+/// the pharmacy code and username; after that the device remembers who last signed in —
+/// never a credential — and greets them by name. Owners and managers have passwords
+/// (FR-2: "PIN or password"), so the keypad can switch to a keyboard.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
     required this.client,
     required this.terminalId,
     required this.onSignedIn,
+    this.remembered,
+    this.onForget,
+    this.onRequestAccount,
   });
 
   final SyncClient client;
   final String terminalId;
-  final void Function(LoginResponse response, String tenantCode) onSignedIn;
+  final void Function(LoginResponse response, String tenantCode,
+      String username, bool usedPassword) onSignedIn;
+  final RememberedIdentity? remembered;
+  final VoidCallback? onForget;
+  final VoidCallback? onRequestAccount;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -30,69 +39,88 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   // Pre-filled with the development seed in debug builds only. A release build is what a
-  // pharmacy installs, and it must not suggest a tenant — let alone advertise a PIN that
-  // works on any environment seeded from the same script, staging included.
-  final _tenantCode = TextEditingController(text: kDebugMode ? 'abay' : '');
-  final _username = TextEditingController(text: kDebugMode ? 'cashier' : '');
-  final _secret = TextEditingController();
+  // pharmacy installs, and it must not suggest a tenant — let alone a working PIN.
+  late final _tenantCode = TextEditingController(
+      text: widget.remembered?.tenantCode ?? (kDebugMode ? 'abay' : ''));
+  late final _username = TextEditingController(
+      text: widget.remembered?.username ?? (kDebugMode ? 'cashier' : ''));
+  final _password = TextEditingController();
+  String _pin = '';
   String? _error;
+  bool _offline = false;
   bool _busy = false;
+  late bool _usePassword = widget.remembered?.usesPassword ?? false;
 
-  /// Cashiers sign in with a PIN on the number pad — the fast path the counter depends on.
-  /// Owners and managers have passwords (SRS FR-2: "PIN or password"), which a number pad
-  /// cannot type: found on a phone, where the manager whose sign-in authorises expired
-  /// stock could not sign in at all.
-  bool _usePassword = false;
+  bool get _known => widget.remembered != null;
 
   @override
   void dispose() {
     _tenantCode.dispose();
     _username.dispose();
-    _secret.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  /// Every field filled in.
-  ///
-  /// The button stays disabled until then, which is not merely tidiness: an empty submission
-  /// is a request that can only be refused, and ADR-017 counts attempts against whatever
-  /// strings were supplied — including empty ones. Five taps on a blank form would throttle
-  /// a cashier who had not yet tried a single credential.
+  String get _secret => _usePassword ? _password.text : _pin;
+
+  /// Every field filled in. An empty submission can only be refused, and ADR-017 counts
+  /// attempts against whatever was supplied — five taps on a blank form would throttle a
+  /// cashier who had not tried a credential yet.
   bool get _complete =>
       _tenantCode.text.trim().isNotEmpty &&
       _username.text.trim().isNotEmpty &&
-      _secret.text.isNotEmpty;
+      (_usePassword ? _password.text.isNotEmpty : _pin.length >= 4);
+
+  void _key(String digit) {
+    if (_busy || _pin.length >= 8) return;
+    setState(() {
+      _pin += digit;
+      _error = null;
+    });
+  }
+
+  void _backspace() {
+    if (_pin.isEmpty) return;
+    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+  }
 
   Future<void> _submit() async {
+    if (!_complete || _busy) return;
     setState(() {
       _busy = true;
       _error = null;
+      _offline = false;
     });
     try {
       final response = await widget.client.login(LoginRequest(
         tenantCode: _tenantCode.text.trim(),
         username: _username.text.trim(),
-        secret: _secret.text,
+        secret: _secret,
         terminalId: widget.terminalId,
       ));
       if (!mounted) return;
-      widget.onSignedIn(response, _tenantCode.text.trim());
+      widget.onSignedIn(response, _tenantCode.text.trim(),
+          _username.text.trim(), _usePassword);
     } catch (error) {
-      // One message for every failure. Telling the difference between "no such pharmacy"
-      // and "wrong PIN" tells an attacker which codes and usernames are real.
-      //
-      // The exception is a throttle (ADR-017). "Check the details and try again" is actively
-      // harmful advice to someone who has been rate-limited: they will try again, extend the
-      // window, and never learn that waiting is what works. The server's message says how
-      // long and says the shop keeps selling, which is what the person at the counter needs.
-      final throttled =
-          error is SyncTransportException && error.statusCode == 429;
+      // One message for every credential failure: telling "no such pharmacy" from "wrong
+      // PIN" tells an attacker which codes and usernames are real. A throttle says how long
+      // and that the shop keeps selling (ADR-017). No connection is said plainly — it leaks
+      // nothing about any account, and "check the details" would send someone retyping a
+      // correct PIN at a dead network.
+      final status = error is SyncTransportException ? error.statusCode : null;
       if (mounted) {
-        setState(
-          () => _error = throttled
-              ? error.message
-              : 'Could not sign in. Check the details and try again.',
-        );
+        setState(() {
+          _pin = '';
+          _password.clear();
+          if (status == 429) {
+            _error = (error as SyncTransportException).message;
+          } else if (status == null) {
+            _offline = true;
+            _error = context.t('login.noConnection');
+          } else {
+            _error = context.t('login.failed');
+          }
+        });
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -101,115 +129,137 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final first = widget.remembered?.displayName.split(' ').first;
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 360),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFF1B64E), Color(0xFFD89124)],
-                      ),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Text(
-                      'P',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: PharmaColors.greenDark,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
+                  const PLogo(),
+                  const SizedBox(height: 18),
                   Text(
-                    context.t('app.name'),
+                    _known
+                        ? context.tf('login.welcomeBack', {'name': first!})
+                        : context.t('app.name'),
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.w700),
+                        fontSize: 20, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    context.t('app.tagline'),
+                    _known
+                        ? '${widget.remembered!.tenantCode} · ${widget.remembered!.username}'
+                        : context.t('app.tagline'),
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                         color: PharmaColors.muted, fontSize: 13.5),
                   ),
-                  const SizedBox(height: 26),
-                  if (_error != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: PharmaColors.redTint,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(
-                            color: PharmaColors.red, fontSize: 13),
-                      ),
+                  const SizedBox(height: 18),
+                  if (!_known) ...[
+                    PField(
+                      label: context.t('login.pharmacyCode'),
+                      controller: _tenantCode,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (_) => setState(() {}),
                     ),
-                    const SizedBox(height: 14),
+                    PField(
+                      label: context.t('login.username'),
+                      controller: _username,
+                      textInputAction: TextInputAction.next,
+                      onChanged: (_) => setState(() {}),
+                    ),
                   ],
-                  TextField(
-                    controller: _tenantCode,
-                    onChanged: (_) => setState(() {}),
-                    decoration:
-                        const InputDecoration(labelText: 'Pharmacy code'),
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _username,
-                    onChanged: (_) => setState(() {}),
-                    decoration:
-                        InputDecoration(labelText: context.t('login.username')),
-                    textInputAction: TextInputAction.next,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _secret,
-                    onChanged: (_) => setState(() {}),
-                    obscureText: true,
-                    keyboardType: _usePassword
-                        ? TextInputType.visiblePassword
-                        : TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: context
-                          .t(_usePassword ? 'login.password' : 'login.pin'),
-                      suffixIcon: IconButton(
-                        tooltip: context.t(_usePassword
-                            ? 'login.usePin'
-                            : 'login.usePassword'),
-                        icon: Icon(_usePassword
-                            ? Icons.dialpad
-                            : Icons.keyboard_outlined),
-                        onPressed: () =>
-                            setState(() => _usePassword = !_usePassword),
-                      ),
+                  if (_usePassword)
+                    PField(
+                      label: context.t('login.password'),
+                      controller: _password,
+                      obscure: true,
+                      keyboardType: TextInputType.visiblePassword,
+                      autofocus: _known,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _submit(),
+                    )
+                  else ...[
+                    _PinDots(length: _pin.length),
+                    const SizedBox(height: 4),
+                  ],
+                  if (_offline || _error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: _offline
+                          ? Column(children: [
+                              PSyncDot(
+                                  label: context.t('sync.offline'), on: false),
+                              const SizedBox(height: 8),
+                              Text(_error!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      color: PharmaColors.amber, fontSize: 13)),
+                            ])
+                          : Text(_error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: PharmaColors.red, fontSize: 13)),
                     ),
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 22),
-                  FilledButton(
+                  if (!_usePassword)
+                    _Keypad(onDigit: _key, onBackspace: _backspace),
+                  const SizedBox(height: 18),
+                  PButton(
+                    kind: BtnKind.green,
+                    label:
+                        context.t(_busy ? 'login.signingIn' : 'login.signIn'),
                     onPressed: _busy || !_complete ? null : _submit,
-                    child: Text(_busy
-                        ? context.t('login.signingIn')
-                        : context.t('login.signIn')),
                   ),
-                  if (kDebugMode) ...[
-                    const SizedBox(height: 18),
-                    const Text(
-                      'Development seed: abay / cashier / 1234',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: PharmaColors.faint, fontSize: 12),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    children: [
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _usePassword = !_usePassword;
+                          _pin = '';
+                          _password.clear();
+                          _error = null;
+                        }),
+                        child: Text(context.t(_usePassword
+                            ? 'login.usePin'
+                            : 'login.usePassword')),
+                      ),
+                      if (_known)
+                        TextButton(
+                          onPressed: widget.onForget,
+                          child: Text(context.t('login.notYou')),
+                        ),
+                    ],
+                  ),
+                  if (kDebugMode && !_known)
+                    const Text('Development seed: abay / cashier / 1234',
+                        style:
+                            TextStyle(color: PharmaColors.faint, fontSize: 12)),
+                  if (widget.onRequestAccount != null) ...[
+                    const SizedBox(height: 14),
+                    const Divider(color: PharmaColors.line),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text('${context.t('login.newPharmacy')} ',
+                            style: const TextStyle(
+                                fontSize: 13, color: PharmaColors.muted)),
+                        GestureDetector(
+                          onTap: widget.onRequestAccount,
+                          child: Text(context.t('login.requestAccount'),
+                              style: const TextStyle(
+                                  fontSize: 13.5,
+                                  color: PharmaColors.green,
+                                  fontWeight: FontWeight.w700)),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -218,6 +268,115 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// `.pin-dots` — one ring per digit, at least four.
+class _PinDots extends StatelessWidget {
+  const _PinDots({required this.length});
+  final int length;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = length < 4 ? 4 : length;
+    return Semantics(
+      label: '$length digits entered',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < count; i++)
+              Container(
+                width: 14,
+                height: 14,
+                margin: const EdgeInsets.symmetric(horizontal: 7),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i < length ? PharmaColors.green : Colors.transparent,
+                  border: Border.all(color: PharmaColors.green, width: 2),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// `.keypad` — 1–9, a blank, 0 and backspace.
+class _Keypad extends StatelessWidget {
+  const _Keypad({required this.onDigit, required this.onBackspace});
+  final ValueChanged<String> onDigit;
+  final VoidCallback onBackspace;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget key(String label, VoidCallback? onTap, {String? semantics}) =>
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(7.5),
+            child: onTap == null
+                ? const SizedBox(height: 50)
+                : Semantics(
+                    button: true,
+                    label: semantics ?? label,
+                    excludeSemantics: true,
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(15),
+                      elevation: 0,
+                      shadowColor: const Color(0x0F0D3B2B),
+                      child: InkWell(
+                        onTap: onTap,
+                        borderRadius: BorderRadius.circular(15),
+                        child: Container(
+                          height: 50,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: const [
+                              BoxShadow(
+                                  color: Color(0x0F0D3B2B),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 3))
+                            ],
+                          ),
+                          child: Text(label,
+                              style: const TextStyle(
+                                  fontSize: 24, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        );
+    Widget row(List<Widget> keys) => Row(children: keys);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 262),
+      child: Column(children: [
+        row([
+          key('1', () => onDigit('1')),
+          key('2', () => onDigit('2')),
+          key('3', () => onDigit('3'))
+        ]),
+        row([
+          key('4', () => onDigit('4')),
+          key('5', () => onDigit('5')),
+          key('6', () => onDigit('6'))
+        ]),
+        row([
+          key('7', () => onDigit('7')),
+          key('8', () => onDigit('8')),
+          key('9', () => onDigit('9'))
+        ]),
+        row([
+          key('', null),
+          key('0', () => onDigit('0')),
+          key('⌫', onBackspace, semantics: 'Delete')
+        ]),
+      ]),
     );
   }
 }

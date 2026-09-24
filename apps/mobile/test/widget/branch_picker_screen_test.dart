@@ -13,7 +13,7 @@ void main() {
       tester,
       BranchPickerScreen(
         placement: placement,
-        onChosen: (id) => chosen = id,
+        onChosen: (id, _) => chosen = id,
         onRetry: () {},
         onSignOut: () {},
       ),

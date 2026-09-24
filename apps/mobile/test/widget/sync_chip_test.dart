@@ -27,7 +27,7 @@ void main() {
 
     // A queue is the normal condition of an offline-first till. Phrasing it as an error
     // would train people to ignore the one state that is an error.
-    expect(find.text('12 waiting'), findsOneWidget);
+    expect(find.text('Offline · 12 waiting'), findsOneWidget);
   });
 
   testWidgets(
@@ -38,16 +38,20 @@ void main() {
     // Worded as an instruction, because it is the only sync state the terminal cannot
     // resolve by itself.
     expect(find.text('Sign in again'), findsOneWidget);
-    expect(find.text('12 waiting'), findsNothing);
+    expect(find.textContaining('12 waiting'), findsNothing);
   });
 
   testWidgets('and it is not dressed like the ordinary offline state',
       (tester) async {
     await show(tester, status(SyncState.sessionExpired, pending: 3));
-    final expired = tester.widget<Icon>(find.byType(Icon)).color;
+    Color? dot() => ((tester
+            .widget<Container>(find.byKey(const ValueKey('sync-dot')))
+            .decoration as BoxDecoration)
+        .color);
+    final expired = dot();
 
     await show(tester, status(SyncState.offline, pending: 3));
-    final offline = tester.widget<Icon>(find.byType(Icon)).color;
+    final offline = dot();
 
     // The colours must differ, and specifically the expired one is red rather than the amber
     // that means "carry on". This is the pixel-level half of ADR-019's argument.
@@ -78,7 +82,11 @@ void main() {
       await show(tester, status(state, pending: 1, attention: 1));
       expect(find.byType(SyncChip), findsOneWidget,
           reason: '$state rendered nothing');
-      expect(find.byType(Icon), findsOneWidget, reason: '$state has no icon');
+      expect(find.byKey(const ValueKey('sync-dot')), findsOneWidget,
+          reason: '$state has no dot');
+      final label = tester.widget<Text>(find.descendant(
+          of: find.byType(SyncChip), matching: find.byType(Text)));
+      expect(label.data, isNotEmpty, reason: '$state has no words');
     }
   });
 }

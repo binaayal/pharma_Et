@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "PharmaEt web admin dashboard — platform operations and owner oversight",
+  "description": "PharmaEt platform console — sign-up review, tenants, payment verification, subscriptions",
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
