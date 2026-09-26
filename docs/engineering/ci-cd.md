@@ -125,6 +125,7 @@ patient or controlled-substance data.
 | `mobile / analyze` | `dart format` or analyzer findings. Format with the CI invocation — it skips the generated contract file — then re-run. |
 | `cd / verify` | The image did not boot, the migration did not apply inside it, or the smoke test failed. Reproduce exactly: `docker compose -f docker-compose.staging.yml up -d --wait && ./scripts/smoke.sh http://localhost:3100/api`. |
 | `cd / deploy-staging-api` | Usually a missing `FLY_API_TOKEN` — the job says so in its summary and does not fail the pipeline. Otherwise read the release-command output: it is the migration. |
+| `cd / release-android`, `cd / release-ios` | Usually missing signing secrets. Each job says which ones in its summary and builds nothing. Setup: `mobile-release.md`. A red Android run that says *debug-signed* means `key.properties` was not written. |
 
 **Never** re-run a red guardian job hoping for green. A flaky guardian test is a blocking
 defect in its own right (`../05-qa` §4) — fix the flake, or you have no gate at all.

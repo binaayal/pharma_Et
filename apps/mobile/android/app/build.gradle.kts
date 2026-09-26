@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// The upload key for the Play Store. Never committed: `android/key.properties` names a keystore
+// file and its passwords, written locally or by CD from secrets (docs/engineering/mobile-release.md).
+val releaseKeys = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
 
 android {
@@ -15,7 +24,6 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "et.pharma.pharmaet_mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -29,11 +37,29 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (releaseKeys.containsKey("storeFile")) {
+            create("release") {
+                storeFile = file(releaseKeys.getProperty("storeFile"))
+                storePassword = releaseKeys.getProperty("storePassword")
+                keyAlias = releaseKeys.getProperty("keyAlias")
+                keyPassword = releaseKeys.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signed with the upload key when one is configured. Without it the build falls
+            // back to the debug key so a local `--release` still runs — and says so, because a
+            // debug-signed bundle is refused by the Play Store and cannot update an install
+            // signed with the real key.
+            signingConfig = if (releaseKeys.containsKey("storeFile")) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("android/key.properties not found: release build is DEBUG-signed and cannot ship")
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

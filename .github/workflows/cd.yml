@@ -232,3 +232,198 @@ jobs:
           echo "::error::no production environment is configured yet."
           echo "::error::Stand one up per engineering/staging.md before enabling this step."
           exit 1
+
+  # ---------------------------------------------------------------- mobile
+  #
+  # The phone apps are released from the same merge as the server they talk to, and built
+  # against staging. Each job checks for its own signing secrets and, if they are missing,
+  # says so in the run summary and does nothing else, the same way the staging deploy does.
+  # What to create, and where to put it: docs/engineering/mobile-release.md.
+
+  release-android:
+    name: release Android (signed bundle + APK)
+    runs-on: ubuntu-latest
+    env:
+      FLUTTER_VERSION: '3.47.5'
+      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet-staging.fly.dev/api' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check signing is configured
+        id: configured
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Android release not built"
+              echo ""
+              echo "\`ANDROID_UPLOAD_KEYSTORE_B64\` is not set. A bundle signed with anything else is"
+              echo "refused by Google Play and cannot update an install signed with the real key,"
+              echo "so this job builds nothing rather than something that looks shippable."
+              echo ""
+              echo "See \`docs/engineering/mobile-release.md\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.configured.outputs.configured == 'true'
+        with: { distribution: temurin, java-version: '17' }
+
+      - uses: subosito/flutter-action@v2
+        if: steps.configured.outputs.configured == 'true'
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Write the upload key
+        if: steps.configured.outputs.configured == 'true'
+        working-directory: apps/mobile/android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          # Outside the workspace, so no later step can upload it by accident.
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/upload.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > key.properties
+
+      - name: Build
+        if: steps.configured.outputs.configured == 'true'
+        working-directory: apps/mobile
+        run: |
+          # The run number is the version code, so every merge is installable over the last.
+          flutter pub get
+          flutter build appbundle --release --build-number=${{ github.run_number }} \
+            --dart-define=API_BASE_URL="$API_BASE_URL"
+          flutter build apk --release --build-number=${{ github.run_number }} \
+            --dart-define=API_BASE_URL="$API_BASE_URL"
+          rm -f android/key.properties
+
+      - name: Prove it is signed with the upload key, not the debug key
+        if: steps.configured.outputs.configured == 'true'
+        working-directory: apps/mobile
+        run: |
+          signer=$(keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep -m1 'Owner:')
+          echo "$signer"
+          if echo "$signer" | grep -q 'CN=Android Debug'; then
+            echo "::error::the release APK is debug-signed"; exit 1
+          fi
+          {
+            echo "### Android release built"
+            echo ""
+            echo "- version code \`${{ github.run_number }}\`, API \`$API_BASE_URL\`"
+            echo "- signer: \`$signer\`"
+            echo "- the \`pharmaet-android\` artifact holds the Play bundle (.aab) and a direct-install .apk"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.configured.outputs.configured == 'true'
+        with:
+          name: pharmaet-android
+          retention-days: 30
+          path: |
+            apps/mobile/build/app/outputs/bundle/release/app-release.aab
+            apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+
+  release-ios:
+    name: release iOS (TestFlight)
+    runs-on: macos-latest
+    env:
+      FLUTTER_VERSION: '3.47.5'
+      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet-staging.fly.dev/api' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check signing is configured
+        id: configured
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_P8_B64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_B64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8_B64" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### iOS release not built"
+              echo ""
+              echo "The App Store Connect API key or the Apple team ID is not set. Installing on an"
+              echo "iPhone outside Xcode needs an Apple Developer Program membership; CI still"
+              echo "proves the app compiles for iOS on every mobile change."
+              echo ""
+              echo "See \`docs/engineering/mobile-release.md\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: subosito/flutter-action@v2
+        if: steps.configured.outputs.configured == 'true'
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Build, sign and upload to TestFlight
+        if: steps.configured.outputs.configured == 'true'
+        working-directory: apps/mobile
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_KEY_P8_B64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_B64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Automatic, cloud-managed signing with the API key: no certificate or profile is
+          # kept in this repository or its secrets. altool finds the key in this directory.
+          keydir="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$keydir"
+          echo "$ASC_KEY_P8_B64" | base64 -d > "$keydir/AuthKey_$ASC_KEY_ID.p8"
+          auth=(-allowProvisioningUpdates
+                -authenticationKeyPath "$keydir/AuthKey_$ASC_KEY_ID.p8"
+                -authenticationKeyID "$ASC_KEY_ID"
+                -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+
+          flutter pub get
+          flutter build ios --release --no-codesign --build-number=${{ github.run_number }} \
+            --dart-define=API_BASE_URL="$API_BASE_URL"
+
+          xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" -destination 'generic/platform=iOS' \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            "${auth[@]}" archive
+
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>$APPLE_TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>destination</key><string>export</string>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" -exportPath "$RUNNER_TEMP/ipa" \
+            "${auth[@]}"
+
+          xcrun altool --upload-app --type ios --file "$RUNNER_TEMP"/ipa/*.ipa \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+          {
+            echo "### iOS build uploaded to TestFlight"
+            echo ""
+            echo "- build \`${{ github.run_number }}\`, API \`$API_BASE_URL\`"
+            echo "- it appears in App Store Connect → TestFlight after Apple finishes processing it"
+          } >> "$GITHUB_STEP_SUMMARY"
