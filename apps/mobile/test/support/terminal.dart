@@ -208,9 +208,12 @@ class StubSync extends SyncService {
 
   int calls = 0;
 
+  /// What the stub reports as queued — a terminal with work waiting behaves differently.
+  int pendingReported = 0;
+
   @override
-  Future<SyncStatus> status() async =>
-      const SyncStatus(state: SyncState.idle, pending: 0, needsAttention: 0);
+  Future<SyncStatus> status() async => SyncStatus(
+      state: SyncState.idle, pending: pendingReported, needsAttention: 0);
 
   @override
   Future<SyncStatus> sync({
