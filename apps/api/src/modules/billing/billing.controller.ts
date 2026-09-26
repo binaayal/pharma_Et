@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Req,
   Res,
   UploadedFile,
@@ -23,6 +24,7 @@ import type { TenantScope } from '../../common/db/tenant-scope';
 import { ZodValidationPipe } from '../../common/http/zod-validation.pipe';
 import { BillingService } from './billing.service';
 import { PlatformAuthService } from './platform-auth.service';
+import { SignupService } from './signup.service';
 
 const submitProof = z.object({
   amountSantim: z.coerce.number().int().positive(),
@@ -39,6 +41,32 @@ const decideProof = z.object({
   reason: z.string().max(500).optional(),
   periodDays: z.number().int().min(1).max(366).optional(),
 });
+
+const signupRequest = z.object({
+  pharmacyName: z.string().trim().min(2).max(200),
+  ownerName: z.string().trim().min(2).max(120),
+  phone: z.string().trim().min(9).max(20),
+  city: z.string().trim().min(2).max(80),
+  branchBand: z.enum(['1', '2-3', '4+']),
+});
+
+const decideSignup = z.discriminatedUnion('accept', [
+  z.object({
+    accept: z.literal(true),
+    code: z
+      .string()
+      .min(2)
+      .max(32)
+      .regex(/^[a-z0-9-]+$/i, 'letters, digits and hyphens only'),
+    ownerUsername: z
+      .string()
+      .min(2)
+      .max(64)
+      .regex(/^[a-z0-9._-]+$/i),
+    ownerPin: z.string().regex(/^\d{4,8}$/, 'a PIN is 4 to 8 digits'),
+  }),
+  z.object({ accept: z.literal(false), reason: z.string().trim().min(3).max(500) }),
+]);
 
 const setState = z.object({
   tenantId: z.string().uuid(),
@@ -105,12 +133,54 @@ export class BillingController {
  * Guarded by `PlatformAdminGuard`, which verifies the token's `typ` rather than merely its
  * signature — a tenant token must never reach a route that can suspend a pharmacy.
  */
+/**
+ * "Request an account" (ADR-022). Anonymous by necessity — the person asking has no account
+ * yet — so it can only ever create a request that a human then reviews.
+ */
+@Controller('signup-requests')
+export class SignupController {
+  constructor(private readonly signups: SignupService) {}
+
+  @Public()
+  @Post()
+  submit(@Body(new ZodValidationPipe(signupRequest)) body: z.infer<typeof signupRequest>) {
+    return this.signups.submit(body);
+  }
+}
+
 @Controller('platform')
 export class PlatformController {
   constructor(
     private readonly billing: BillingService,
     private readonly auth: PlatformAuthService,
+    private readonly signups: SignupService,
   ) {}
+
+  @Get('signup-requests')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  signupRequests(@Query('status') status?: string) {
+    const known = ['pending', 'approved', 'rejected'] as const;
+    return this.signups.list(known.find((k) => k === status));
+  }
+
+  @Post('signup-requests/:id/decide')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  decideSignup(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(decideSignup)) body: z.infer<typeof decideSignup>,
+    @Req() request: { platformAdmin: { id: string } },
+  ) {
+    return this.signups.decide(request.platformAdmin.id, id, body);
+  }
+
+  @Get('tenants/:id')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  tenant(@Param('id') id: string) {
+    return this.billing.tenantDetail(id);
+  }
 
   @Public()
   @Post('login')

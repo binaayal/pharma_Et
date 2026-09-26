@@ -295,9 +295,28 @@ export class BillingService {
       ownerPin: string;
     },
   ) {
-    const argon2 = await import('argon2');
+    return this.db.runAsPlatform(`onboard tenant ${input.code}`, (em) =>
+      this.createTenantIn(em, adminId, input),
+    );
+  }
 
-    return this.db.runAsPlatform(`onboard tenant ${input.code}`, async (em) => {
+  /**
+   * The onboarding itself, inside a transaction the caller owns — so approving a sign-up
+   * request and opening its account commit together or not at all (ADR-022).
+   */
+  async createTenantIn(
+    em: EntityManager,
+    adminId: string,
+    input: {
+      name: string;
+      code: string;
+      ownerUsername: string;
+      ownerDisplayName: string;
+      ownerPin: string;
+    },
+  ) {
+    const argon2 = await import('argon2');
+    {
       const existing = await em
         .getRepository(Tenant)
         .findOne({ where: { code: input.code.toLowerCase() } });
@@ -345,18 +364,28 @@ export class BillingService {
       });
 
       return { tenantId, code: input.code.toLowerCase(), ownerId, subscriptionState: 'pending' };
-    });
+    }
   }
 
   async listTenants() {
     const rows = await this.db.runAsPlatform('list tenants for the platform console', (em) =>
       em.query(
-        `SELECT t.id, t.name, t.code, t.status,
+        `SELECT t.id, t.name, t.code, t.status, t.created_at AS "createdAt",
                 s.state AS "subscriptionState",
                 s.current_period_end AS "currentPeriodEnd",
                 s.suspended_reason AS "suspendedReason",
+                s.price_santim AS "priceSantim",
                 (SELECT count(*)::int FROM payment_proof p
-                  WHERE p.tenant_id = t.id AND p.result = 'pending') AS "pendingProofs"
+                  WHERE p.tenant_id = t.id AND p.result = 'pending') AS "pendingProofs",
+                (SELECT count(*)::int FROM branch b
+                  WHERE b.tenant_id = t.id AND b.deleted_at IS NULL) AS "branchCount",
+                (SELECT string_agg(b.name, ', ' ORDER BY b.name) FROM branch b
+                  WHERE b.tenant_id = t.id AND b.deleted_at IS NULL) AS "branchNames",
+                (SELECT u.display_name FROM app_user u
+                  WHERE u.tenant_id = t.id AND u.role = 'owner' AND u.deleted_at IS NULL
+                  ORDER BY u.created_at LIMIT 1) AS "ownerName",
+                (SELECT r.phone FROM signup_request r
+                  WHERE r.tenant_id_created = t.id LIMIT 1) AS "ownerPhone"
            FROM tenant t
            LEFT JOIN subscription s ON s.tenant_id = t.id
           WHERE t.deleted_at IS NULL
@@ -366,11 +395,58 @@ export class BillingService {
 
     return rows.map((r: Record<string, unknown>) => ({
       ...r,
+      createdAt: new Date(r.createdAt as string).toISOString(),
+      priceSantim: r.priceSantim === null ? null : Number(r.priceSantim),
       pendingProofs: Number(r.pendingProofs),
       currentPeriodEnd: r.currentPeriodEnd
         ? new Date(r.currentPeriodEnd as string).toISOString()
         : null,
     }));
+  }
+
+  /**
+   * One pharmacy, as the platform sees it (prototype screen 24).
+   *
+   * Branch names, staff counts and how recently each branch's data arrived — operational
+   * health, not business data. Sales figures stay behind BR-2.2: "last sync" is when a
+   * record landed, never what it said.
+   */
+  async tenantDetail(id: string) {
+    const tenant = (await this.listTenants()).find((t: { id: unknown }) => t.id === id);
+    if (!tenant) throw new NotFoundException('no such pharmacy');
+
+    const branches = await this.db.runAsPlatform('branch health for the platform console', (em) =>
+      em.query(
+        `SELECT b.id, b.name, b.address,
+                (SELECT count(DISTINCT ub.user_id)::int FROM user_branch ub
+                   JOIN app_user u ON u.id = ub.user_id AND u.deleted_at IS NULL
+                  WHERE ub.branch_id = b.id AND ub.deleted_at IS NULL) AS "staffCount",
+                (SELECT max(s.created_at) FROM sale s WHERE s.branch_id = b.id) AS "lastSyncAt"
+           FROM branch b
+          WHERE b.tenant_id = $1 AND b.deleted_at IS NULL
+          ORDER BY b.name`,
+        [id],
+      ),
+    );
+    const [lastPayment] = await this.db.runAsPlatform('last verified payment', (em) =>
+      em.query(
+        `SELECT verified_at AS "verifiedAt", amount_santim AS "amountSantim"
+           FROM payment_proof WHERE tenant_id = $1 AND result = 'accepted'
+          ORDER BY verified_at DESC LIMIT 1`,
+        [id],
+      ),
+    );
+
+    return {
+      ...tenant,
+      branches: branches.map((b: Record<string, unknown>) => ({
+        ...b,
+        lastSyncAt: b.lastSyncAt ? new Date(b.lastSyncAt as string).toISOString() : null,
+      })),
+      lastPaymentAt: lastPayment?.verifiedAt
+        ? new Date(lastPayment.verifiedAt).toISOString()
+        : null,
+    };
   }
 
   /**

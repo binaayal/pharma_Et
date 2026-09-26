@@ -64,9 +64,17 @@ class SaleRepository {
     /// (BR-8.2). Null only where no shift is open — the sale still commits, because a
     /// missing shift must never stop the counter.
     String? shiftId,
+
+    /// `cash`, or `other_recorded` for Telebirr, CBE Birr and the rest — recorded by hand
+    /// in V1, with no live integration (FR-4). Only cash reaches the drawer, so only cash
+    /// counts toward a cash-up (BR-8.2).
+    String paymentMethod = 'cash',
   }) async {
     if (lines.isEmpty) {
       throw ArgumentError('a sale must have at least one line');
+    }
+    if (paymentMethod != 'cash' && paymentMethod != 'other_recorded') {
+      throw ArgumentError('unknown payment method: $paymentMethod');
     }
 
     final saleId = newId();
@@ -123,7 +131,7 @@ class SaleRepository {
       await txn.insert('payment', {
         'id': paymentId,
         'sale_id': saleId,
-        'method': 'cash',
+        'method': paymentMethod,
         'amount_santim': total,
       });
 
@@ -142,13 +150,47 @@ class SaleRepository {
           'totalSantim': total,
           'lines': linePayloads,
           'payments': [
-            {'id': paymentId, 'method': 'cash', 'amountSantim': total},
+            {'id': paymentId, 'method': paymentMethod, 'amountSantim': total},
           ],
         },
       );
     });
 
     return CommittedSale(saleId: saleId, totalSantim: total);
+  }
+
+  /// Today's takings on this device since local midnight — what a cashier's Home shows
+  /// without a network (the owner's consolidated figure comes from the server).
+  Future<({int count, int totalSantim})> todayOnDevice(String branchId,
+      {DateTime? now}) async {
+    final at = now ?? DateTime.now();
+    final midnight = DateTime(at.year, at.month, at.day).toUtc();
+    final rows = await _db.db.rawQuery(
+      'SELECT COUNT(*) AS n, COALESCE(SUM(total_santim), 0) AS total '
+      'FROM sale WHERE branch_id = ? AND sold_at >= ?',
+      [branchId, midnight.toIso8601String()],
+    );
+    return (
+      count: (rows.first['n'] as int?) ?? 0,
+      totalSantim: (rows.first['total'] as int?) ?? 0,
+    );
+  }
+
+  /// The lines of one committed sale, for the receipt (prototype screen 10).
+  Future<List<({String name, int qty, int lineTotalSantim})>> linesOf(
+      String saleId) async {
+    final rows = await _db.db.rawQuery('''
+      SELECT p.name AS name, l.qty AS qty, l.line_total_santim AS total
+        FROM sale_line l LEFT JOIN product p ON p.id = l.product_id
+       WHERE l.sale_id = ? ORDER BY l.rowid
+    ''', [saleId]);
+    return rows
+        .map((r) => (
+              name: (r['name'] as String?) ?? '—',
+              qty: r['qty'] as int,
+              lineTotalSantim: r['total'] as int,
+            ))
+        .toList();
   }
 
   Future<List<Map<String, Object?>>> recentSales({int limit = 20}) =>

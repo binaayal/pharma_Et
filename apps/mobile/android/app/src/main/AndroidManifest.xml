@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Flutter's template grants INTERNET only in the debug and profile manifests, so a
+         release build installs, runs, and silently never syncs. Sync is the product. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="pharmaet_mobile"
+        android:label="PharmaEt"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

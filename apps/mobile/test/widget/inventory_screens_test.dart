@@ -5,33 +5,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/inventory_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
-import 'package:pharmaet_mobile/data/outbox.dart';
+import 'package:pharmaet_mobile/ui/kit.dart';
 import 'package:pharmaet_mobile/ui/receive_screen.dart';
 import 'package:pharmaet_mobile/ui/reconcile_screen.dart';
+import 'package:pharmaet_mobile/ui/stock_screen.dart';
 
-import '../support/pump.dart';
+import '../support/terminal.dart';
 import '../support/test_db.dart';
 
-/// T3 — receiving stock and correcting a count (docs/05-qa §3; FR-7, FR-3/BR-3.2).
+/// T3 — inventory, goods receipt and counting (prototype screens 12–14; FR-3, FR-7,
+/// BR-3.2).
 ///
-/// Both screens guard the same class of mistake: a number entered at a counter that the
-/// system cannot afterwards tell apart from a deliberate one. The guards live in what the
-/// form will and will not let you submit, which is only observable here.
+/// Each guards a number entered at a counter that the system cannot afterwards tell apart
+/// from a deliberate one. The guards live in what the form will and will not let through.
 void main() {
   late LocalDb db;
   late Directory dir;
-  late _StubCatalog catalog;
-  late InventoryRepository inventory;
-
-  const branchId = '01930000-0000-7000-8000-000000000002';
+  late TestTerminal t;
 
   setUp(() async {
     final opened = await openTestDb();
     db = opened.db;
     dir = opened.dir;
-    final outbox = Outbox(db);
-    catalog = _StubCatalog(db);
-    inventory = _StubInventory(db, outbox, catalog);
+    t = TestTerminal.build(db);
   });
 
   tearDown(() async {
@@ -39,136 +35,120 @@ void main() {
     if (dir.existsSync()) dir.deleteSync(recursive: true);
   });
 
-  group('receiving a delivery (FR-7)', () {
-    Future<void> open(WidgetTester tester) => pumpScreen(
-          tester,
-          ReceiveScreen(
-              catalog: catalog, inventory: inventory, branchId: branchId),
-        );
+  PButton button(WidgetTester tester, String label) => tester
+      .widgetList<PButton>(find.byType(PButton))
+      .firstWhere((b) => b.label.contains(label));
 
+  group('goods receipt (FR-7)', () {
     testWidgets('will not record a receipt with no supplier and no lines',
         (tester) async {
-      catalog.products_.add(const LocalProduct(
-        id: 'p1',
-        name: 'Paracetamol',
-        unit: 'tablet',
-        isControlled: false,
-        priceSantim: 1500,
-      ));
-      await open(tester);
+      t.addProduct('p1', 'Paracetamol');
+      await pumpTerminalScreen(tester, t.terminal, const ReceiveScreen());
 
-      // An empty receipt is indistinguishable from a mis-tap, and it would credit nothing
-      // while looking like a delivery was logged.
-      final button = tester.widget<FilledButton>(find.byType(FilledButton));
-      expect(button.onPressed, isNull);
+      // An empty receipt is indistinguishable from a mis-tap.
+      expect(button(tester, 'Confirm receipt').onPressed, isNull);
     });
 
-    testWidgets('says plainly that it works without a network', (tester) async {
-      await open(tester);
-
-      // Stock arrives when the wholesaler's van arrives, which in this market is not when
-      // the network is up. The screen promises that out loud because a counter assistant has
-      // no other way to know it is safe to carry on.
-      expect(find.textContaining('whether or not there is a network'),
-          findsOneWidget);
+    testWidgets('says plainly that stock is sellable with or without a network',
+        (tester) async {
+      await pumpTerminalScreen(tester, t.terminal, const ReceiveScreen());
+      expect(
+          find.textContaining('available to sell immediately'), findsOneWidget);
     });
 
     testWidgets('offers no controlled substances', (tester) async {
-      catalog.products_.addAll(const [
-        LocalProduct(
-            id: 'p1',
-            name: 'Paracetamol',
-            unit: 'tablet',
-            isControlled: false,
-            priceSantim: 1500),
-        LocalProduct(
-            id: 'p2',
-            name: 'Diazepam',
-            unit: 'tablet',
-            isControlled: true,
-            priceSantim: 4000),
-      ]);
-      await open(tester);
-      await tester.tap(find.text('Add'));
-      await tester.pumpAndSettle();
+      t.addProduct('p1', 'Paracetamol');
+      t.addProduct('p2', 'Diazepam', controlled: true);
+      await pumpTerminalScreen(tester, t.terminal, const ReceiveScreen());
 
-      // The sheet's product list is a dropdown, so the names exist only once it is open.
+      await tester.tap(find.textContaining('Add item'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(DropdownButtonFormField<LocalProduct>));
       await tester.pumpAndSettle();
 
-      // Controlled stock arrives as ledger events in Phase 2 (ADR-015). Receiving one through
-      // the standard path would put an unauditable batch on the shelf.
+      // Controlled receipts are ledger events (ADR-004), which arrive with the compliance
+      // phase. Offering one here would put a mutable count where an event belongs.
       expect(find.text('Paracetamol'), findsWidgets);
       expect(find.text('Diazepam'), findsNothing);
     });
   });
 
-  group('correcting a count (BR-3.2)', () {
-    Future<void> open(WidgetTester tester) => pumpScreen(
-          tester,
-          ReconcileScreen(
-              catalog: catalog, inventory: inventory, branchId: branchId),
-        );
+  group('counting a batch (BR-3.2)', () {
+    const oversold = LocalBatch(
+        id: 'b1',
+        productId: 'p1',
+        lotNo: 'LOT-1',
+        expiryDate: '2030-01-01',
+        qtyOnHand: -3);
 
     testWidgets('a write-off cannot go unexplained', (tester) async {
-      (inventory as _StubInventory).attention.add(const LocalBatch(
-            id: 'b1',
-            productId: 'p1',
-            lotNo: 'LOT-1',
-            expiryDate: '2030-01-01',
-            qtyOnHand: -3,
-          ));
-      await open(tester);
-      await tester.tap(find.textContaining('Lot LOT-1'));
-      await tester.pumpAndSettle();
+      await pumpTerminalScreen(
+          tester,
+          t.terminal,
+          const Scaffold(
+              body: CountSheet(batch: oversold, productName: 'Paracetamol')));
 
       await tester.enterText(find.byType(TextField).first, '0');
       await tester.pump();
-
-      // A recount may go unexplained; anything else may not. An unexplained write-off is
-      // indistinguishable from a covered-up one, and the server refuses it regardless — so a
-      // form that let it through would only produce a rejection nobody sees.
       await tester.tap(find.byType(DropdownButtonFormField<AdjustmentReason>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Damaged').last);
       await tester.pumpAndSettle();
 
-      final button =
-          tester.widget<FilledButton>(find.byType(FilledButton).last);
-      expect(button.onPressed, isNull);
-    });
-
-    testWidgets('shows what needs attention rather than the whole shelf',
-        (tester) async {
-      (inventory as _StubInventory).attention.add(const LocalBatch(
-            id: 'b1',
-            productId: 'p1',
-            lotNo: 'LOT-NEG',
-            expiryDate: '2030-01-01',
-            qtyOnHand: -3,
-          ));
-      await open(tester);
-
-      // A negative count is the thing BR-3.2 promised would be "flagged for physical
-      // reconciliation". Burying it in a full stock list would be the same as not flagging it.
-      expect(find.textContaining('Lot LOT-NEG'), findsOneWidget);
+      // A recount may go unexplained; anything else may not — an unexplained write-off is
+      // indistinguishable from a covered-up one, and the server refuses it regardless.
+      expect(button(tester, 'Record count').onPressed, isNull);
+      expect(find.textContaining('3 more than the system thought'),
+          findsOneWidget);
     });
   });
-}
 
-class _StubCatalog extends CatalogRepository {
-  _StubCatalog(super.db);
-  final products_ = <LocalProduct>[];
+  group('the inventory list (prototype screen 12)', () {
+    testWidgets('an oversold line is flagged red for a count', (tester) async {
+      t.catalog.stock_.add(const ProductStock(
+        product: LocalProduct(
+            id: 'p1',
+            name: 'Cetirizine',
+            unit: 'tablet',
+            isControlled: false,
+            priceSantim: 500),
+        onHand: -4,
+        batchCount: 1,
+        nearestExpiry: null,
+        oversold: true,
+      ));
+      await pumpTerminalScreen(tester, t.terminal, const StockScreen());
+      await tester.pump();
 
-  @override
-  Future<List<LocalProduct>> products() async => products_;
-}
+      expect(find.textContaining('oversold'), findsOneWidget);
+      expect(find.text('-4'), findsOneWidget);
+    });
+  });
 
-class _StubInventory extends InventoryRepository {
-  _StubInventory(super.db, super.outbox, super.catalog);
-  final attention = <LocalBatch>[];
+  group('in Amharic (AC-10.1: "any core screen")', () {
+    testWidgets('goods receipt', (tester) async {
+      await pumpTerminalScreen(tester, t.terminal, const ReceiveScreen(),
+          locale: 'am');
+      expect(find.text('የዕቃ ርክክብ'), findsOneWidget);
+      expect(find.text('Goods receipt'), findsNothing);
+    });
 
-  @override
-  Future<List<LocalBatch>> batchesNeedingAttention(String branchId) async =>
-      attention;
+    testWidgets('counting a batch', (tester) async {
+      await pumpTerminalScreen(
+          tester,
+          t.terminal,
+          const Scaffold(
+              body: CountSheet(
+                  batch: LocalBatch(
+                      id: 'b1',
+                      productId: 'p1',
+                      lotNo: 'LOT-1',
+                      expiryDate: '2030-01-01',
+                      qtyOnHand: 5),
+                  productName: 'Paracetamol')),
+          locale: 'am');
+      expect(find.textContaining('ሎት LOT-1'), findsOneWidget);
+      expect(find.textContaining('system says'), findsNothing);
+    });
+  });
 }

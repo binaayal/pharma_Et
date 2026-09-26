@@ -75,6 +75,7 @@ answer, permanently.
 | [ADR-019](adr/ADR-019-session-continuity.md) | A session renews itself; an expired one says so, instead of looking like an outage | Accepted |
 | [ADR-020](adr/ADR-020-expired-stock-override.md) | Dispensing expired stock is warned, authorised and recorded — never blocked | Accepted |
 | [ADR-021](adr/ADR-021-telemetry-and-what-it-may-carry.md) | Telemetry goes to stdout as JSON, and never carries a credential | Accepted |
+| [ADR-022](adr/ADR-022-signup-requests.md) | Sign-up requests: anyone may ask, a person decides | Accepted |
 
 ---
 

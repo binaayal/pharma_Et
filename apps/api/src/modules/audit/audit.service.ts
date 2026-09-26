@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { EntityManager } from 'typeorm';
+import { In, type EntityManager } from 'typeorm';
 import { uuidv7 } from 'uuidv7';
 import { firstRow } from '../../common/db/raw-query';
 import type { TenantScope } from '../../common/db/tenant-scope';
-import { DomainEvent } from '../../entities';
+import { AppUser, DomainEvent } from '../../entities';
 
 /**
  * The audit event types this system records.
@@ -44,6 +44,8 @@ export interface AuditEntry {
   eventType: AuditEventType | string;
   streamId: string;
   actorId: string;
+  /** The actor's display name, or null when the actor is not a pharmacy user (the platform). */
+  actorName: string | null;
   branchId: string | null;
   payload: Record<string, unknown>;
   occurredAt: string;
@@ -146,12 +148,23 @@ export class AuditService {
     }
 
     const rows = await query.getMany();
+    // "Who did what" needs a who. One lookup for the page, not one per row, and not filtered
+    // on deleted_at: a dismissed employee's actions are the ones most worth reading back.
+    const actorIds = [...new Set(rows.map((e) => e.actorId))];
+    const names = new Map(
+      actorIds.length === 0
+        ? []
+        : (await em.getRepository(AppUser).findBy({ id: In(actorIds) })).map(
+            (u) => [u.id, u.displayName] as const,
+          ),
+    );
     return rows.map((e) => ({
       id: e.id,
       seq: e.seq,
       eventType: e.eventType,
       streamId: e.streamId,
       actorId: e.actorId,
+      actorName: names.get(e.actorId) ?? null,
       branchId: e.branchId,
       payload: e.payload,
       occurredAt: e.occurredAt.toISOString(),

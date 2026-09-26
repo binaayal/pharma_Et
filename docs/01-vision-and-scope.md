@@ -93,7 +93,7 @@ Each of these is deferred for a stated reason, not forgotten:
 | **FR-5 Inter-branch stock transfer** | V1.x, **online-only** | Fundamentally incompatible with a long offline window (you'd dispatch stock already consumed). It's a back-office act by the owner, not a counter transaction under a power cut. |
 | **FR-7a usage-based ordering, FR-7b multi-wholesaler ordering** | V1.x / V2 | Analytics-grade features that need sales history to be useful; ship after the loop is proven. |
 | **FR-8a advanced/custom reporting & export** | V1.x | Base reports validate the model; advanced reporting is polish. |
-| **Desktop application** | V1.x / V2 (Flutter Desktop, Windows-first) | Counter runs on Android; owner oversight is covered by the web admin dashboard. See ADR-001. |
+| **Desktop application** | V1.x / V2 (Flutter Desktop, Windows-first) | Counter and owner oversight both run on Android — the prototype puts Home, Reports and Branches & staff in the phone app, and the web console is the platform's (screens 20–26). See ADR-001. |
 | **Telebirr / CBE payment integration** | Post-V1 (6+ month effort) | V1 uses manual screenshot verification via the web admin dashboard. |
 
 ### 2.3 Non-goals (explicitly out of scope, not merely deferred)

@@ -29,5 +29,6 @@ quietly work around an accepted ADR in code.
 | [ADR-019](ADR-019-session-continuity.md) | A session renews itself; an expired one says so, instead of looking like an outage | Accepted |
 | [ADR-020](ADR-020-expired-stock-override.md) | Dispensing expired stock is warned, authorised and recorded — never blocked | Accepted |
 | [ADR-021](ADR-021-telemetry-and-what-it-may-carry.md) | Telemetry goes to stdout as JSON, and never carries a credential | Accepted |
+| [ADR-022](ADR-022-signup-requests.md) | Sign-up requests: anyone may ask, a person decides | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

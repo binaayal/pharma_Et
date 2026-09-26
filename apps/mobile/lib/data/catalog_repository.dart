@@ -209,6 +209,108 @@ class CatalogRepository {
         .toList();
   }
 
+  /// Every batch of one product at a branch, first-to-expire first — the FEFO order the
+  /// counter will dispense in (prototype screen 13).
+  Future<List<LocalBatch>> batchesFor(String productId, String branchId) async {
+    final rows = await _db.db.query(
+      'stock_batch',
+      where: 'product_id = ? AND branch_id = ? AND deleted = 0',
+      whereArgs: [productId, branchId],
+      orderBy: 'expiry_date ASC',
+    );
+    return rows.map(_batch).toList();
+  }
+
+  /// Stock per product at a branch: on hand, batch count and nearest expiry among the
+  /// batches that still hold stock (prototype screen 12).
+  Future<List<ProductStock>> stockByProduct(String branchId) async {
+    final rows = await _db.db.rawQuery('''
+      SELECT p.id, p.name, p.unit, p.is_controlled, p.price_santim,
+             COALESCE(SUM(b.qty_on_hand), 0)                        AS on_hand,
+             COUNT(b.id)                                             AS batches,
+             MIN(CASE WHEN b.qty_on_hand > 0 THEN b.expiry_date END) AS nearest,
+             MIN(b.qty_on_hand)                                      AS lowest
+        FROM product p
+        LEFT JOIN stock_batch b
+               ON b.product_id = p.id AND b.branch_id = ? AND b.deleted = 0
+       WHERE p.deleted = 0
+       GROUP BY p.id
+       ORDER BY p.name COLLATE NOCASE
+    ''', [branchId]);
+    return rows
+        .map((r) => ProductStock(
+              product: LocalProduct(
+                id: r['id'] as String,
+                name: r['name'] as String,
+                unit: r['unit'] as String,
+                isControlled: (r['is_controlled'] as int) == 1,
+                priceSantim: r['price_santim'] as int,
+              ),
+              onHand: (r['on_hand'] as int?) ?? 0,
+              batchCount: (r['batches'] as int?) ?? 0,
+              nearestExpiry: r['nearest'] as String?,
+              oversold: ((r['lowest'] as int?) ?? 0) < 0,
+            ))
+        .toList();
+  }
+
+  /// What Home's "Needs attention" counts: batches expiring within [days] that still hold
+  /// stock, and batches driven negative by an oversell (BR-3.2, BR-3.4).
+  Future<({int expiring, int negative})> attention(String branchId,
+      {int days = 60, DateTime? today}) async {
+    final now = today ?? DateTime.now();
+    String iso(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final rows = await _db.db.rawQuery('''
+      SELECT
+        SUM(CASE WHEN qty_on_hand > 0 AND expiry_date >= ? AND expiry_date <= ? THEN 1 ELSE 0 END) AS expiring,
+        SUM(CASE WHEN qty_on_hand < 0 THEN 1 ELSE 0 END) AS negative
+        FROM stock_batch WHERE branch_id = ? AND deleted = 0
+    ''', [iso(now), iso(now.add(Duration(days: days))), branchId]);
+    return (
+      expiring: (rows.first['expiring'] as int?) ?? 0,
+      negative: (rows.first['negative'] as int?) ?? 0,
+    );
+  }
+
+  /// What moved one product's stock here, newest first: sales, receipts and counts made on
+  /// this device (prototype screen 13 — "an auditable movement trail").
+  Future<List<StockMovement>> movements(String productId, String branchId,
+      {int limit = 12}) async {
+    final rows = await _db.db.rawQuery('''
+      SELECT 'sale' AS kind, s.sold_at AS at, -l.qty AS delta, s.id AS ref, NULL AS detail
+        FROM sale_line l JOIN sale s ON s.id = l.sale_id
+       WHERE l.product_id = ? AND s.branch_id = ?
+      UNION ALL
+      SELECT 'receipt', g.received_at, gl.qty, g.id, g.supplier_name
+        FROM goods_receipt_line gl JOIN goods_receipt g ON g.id = gl.goods_receipt_id
+       WHERE gl.product_id = ? AND g.branch_id = ?
+      UNION ALL
+      SELECT 'count', a.counted_at, a.delta, a.id, a.reason
+        FROM stock_adjustment a
+       WHERE a.product_id = ? AND a.branch_id = ?
+      ORDER BY at DESC LIMIT ?
+    ''',
+        [productId, branchId, productId, branchId, productId, branchId, limit]);
+    return rows
+        .map((r) => StockMovement(
+              kind: r['kind'] as String,
+              at: DateTime.parse(r['at'] as String),
+              delta: r['delta'] as int,
+              reference: r['ref'] as String,
+              detail: r['detail'] as String?,
+            ))
+        .toList();
+  }
+
+  LocalBatch _batch(Map<String, Object?> r) => LocalBatch(
+        id: r['id'] as String,
+        productId: r['product_id'] as String,
+        lotNo: r['lot_no'] as String,
+        expiryDate: r['expiry_date'] as String,
+        qtyOnHand: r['qty_on_hand'] as int,
+      );
+
   /// Applies a delta pull. Reference rows are overwritten wholesale because the terminal
   /// never authors them — there is nothing local to lose.
   Future<void> applyPull(PullResponse response) async {
@@ -261,4 +363,44 @@ class CatalogRepository {
       );
     });
   }
+}
+
+/// One row of the inventory list.
+class ProductStock {
+  const ProductStock({
+    required this.product,
+    required this.onHand,
+    required this.batchCount,
+    required this.nearestExpiry,
+    required this.oversold,
+  });
+  final LocalProduct product;
+  final int onHand;
+  final int batchCount;
+
+  /// ISO calendar date of the first batch to expire that still holds stock.
+  final String? nearestExpiry;
+
+  /// Some batch of this product is below zero and needs a count (BR-3.2).
+  final bool oversold;
+}
+
+/// One line of a product's movement trail.
+class StockMovement {
+  const StockMovement({
+    required this.kind,
+    required this.at,
+    required this.delta,
+    required this.reference,
+    this.detail,
+  });
+
+  /// `sale`, `receipt` or `count`.
+  final String kind;
+  final DateTime at;
+  final int delta;
+  final String reference;
+
+  /// The supplier for a receipt, the reason for a count.
+  final String? detail;
 }
