@@ -50,6 +50,9 @@ function appConnectionUrl(config: ConfigService): string {
         synchronize: false,
         migrationsRun: false,
         logging: config.get('NODE_ENV') === 'development' ? ['error', 'warn'] : ['error'],
+        // Every sync write holds one connection for its transaction. node-postgres defaults
+        // to 10; sized by the deployment rather than guessed here (NFR-3.1, runbook §3).
+        extra: { max: Number(config.get('DB_POOL_MAX', 20)) },
       }),
     }),
 
