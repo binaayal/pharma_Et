@@ -125,6 +125,38 @@ void main() {
     });
   });
 
+  group('catalog management (FR-3, catalog.manage)', () {
+    testWidgets('an owner can add a product; a cashier is not offered it',
+        (tester) async {
+      final owner = TestTerminal.build(db, role: 'owner');
+      await pumpTerminalScreen(tester, owner.terminal, const StockScreen());
+      expect(find.byTooltip('Add product'), findsOneWidget);
+
+      final cashier = TestTerminal.build(db, role: 'cashier');
+      await pumpTerminalScreen(tester, cashier.terminal, const StockScreen());
+      // Not rendered at all: the server refuses it, and a greyed button only teaches people
+      // to hunt for a way round.
+      expect(find.byTooltip('Add product'), findsNothing);
+    });
+
+    testWidgets('a product needs a name, a unit and a price above zero',
+        (tester) async {
+      final owner = TestTerminal.build(db, role: 'owner');
+      await pumpTerminalScreen(tester, owner.terminal, const StockScreen());
+      await tester.tap(find.byTooltip('Add product'));
+      await tester.pumpAndSettle();
+
+      expect(button(tester, 'Add to catalog').onPressed, isNull);
+      await tester.enterText(find.byType(TextField).at(0), 'Metformin 850mg');
+      await tester.enterText(find.byType(TextField).at(2), '0');
+      await tester.pump();
+      expect(button(tester, 'Add to catalog').onPressed, isNull);
+      await tester.enterText(find.byType(TextField).at(2), '19.50');
+      await tester.pump();
+      expect(button(tester, 'Add to catalog').onPressed, isNotNull);
+    });
+  });
+
   group('in Amharic (AC-10.1: "any core screen")', () {
     testWidgets('goods receipt', (tester) async {
       await pumpTerminalScreen(tester, t.terminal, const ReceiveScreen(),

@@ -122,6 +122,15 @@ class _StaffScreenState extends State<StaffScreen> {
                         subtitle: s.branchIds.isEmpty
                             ? context.t('staff.allBranches')
                             : s.branchIds.map(branchName).join(', '),
+                        onTap:
+                            s.role == 'owner' || s.id == t.session.scope.userId
+                                ? null
+                                : () async {
+                                    if (await _confirmDeactivate(context, s) &&
+                                        mounted) {
+                                      await _load();
+                                    }
+                                  },
                         trailing: PBadge(context.t('role.${s.role}'),
                             tone: switch (s.role) {
                               'owner' => Tone.green,
@@ -154,6 +163,40 @@ class _StaffScreenState extends State<StaffScreen> {
         ),
       ]),
     );
+  }
+}
+
+/// Deactivates a staff member after a clear confirmation (FR-2).
+///
+/// Their records stay theirs and their queued sales still sync; what stops is their next
+/// sign-in and their next token refresh — the server re-reads authority on both.
+Future<bool> _confirmDeactivate(
+    BuildContext context, StaffMember member) async {
+  final t = TerminalScope.read(context);
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (d) => AlertDialog(
+      title: Text(d.tf('staff.deactivateTitle', {'name': member.displayName})),
+      content: Text(d.t('staff.deactivateBody')),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(d, false),
+            child: Text(d.t('shift.cancel'))),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: PharmaColors.red),
+          onPressed: () => Navigator.pop(d, true),
+          child: Text(d.t('staff.deactivate')),
+        ),
+      ],
+    ),
+  );
+  if (yes != true) return false;
+  try {
+    await t.authed((token) => t.api.deactivateStaff(token, member.id));
+    return true;
+  } catch (e) {
+    if (context.mounted) toast(context, '$e');
+    return false;
   }
 }
 

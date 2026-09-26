@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../auth/offline_credentials.dart';
 import '../auth/session.dart';
 import '../contracts/contracts.dart';
 import '../core/theme.dart';
@@ -21,6 +22,7 @@ class LoginScreen extends StatefulWidget {
     required this.terminalId,
     required this.onSignedIn,
     this.remembered,
+    this.offline,
     this.onForget,
     this.onRequestAccount,
   });
@@ -30,6 +32,10 @@ class LoginScreen extends StatefulWidget {
   final void Function(LoginResponse response, String tenantCode,
       String username, bool usedPassword) onSignedIn;
   final RememberedIdentity? remembered;
+
+  /// The cached-PIN fallback for a sign-in with no network (AC-2.2). Null in tests that
+  /// only exercise the online path.
+  final OfflineCredentials? offline;
   final VoidCallback? onForget;
   final VoidCallback? onRequestAccount;
 
@@ -98,6 +104,13 @@ class _LoginScreenState extends State<LoginScreen> {
         secret: _secret,
         terminalId: widget.terminalId,
       ));
+      // Leave behind what an offline sign-in tomorrow morning will need (AC-2.2).
+      await widget.offline?.remember(
+        tenantCode: _tenantCode.text.trim(),
+        username: _username.text.trim(),
+        secret: _secret,
+        response: response,
+      );
       if (!mounted) return;
       widget.onSignedIn(response, _tenantCode.text.trim(),
           _username.text.trim(), _usePassword);
@@ -108,6 +121,37 @@ class _LoginScreenState extends State<LoginScreen> {
       // nothing about any account, and "check the details" would send someone retyping a
       // correct PIN at a dead network.
       final status = error is SyncTransportException ? error.statusCode : null;
+      // No network at all: try the PIN against what this phone cached at the last online
+      // sign-in (AC-2.2, ADR-023) before telling anyone the till cannot open.
+      if (status == null && widget.offline != null) {
+        final secret = _secret;
+        try {
+          final cached = await widget.offline!.signIn(
+            tenantCode: _tenantCode.text.trim(),
+            username: _username.text.trim(),
+            secret: secret,
+          );
+          if (!mounted) return;
+          widget.onSignedIn(cached, _tenantCode.text.trim(),
+              _username.text.trim(), _usePassword);
+          return;
+        } on OfflineSignInRefused catch (refused) {
+          if (!mounted) return;
+          setState(() {
+            _pin = '';
+            _password.clear();
+            _offline = refused.reason != OfflineRefusal.wrong;
+            _error = switch (refused.reason) {
+              OfflineRefusal.wrong => context.t('login.failed'),
+              OfflineRefusal.unknown => context.t('login.noConnection'),
+              OfflineRefusal.expired => context.t('login.offlineExpired'),
+              OfflineRefusal.throttled => context.tf('login.offlineThrottled',
+                  {'minutes': (refused.retryAfter?.inMinutes ?? 0) + 1}),
+            };
+          });
+          return;
+        }
+      }
       if (mounted) {
         setState(() {
           _pin = '';

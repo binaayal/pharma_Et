@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'api/tenant_api.dart';
 import 'auth/branch_placement.dart';
+import 'auth/offline_credentials.dart';
 import 'auth/session.dart';
 import 'contracts/contracts.dart';
 import 'core/theme.dart';
@@ -45,6 +46,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
   late final SessionStore _sessions = SessionStore();
   late final SyncClient _client = SyncClient(baseUrl: widget.apiBaseUrl);
   late final TenantApi _api = TenantApi(baseUrl: widget.apiBaseUrl);
+  final _offline = OfflineCredentials();
   final _navigator = GlobalKey<NavigatorState>();
 
   CatalogRepository? _catalog;
@@ -204,6 +206,10 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       // once rather than on every tick (ADR-019).
       onSessionRenewed: (renewed) async {
         await _sessions.save(renewed, _session!.tenantCode);
+        final who = _identity;
+        if (who != null) {
+          await _offline.refreshSession(who.tenantCode, who.username, renewed);
+        }
         final reloaded = await _sessions.load();
         if (mounted && reloaded != null) {
           _session = reloaded;
@@ -321,6 +327,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
         client: _client,
         terminalId: _terminalId!,
         remembered: _identity,
+        offline: _offline,
         onForget: () async {
           await _sessions.forgetIdentity();
           if (mounted) setState(() => _identity = null);
