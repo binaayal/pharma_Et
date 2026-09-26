@@ -315,6 +315,32 @@ jobs:
           TZ: Africa/Addis_Ababa
         run: flutter test
 
+  # The same app, compiled for iPhone. Xcode only runs on macOS, so this is where the iOS
+  # half is proven to build at all: a plugin with no iOS implementation, a pod that will not
+  # resolve, or a Swift-side break fails here instead of on the day someone tries to ship.
+  # Unsigned — signing belongs to the release pipeline and its Apple account, not to CI.
+  mobile_ios:
+    name: mobile · iOS build
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build for iOS (unsigned)
+        run: >
+          flutter build ios --release --no-codesign
+          --dart-define=API_BASE_URL=https://pharmaet-staging.fly.dev/api
+
   # The single required check for branch protection.
   #
   # `changes` is in `needs` on purpose. Without it, a failure in the path filter made every
@@ -508,7 +534,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: always()
-    needs: [changes, contracts, api, dashboard, mobile, rollback_safety, traceability, coverage]
+    needs: [changes, contracts, api, dashboard, mobile, mobile_ios, rollback_safety, traceability, coverage]
     runs-on: ubuntu-latest
     steps:
       - name: Fail unless every job succeeded or was legitimately skipped
@@ -518,6 +544,7 @@ jobs:
           echo "api:       ${{ needs.api.result }}"
           echo "dashboard: ${{ needs.dashboard.result }}"
           echo "mobile:    ${{ needs.mobile.result }}"
+          echo "ios:       ${{ needs.mobile_ios.result }}"
           echo "rollback:  ${{ needs.rollback_safety.result }}"
           echo "tracing:   ${{ needs.traceability.result }}"
           echo "coverage:  ${{ needs.coverage.result }}"
@@ -531,6 +558,7 @@ jobs:
 
           for r in "${{ needs.contracts.result }}" "${{ needs.api.result }}" \
                    "${{ needs.dashboard.result }}" "${{ needs.mobile.result }}" \
+                   "${{ needs.mobile_ios.result }}" \
                    "${{ needs.rollback_safety.result }}" \
                    "${{ needs.traceability.result }}" \
                    "${{ needs.coverage.result }}"; do
