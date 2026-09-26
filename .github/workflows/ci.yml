@@ -318,8 +318,16 @@ jobs:
         # Run after everything else and alone. Measured concurrently with the other suites,
         # a two-core runner's shared disk produced p50 4.9 ms and p95 133 ms for the same
         # commit — the tail was the neighbours' fsyncs, not this code.
+        #
+        # Alone was not enough: the same commit later measured p95 185 ms by itself, then
+        # passed on a re-run with no code change. A hosted runner's disk has no latency
+        # guarantee, so the database sits on tmpfs here. This guard exists to catch the
+        # *structural* regression — a scan, an N+1, a split transaction — and those still
+        # show as extra statements and lock round-trips in RAM. What fsync costs on a real
+        # handset is the device matrix's job (docs/05 §7), not this runner's.
         env:
           TZ: Africa/Addis_Ababa
+          TMPDIR: /dev/shm
         run: flutter test --tags latency --concurrency=1
 
   # The same app, compiled for iPhone. Xcode only runs on macOS, so this is where the iOS
