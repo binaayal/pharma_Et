@@ -82,6 +82,15 @@ problem is narrower than it looks.
 
 ---
 
+### Capacity (measured 2026-09-26)
+
+One API process on the production-like stack handles **1,000 pharmacies at a 2× peak** — each
+syncing a sale within 30 s — at push p95 339 ms and pull p95 169 ms. Per request: ~27 ms for a
+push, ~13 ms for a pull, most of it CPU. Pushes from one pharmacy serialise on its change
+sequence by design; pushes from different pharmacies do not. When p95 on `http_request` for
+`/api/sync/*` climbs past ~300 ms at normal load, add a second machine before tuning anything:
+the path scales horizontally. `DB_POOL_MAX` (default 20) sizes the tenant pool per process.
+
 ## 4. Playbooks
 
 ### 4.1 Suspected cross-tenant exposure — **S1**

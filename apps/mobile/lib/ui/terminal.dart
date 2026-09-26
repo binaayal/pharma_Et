@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/widgets.dart';
 
 import '../api/tenant_api.dart';
@@ -42,6 +43,13 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   /// listener: it needs no plugin, and it also catches a network that is up but not
   /// reaching the server.
   static const syncInterval = Duration(seconds: 30);
+
+  /// With nothing queued, the timer still pulls reference data — but only this often.
+  /// Prices and products change rarely, and at 1,000 pharmacies a pull every 30 s is most of
+  /// the server's load for no new information (NFR-3.1). Anything queued still goes within
+  /// [syncInterval]; a commit, a resume or a tap syncs at once regardless.
+  static const idlePullInterval = Duration(minutes: 2);
+  DateTime? _lastSync;
 
   final String terminalId;
   final CatalogRepository catalog;
@@ -108,7 +116,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     await refresh();
     unawaited(sync());
-    _timer = Timer.periodic(syncInterval, (_) => sync());
+    _timer = Timer.periodic(syncInterval, (_) => _tick());
     unawaited(loadSubscription());
   }
 
@@ -138,6 +146,13 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// The background timer: push whenever something is waiting, pull when it is due.
+  Future<void> _tick() async {
+    final due = _lastSync == null ||
+        clock.now().difference(_lastSync!) >= idlePullInterval;
+    if (status.pending > 0 || due) await sync();
+  }
+
   Future<SyncStatus> sync() async {
     if (_syncing) return status;
     _syncing = true;
@@ -160,6 +175,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
       );
     } finally {
       _syncing = false;
+      _lastSync = clock.now();
     }
     await refresh();
     // Cheap, owner-only, and the way a suspension or a verified payment reaches a phone

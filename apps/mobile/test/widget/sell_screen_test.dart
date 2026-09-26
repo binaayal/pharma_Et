@@ -46,6 +46,8 @@ void main() {
     // never pressed "Sync now" kept the day's sales on the device.
     testWidgets('it tries again on an interval, untouched', (tester) async {
       final t = TestTerminal.build(db);
+      // Something waiting: the timer pushes on its next tick.
+      t.sync.pendingReported = 1;
       await pumpTerminalScreen(tester, t.terminal, const SellScreen());
       await t.terminal.start();
       final atStart = t.sync.calls;
@@ -53,6 +55,27 @@ void main() {
       await tester.pump(Terminal.syncInterval);
       await tester.pump();
 
+      expect(t.sync.calls, atStart + 1);
+      t.terminal.dispose();
+    });
+
+    testWidgets(
+        'with nothing queued it pulls every two minutes, not every tick',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+      await t.terminal.start();
+      await tester.pump();
+      final atStart = t.sync.calls;
+
+      // Three idle ticks inside the idle window: nothing to push, pull not yet due.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(Terminal.syncInterval);
+      }
+      expect(t.sync.calls, atStart);
+
+      await tester.pump(Terminal.syncInterval);
+      await tester.pump();
       expect(t.sync.calls, atStart + 1);
       t.terminal.dispose();
     });
