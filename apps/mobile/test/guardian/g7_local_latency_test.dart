@@ -1,3 +1,8 @@
+// Runs alone, after the rest of the suite (see dart_test.yaml and CI): a latency figure
+// taken while other suites hammer the same disk measures the runner, not the commit path.
+@Tags(['latency'])
+library;
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
