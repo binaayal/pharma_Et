@@ -7,6 +7,7 @@ import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
 import { SubscriptionGuard } from './common/auth/subscription.guard';
 import { DbModule } from './common/db/db.module';
+import { ObservabilityModule } from './common/observability/observability.module';
 import { PLATFORM_DATA_SOURCE } from './common/db/scoped-db.service';
 import { loadConfiguration } from './config/configuration';
 import { ALL_ENTITIES } from './entities';
@@ -68,6 +69,7 @@ function appConnectionUrl(config: ConfigService): string {
     }),
 
     DbModule,
+    ObservabilityModule,
     // Global, so anything that changes tenant state can record that it did without an
     // import chain making it inconvenient enough to skip (ADR-015).
     AuditModule,

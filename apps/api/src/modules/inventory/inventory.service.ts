@@ -3,6 +3,7 @@ import type { EntityManager } from 'typeorm';
 import { uuidv7 } from 'uuidv7';
 import { OversellEvent, StockBatch } from '../../entities';
 import { ChangeSeqService } from './change-seq.service';
+import { TelemetryService } from '../../common/observability/telemetry.service';
 
 export interface StockDecrement {
   branchId: string;
@@ -16,7 +17,10 @@ export interface StockDecrement {
 export class InventoryService {
   private readonly logger = new Logger(InventoryService.name);
 
-  constructor(private readonly changeSeq: ChangeSeqService) {}
+  constructor(
+    private readonly changeSeq: ChangeSeqService,
+    private readonly telemetry: TelemetryService,
+  ) {}
 
   /**
    * Applies a sale's effect on standard-drug stock.
@@ -90,9 +94,16 @@ export class InventoryService {
     batchId: string | null,
     resultingQty: number,
   ): Promise<void> {
-    this.logger.warn(
-      `oversell: tenant=${tenantId} product=${decrement.productId} resulting=${resultingQty}`,
-    );
+    // NFR-7. Structured rather than a warn string, because this is a rate to watch and not
+    // an incident to read: oversell is *expected* to be non-zero here (BR-3.2 records rather
+    // than prevents), so the signal is the shape of the curve. The runbook's §4.5 turns on
+    // telling a stock problem in one branch apart from a sync problem across many.
+    this.telemetry.oversell({
+      tenantId,
+      branchId: decrement.branchId,
+      productId: decrement.productId,
+      resultingQty,
+    });
     await em.getRepository(OversellEvent).insert({
       id: uuidv7(),
       tenantId,
