@@ -5,6 +5,7 @@ import '../core/permissions.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../l10n/locale_store.dart';
+import 'dispense_screen.dart';
 import 'kit.dart';
 import 'payment_screen.dart';
 import 'sync_chip.dart';
@@ -50,7 +51,12 @@ class _SellScreenState extends State<SellScreen> {
     // arrive behind the A-1 compliance gate (prototype screen 11). Refusing here is honest;
     // selling one through the standard path would put an unauditable record in the system.
     if (product.isControlled) {
-      toast(context, context.t('pos.controlledLater'));
+      if (t.controlledEnabled && t.can(Capability.controlledDispense)) {
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => DispenseScreen(product: product)));
+      } else {
+        toast(context, context.t('pos.controlledLater'));
+      }
       return;
     }
 

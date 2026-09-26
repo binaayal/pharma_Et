@@ -271,6 +271,36 @@ class SaleRepository {
           entityType: 'cash_up',
           payload: CashUpPayload.fromJson(entry.payload),
         );
+      case 'controlled_dispense':
+        return OperationControlledDispense(
+          opId: entry.opId,
+          terminalId: terminalId,
+          terminalSeq: entry.terminalSeq,
+          entityId: entry.entityId,
+          opType: 'create',
+          baseVersion: null,
+          tenantId: tenantId,
+          branchId: branchId,
+          actorId: actorId,
+          clientTs: clientTs,
+          entityType: 'controlled_dispense',
+          payload: ControlledDispensePayload.fromJson(entry.payload),
+        );
+      case 'controlled_adjustment':
+        return OperationControlledAdjustment(
+          opId: entry.opId,
+          terminalId: terminalId,
+          terminalSeq: entry.terminalSeq,
+          entityId: entry.entityId,
+          opType: 'create',
+          baseVersion: null,
+          tenantId: tenantId,
+          branchId: branchId,
+          actorId: actorId,
+          clientTs: clientTs,
+          entityType: 'controlled_adjustment',
+          payload: ControlledAdjustmentPayload.fromJson(entry.payload),
+        );
       default:
         // Better to fail loudly here than to drop a queued transaction quietly. The entry
         // stays in the outbox either way.

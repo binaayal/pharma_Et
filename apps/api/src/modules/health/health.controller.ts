@@ -16,6 +16,9 @@ export class HealthController {
       contractVersion: CONTRACT_VERSION,
       supportedContractVersions: SUPPORTED_CONTRACT_VERSIONS,
       time: new Date().toISOString(),
+      // Whether the regulated half is live (ADR-024). Terminals read it to show or hide
+      // controlled dispensing; the server enforces it regardless of what a terminal shows.
+      features: { controlledDispensing: process.env.CONTROLLED_DISPENSING === 'on' },
     };
   }
 }

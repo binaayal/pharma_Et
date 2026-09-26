@@ -21,3 +21,6 @@ export * from './permissions.js';
 // Gregorian <-> Ethiopian conversion and its cross-language test vectors (FR-10, BR-10.2).
 // Here so the console and the till cannot disagree about what day it is.
 export * from './ethiopian-calendar.js';
+// The psychotropic rules, provisional until A-1 is verified (ADR-024). One place, so
+// verification changes one file.
+export * from './compliance.js';

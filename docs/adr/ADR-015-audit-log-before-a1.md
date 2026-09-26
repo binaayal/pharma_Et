@@ -1,6 +1,6 @@
 # ADR-015 — Building the event store and the audit log before A-1 clears
 
-**Status:** Accepted · **Date:** 2026-09-23
+**Status:** Accepted; its "not built" list superseded by [ADR-024](ADR-024-regulated-half-built-provisionally.md) · **Date:** 2026-09-23
 **Depends on:** ADR-004 (controlled-substance ledger), ADR-008 (risk-tiered testing)
 **Constrains:** `06-delivery-plan.md` §2 — Phase 2's entry gate
 **Related:** `01-vision-and-scope.md` §2.1.1, `05-qa-and-test-strategy.md` §8

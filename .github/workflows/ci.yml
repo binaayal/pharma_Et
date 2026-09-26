@@ -313,7 +313,14 @@ jobs:
         # phone in Addis Ababa came to display one day early with the whole suite green.
         env:
           TZ: Africa/Addis_Ababa
-        run: flutter test
+        run: flutter test --exclude-tags latency
+      - name: NFR-3.2 latency guard, on its own
+        # Run after everything else and alone. Measured concurrently with the other suites,
+        # a two-core runner's shared disk produced p50 4.9 ms and p95 133 ms for the same
+        # commit — the tail was the neighbours' fsyncs, not this code.
+        env:
+          TZ: Africa/Addis_Ababa
+        run: flutter test --tags latency --concurrency=1
 
   # The same app, compiled for iPhone. Xcode only runs on macOS, so this is where the iOS
   # half is proven to build at all: a plugin with no iOS implementation, a pod that will not

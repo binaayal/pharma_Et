@@ -12,7 +12,8 @@ import { AppUser, DomainEvent } from '../../entities';
  * becomes unqueryable within a year — you cannot ask "show me every price change" if three
  * spellings of that exist. Adding a type is a deliberate edit here.
  *
- * **No `controlled.*` types.** Those are the regulated subset and wait for A-1 (ADR-015).
+ * **No `controlled.*` types.** Those belong to the ledger's own stream (ADR-024), never to
+ * the general audit log.
  */
 export const AUDIT_EVENT_TYPES = [
   'audit.price_changed',

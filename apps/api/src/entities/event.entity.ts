@@ -26,7 +26,8 @@ export class DomainEvent {
 
   /**
    * What this log is for. `audit` is the general who-did-what (Vision §2.1.1).
-   * `controlled_stock` is reserved and unused until A-1 clears (ADR-015).
+   * `controlled_stock` is the controlled-substance ledger, written only while the A-1 switch
+   * is on (ADR-024).
    */
   @Column('text')
   stream: 'audit' | 'controlled_stock';

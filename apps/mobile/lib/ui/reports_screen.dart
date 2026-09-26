@@ -7,6 +7,7 @@ import '../core/money.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import 'kit.dart';
+import 'ledger_screen.dart';
 import 'stock_screen.dart';
 import 'sync_chip.dart';
 import 'terminal.dart';
@@ -158,8 +159,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 avatarTone: Tone.blue,
                 title: context.t('reports.ledger'),
                 subtitle: context.t('reports.ledgerSub'),
-                trailing:
-                    PBadge(context.t('reports.ledgerGate'), tone: Tone.grey),
+                chevron: t.controlledEnabled,
+                trailing: t.controlledEnabled
+                    ? null
+                    : PBadge(context.t('reports.ledgerGate'), tone: Tone.grey),
+                onTap: t.controlledEnabled
+                    ? () => _push(context, const LedgerScreen())
+                    : null,
               ),
               PRow(
                 avatar: '△',

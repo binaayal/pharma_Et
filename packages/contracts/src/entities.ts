@@ -4,9 +4,9 @@ import { isoDate, quantity, santim, utcTimestamp, uuidv7 } from './primitives.js
 /**
  * Payloads for the entities a terminal can write offline.
  *
- * Phase 0 (the walking skeleton, docs/04 §13) carries `sale` and `goods_receipt` only.
- * Controlled-substance `event` payloads arrive in Phase 2, behind the A-1 compliance gate —
- * do not add them here early (docs/06-delivery-plan.md §2).
+ * The controlled-substance payloads at the end of this file (contract 1.4.0) were built ahead
+ * of A-1 by owner decision (ADR-024) and are refused by the server until its
+ * `CONTROLLED_DISPENSING` switch is on — which waits for A-1 to be verified.
  */
 
 export const saleLinePayload = z.object({
@@ -187,3 +187,65 @@ export const stockAdjustmentPayload = z
     path: ['note'],
   });
 export type StockAdjustmentPayload = z.infer<typeof stockAdjustmentPayload>;
+
+/** The dedicated psychotropic prescription paper (FR-4 §4a). */
+export const prescriptionPayload = z.object({
+  /** The number printed on the dedicated prescription paper. */
+  number: z.string().trim().min(1).max(64),
+  prescriber: z.string().trim().min(1).max(120),
+  /** Calendar date the prescription was written — validity counts from here (AC-4.3). */
+  issuedOn: isoDate,
+});
+export type PrescriptionPayload = z.infer<typeof prescriptionPayload>;
+
+/**
+ * A controlled-substance dispense (FR-4 §4a–4b, FR-6; contract 1.4.0, ADR-024).
+ *
+ * One product per operation, so "one psychotropic per prescription" is structural on the
+ * wire as well as checked. It is also a sale — the customer pays, and the cash belongs to
+ * the till's cash-up — so it carries its own line total and payments, and the server
+ * writes the sale and the ledger event in one transaction.
+ */
+export const controlledDispensePayload = z
+  .object({
+    shiftId: uuidv7.nullable(),
+    cashierId: uuidv7,
+    dispensedAt: utcTimestamp,
+    productId: uuidv7,
+    /** The sale line's id, so the sale and its ledger event reference each other. */
+    lineId: uuidv7,
+    qty: quantity.positive(),
+    unitPriceSantim: santim.nonnegative(),
+    lineTotalSantim: santim.nonnegative(),
+    prescription: prescriptionPayload,
+    payments: z.array(paymentPayload).min(1),
+  })
+  .refine((d) => d.qty * d.unitPriceSantim === d.lineTotalSantim, {
+    message: 'line total must equal qty * unit price (G4)',
+    path: ['lineTotalSantim'],
+  })
+  .refine((d) => d.payments.reduce((sum, p) => sum + p.amountSantim, 0) === d.lineTotalSantim, {
+    message: 'payments must add up to the line total (G4)',
+    path: ['payments'],
+  });
+export type ControlledDispensePayload = z.infer<typeof controlledDispensePayload>;
+
+/**
+ * A compensating correction to controlled stock (FR-6 main flow 4, AC-6.1). Never an edit:
+ * the original event stays, and this one explains the difference.
+ */
+export const controlledAdjustmentPayload = z
+  .object({
+    productId: uuidv7,
+    delta: quantity,
+    reason: adjustmentReason,
+    note: z.string().trim().min(1).max(500),
+    /** The ledger event this corrects, when it corrects one. */
+    correctsEventId: uuidv7.nullable(),
+    countedAt: utcTimestamp,
+  })
+  .refine((a) => a.delta !== 0, {
+    message: 'an adjustment of zero records nothing; omit it instead',
+    path: ['delta'],
+  });
+export type ControlledAdjustmentPayload = z.infer<typeof controlledAdjustmentPayload>;

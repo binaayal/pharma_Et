@@ -6,6 +6,7 @@ import 'package:pharmaet_mobile/api/tenant_api.dart';
 import 'package:pharmaet_mobile/contracts/contracts.dart';
 import 'package:pharmaet_mobile/core/theme.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
+import 'package:pharmaet_mobile/data/controlled_repository.dart';
 import 'package:pharmaet_mobile/data/inventory_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/data/outbox.dart';
@@ -63,6 +64,7 @@ class TestTerminal {
       sales: sales,
       shifts: shifts,
       inventory: inventory,
+      controlled: StubControlled(db, outbox),
       syncService: sync,
       api: TenantApi(
           baseUrl: 'http://stub.invalid',
@@ -224,4 +226,17 @@ class StubSync extends SyncService {
     return const SyncStatus(
         state: SyncState.idle, pending: 0, needsAttention: 0);
   }
+}
+
+/// The switch in memory — a widget test's fake-async zone never completes real file I/O.
+class StubControlled extends ControlledRepository {
+  StubControlled(super.db, super.outbox);
+
+  bool on = false;
+
+  @override
+  Future<bool> enabled() async => on;
+
+  @override
+  Future<void> rememberSwitch(bool value) async => on = value;
 }

@@ -1,0 +1,5 @@
+# Test tags (package:test). Declared so an unknown tag is an error rather than a typo.
+tags:
+  # NFR-3.2's regression guard. Measured on its own, never alongside other suites that
+  # share the disk — CI runs it in a separate step with --concurrency=1.
+  latency:

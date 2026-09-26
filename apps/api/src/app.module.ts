@@ -17,6 +17,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { HealthController } from './modules/health/health.controller';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { LedgerModule } from './modules/ledger/ledger.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { SyncModule } from './modules/sync/sync.module';
 
@@ -73,6 +74,7 @@ function appConnectionUrl(config: ConfigService): string {
     // Global, so anything that changes tenant state can record that it did without an
     // import chain making it inconvenient enough to skip (ADR-015).
     AuditModule,
+    LedgerModule,
     AuthModule,
     AdminModule,
     BillingModule,
