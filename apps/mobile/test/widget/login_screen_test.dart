@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharmaet_mobile/auth/offline_credentials.dart';
 import 'package:pharmaet_mobile/auth/session.dart';
 import 'package:pharmaet_mobile/contracts/contracts.dart';
 import 'package:pharmaet_mobile/sync/sync_client.dart';
@@ -113,6 +115,68 @@ void main() {
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.textContaining('No connection'), findsOneWidget);
     expect(find.textContaining('Check the details'), findsNothing);
+  });
+
+  group('offline, with a PIN cached at the last online sign-in (AC-2.2)', () {
+    final cached = LoginResponse(
+      accessToken: 'access',
+      refreshToken: 'refresh',
+      expiresAt:
+          DateTime.now().add(const Duration(minutes: 15)).toIso8601String(),
+      offlineValidUntil:
+          DateTime.now().add(const Duration(days: 3)).toIso8601String(),
+      scope: const AuthScope(
+        userId: '01930000-0000-7000-8000-000000000003',
+        tenantId: '01930000-0000-7000-8000-000000000001',
+        role: 'cashier',
+        displayName: 'Sara Girma',
+        branchIds: ['01930000-0000-7000-8000-000000000002'],
+      ),
+    );
+
+    Future<LoginResponse?> attempt(WidgetTester tester, String pin) async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final offline = OfflineCredentials();
+      await tester.runAsync(() => offline.remember(
+          tenantCode: 'abay',
+          username: 'cashier',
+          secret: '1234',
+          response: cached));
+      LoginResponse? signedIn;
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await pumpScreen(
+        tester,
+        LoginScreen(
+          client: _UnreachableClient(),
+          terminalId: terminalId,
+          offline: offline,
+          onSignedIn: (r, _, __, ___) => signedIn = r,
+        ),
+      );
+      await tester.enterText(find.byType(TextField).at(0), 'abay');
+      await tester.enterText(find.byType(TextField).at(1), 'cashier');
+      await keyIn(tester, pin);
+      await tester.runAsync(() async {
+        signInButton(tester).onPressed!();
+        await Future<void>.delayed(const Duration(seconds: 2));
+      });
+      await tester.pump();
+      return signedIn;
+    }
+
+    testWidgets('the right PIN opens the till with no network', (tester) async {
+      final session = await attempt(tester, '1234');
+      expect(session?.scope.displayName, 'Sara Girma');
+    });
+
+    testWidgets('a wrong PIN reads exactly like an online refusal',
+        (tester) async {
+      final session = await attempt(tester, '9999');
+      expect(session, isNull);
+      expect(find.textContaining('Check the details'), findsOneWidget);
+    });
   });
 
   testWidgets('it will not submit an incomplete form', (tester) async {

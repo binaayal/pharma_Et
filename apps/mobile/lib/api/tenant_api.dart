@@ -124,6 +124,41 @@ class TenantApi {
           },
           token: token);
 
+  /// Deactivates a staff member (FR-2). Their queued sales still sync; their next sign-in
+  /// and next token refresh are refused.
+  Future<void> deactivateStaff(String token, String userId) async {
+    final response = await _client
+        .delete(Uri.parse('$baseUrl/users/$userId'), headers: _headers(token))
+        .timeout(_timeout);
+    _decode(response);
+  }
+
+  // --------------------------------------------------------------------- catalog
+
+  /// Adds a product to the pharmacy's catalog (FR-3). It reaches every terminal on the next
+  /// pull, like any other reference data.
+  Future<void> createProduct(
+    String token, {
+    required String name,
+    required String unit,
+    required int priceSantim,
+    bool isControlled = false,
+  }) =>
+      _post(
+          '/products',
+          {
+            'name': name,
+            'unit': unit,
+            'priceSantim': priceSantim,
+            'isControlled': isControlled,
+          },
+          token: token);
+
+  /// Changes a selling price. Recorded in the audit log with the old and new figure.
+  Future<void> setPrice(String token, String productId, int priceSantim) =>
+      _post('/products/$productId/price', {'priceSantim': priceSantim},
+          token: token);
+
   // ---------------------------------------------------------------- subscription
 
   Future<SubscriptionInfo> subscription(String token) async =>

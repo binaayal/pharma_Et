@@ -8,6 +8,7 @@ import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../data/inventory_repository.dart';
 import '../l10n/locale_store.dart';
+import 'catalog_sheets.dart';
 import 'kit.dart';
 import 'receive_screen.dart';
 import 'reconcile_screen.dart';
@@ -83,6 +84,14 @@ class _StockScreenState extends State<StockScreen> {
         title: context.t('stock.title'),
         onBack: widget.onBack,
         trailing: [
+          if (t.can(Capability.catalogManage))
+            PIconButton(
+              icon: Icons.add,
+              tooltip: context.t('catalog.addTitle'),
+              onTap: () async {
+                if (await showProductForm(context)) await _load();
+              },
+            ),
           if (t.can(Capability.goodsReceive))
             PIconButton(
               icon: Icons.south,
@@ -264,9 +273,19 @@ class _ProductScreenState extends State<ProductScreen> {
                   value: '$onHand',
                   valueColor: onHand < 0 ? PharmaColors.red : null),
               PTile(
-                  label: context.t('product.price'),
-                  value: formatBirr(p.priceSantim),
-                  unit: 'ETB'),
+                  label: t.can(Capability.catalogManage)
+                      ? '${context.t('product.price')} · ${context.t('catalog.change')}'
+                      : context.t('product.price'),
+                  value: formatMoney(p.priceSantim),
+                  unit: 'ETB',
+                  onTap: t.can(Capability.catalogManage)
+                      ? () async {
+                          if (await showPriceForm(context, p) &&
+                              context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        }
+                      : null)
             ]),
             if (p.isControlled)
               Padding(

@@ -30,5 +30,6 @@ quietly work around an accepted ADR in code.
 | [ADR-020](ADR-020-expired-stock-override.md) | Dispensing expired stock is warned, authorised and recorded — never blocked | Accepted |
 | [ADR-021](ADR-021-telemetry-and-what-it-may-carry.md) | Telemetry goes to stdout as JSON, and never carries a credential | Accepted |
 | [ADR-022](ADR-022-signup-requests.md) | Sign-up requests: anyone may ask, a person decides | Accepted |
+| [ADR-023](ADR-023-offline-sign-in.md) | Offline sign-in with a cached PIN, bounded by the offline window | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated
