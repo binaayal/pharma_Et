@@ -32,6 +32,7 @@ import { TelemetryService } from '../../common/observability/telemetry.service';
 import { CashUpService } from '../cashup/cash-up.service';
 import { ChangeSeqService } from '../inventory/change-seq.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { LedgerService } from '../ledger/ledger.service';
 
 /**
  * The server half of the SyncService seam (ADR-005). This is a CONTROLLED ARTIFACT — see
@@ -65,6 +66,7 @@ export class SyncService {
     private readonly cashUp: CashUpService,
     private readonly audit: AuditService,
     private readonly telemetry: TelemetryService,
+    private readonly ledger: LedgerService,
   ) {}
 
   async push(scope: TenantScope, request: PushRequest): Promise<PushResponse> {
@@ -127,6 +129,13 @@ export class SyncService {
           case 'stock_adjustment':
             await this.applyStockAdjustment(em, scope, operation);
             break;
+          // The regulated half (ADR-024): refused, writing nothing, until the switch is on.
+          case 'controlled_dispense':
+            await this.ledger.dispense(em, scope, operation);
+            break;
+          case 'controlled_adjustment':
+            await this.ledger.adjust(em, scope, operation);
+            break;
         }
 
         await em.getRepository(AppliedOp).insert({
@@ -162,6 +171,20 @@ export class SyncService {
     const { payload } = operation;
     const branchId = operation.branchId;
     if (!branchId) throw new Error('a sale must name its branch');
+
+    // A controlled substance never leaves through the standard path (FR-4 §4b, ADR-004):
+    // it would decrement a mutable batch and never reach the ledger. The till already
+    // refuses; the server refuses too, so no terminal can route around the ledger.
+    const productIds = [...new Set(payload.lines.map((l) => l.productId))];
+    const controlled = await em
+      .getRepository(Product)
+      .createQueryBuilder('p')
+      .where('p.id IN (:...ids)', { ids: productIds })
+      .andWhere('p.is_controlled = true')
+      .getCount();
+    if (controlled > 0) {
+      throw new Error('a controlled substance is dispensed through the ledger, not sold as a standard line');
+    }
 
     await em.getRepository(Sale).insert({
       id: operation.entityId,
@@ -314,6 +337,25 @@ export class SyncService {
         changeSeq: 0,
         deletedAt: null,
       });
+
+      // A controlled line is a ledger event, not a batch (docs/04 §5.4, ADR-004) — and is
+      // refused outright while the regulated half is switched off (ADR-024).
+      const product = await em.getRepository(Product).findOne({ where: { id: line.productId } });
+      if (product?.isControlled) {
+        await this.ledger.receive(em, scope, {
+          branchId,
+          productId: line.productId,
+          qty: line.qty,
+          lotNo: line.lotNo,
+          expiryDate: line.expiryDate,
+          goodsReceiptId: operation.entityId,
+          supplierName: payload.supplierName,
+          receivedAt: new Date(payload.receivedAt),
+          terminalId: operation.terminalId,
+          opId: operation.opId,
+        });
+        continue;
+      }
 
       // The receipt line's id doubles as the batch id when the lot is new to this branch,
       // so the batch is addressable without a server round-trip (ADR-006).

@@ -190,15 +190,17 @@ describe('G3 — ledger immutability', () => {
     }
   });
 
-  it('has no controlled-substance event type yet, and the schema says so', async () => {
-    // The fact that settles "is compliance done?" — no controlled.* type exists, and the
-    // controlled_stock stream has never been written to. A-1 is unverified and the regulated
-    // subset is deliberately absent (ADR-015).
+  it('writes nothing controlled while the regulated half is switched off (ADR-024)', async () => {
+    // The fact that settles "is compliance live?". A-1 is unverified, so the switch is off,
+    // and with it off the controlled_stock stream stays empty whatever a terminal sends.
+    // The controlled half itself — rules, ledger, projection — is g5-controlled-ledger's.
+    expect(process.env.CONTROLLED_DISPENSING).not.toBe('on');
     const controlled = await harness.platformDataSource.query(
       `SELECT count(*)::int AS n FROM event WHERE stream = 'controlled_stock' OR event_type LIKE 'controlled.%'`,
     );
     expect(controlled[0].n).toBe(0);
 
+    // And the general audit log never borrows a controlled type.
     const { AUDIT_EVENT_TYPES } = await import('../../src/modules/audit/audit.service');
     expect(AUDIT_EVENT_TYPES.some((t) => t.startsWith('controlled.'))).toBe(false);
   });

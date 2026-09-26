@@ -9,6 +9,7 @@ import 'auth/session.dart';
 import 'contracts/contracts.dart';
 import 'core/theme.dart';
 import 'data/catalog_repository.dart';
+import 'data/controlled_repository.dart';
 import 'data/local_db.dart';
 import 'data/outbox.dart';
 import 'data/inventory_repository.dart';
@@ -53,6 +54,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
   SaleRepository? _sales;
   ShiftRepository? _shifts;
   InventoryRepository? _inventory;
+  ControlledRepository? _controlled;
   SyncService? _syncService;
 
   CachedSession? _session;
@@ -104,6 +106,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       _sales = sales;
       _shifts = shifts;
       _inventory = inventory;
+      _controlled = ControlledRepository(db, outbox);
       _syncService = SyncService(
         db: db,
         outbox: outbox,
@@ -198,6 +201,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       sales: _sales!,
       shifts: _shifts!,
       inventory: _inventory!,
+      controlled: _controlled!,
       syncService: _syncService!,
       api: _api,
       client: _client,

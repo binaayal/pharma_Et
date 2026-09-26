@@ -215,3 +215,78 @@ export function adjustmentOp(
     },
   };
 }
+
+/** A controlled dispense (contract 1.4.0, ADR-024). */
+export function dispenseOp(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    productId?: string;
+    qty?: number;
+    rxNumber?: string;
+    issuedOn?: string;
+    dispensedAt?: string;
+    unitPriceSantim?: number;
+  },
+) {
+  const qty = options.qty ?? 1;
+  const unit = options.unitPriceSantim ?? 4000;
+  const dispensedAt = options.dispensedAt ?? '2026-09-22T08:00:00.000Z';
+  return {
+    opId: uuidv7(),
+    terminalId: TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.cashier.id,
+    clientTs: dispensedAt,
+    entityType: 'controlled_dispense' as const,
+    payload: {
+      shiftId: null,
+      cashierId: tenant.users.cashier.id,
+      dispensedAt,
+      productId: options.productId ?? tenant.controlledProductId,
+      lineId: uuidv7(),
+      qty,
+      unitPriceSantim: unit,
+      lineTotalSantim: qty * unit,
+      prescription: {
+        number: options.rxNumber ?? 'RX-PSY-00417',
+        prescriber: 'Dr. Almaz Tesfaye',
+        issuedOn: options.issuedOn ?? '2026-09-20',
+      },
+      payments: [{ id: uuidv7(), method: 'cash' as const, amountSantim: qty * unit }],
+    },
+  };
+}
+
+/** A compensating controlled-stock correction (contract 1.4.0, ADR-024). */
+export function controlledAdjustmentOp(
+  tenant: SeededTenant,
+  options: { terminalSeq: number; delta: number; correctsEventId?: string | null },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.manager.id,
+    clientTs: '2026-09-22T09:00:00.000Z',
+    entityType: 'controlled_adjustment' as const,
+    payload: {
+      productId: tenant.controlledProductId,
+      delta: options.delta,
+      reason: 'recount' as const,
+      note: 'counted the locked cabinet',
+      correctsEventId: options.correctsEventId ?? null,
+      countedAt: '2026-09-22T09:00:00.000Z',
+    },
+  };
+}

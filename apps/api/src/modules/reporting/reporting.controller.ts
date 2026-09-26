@@ -113,7 +113,7 @@ export class ReportingController {
  * narrowing, so `own` cannot be honoured on it — and honouring it loosely, by returning the
  * whole branch, is precisely the quiet over-grant this matrix exists to prevent.
  */
-function assertNotOwnScoped(scope: TenantScope, what: string): void {
+export function assertNotOwnScoped(scope: TenantScope, what: string): void {
   if (grantFor(scope.role, 'report.branch') === 'own') {
     throw new ForbiddenException(`your role may not read ${what}`);
   }
@@ -127,7 +127,7 @@ function assertNotOwnScoped(scope: TenantScope, what: string): void {
  * calendar dates and are interpreted as UTC, matching how they are stored; the Ethiopian
  * calendar is a presentation concern and never reaches this layer (BR-10.2).
  */
-function parseWindow(from?: string, to?: string): { from: Date; to: Date } {
+export function parseWindow(from?: string, to?: string): { from: Date; to: Date } {
   const parse = (value: string, label: string): Date => {
     const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00Z` : value);
     if (Number.isNaN(parsed.getTime())) {

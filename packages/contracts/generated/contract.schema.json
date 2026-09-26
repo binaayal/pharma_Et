@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PharmaEt sync & API contract",
   "description": "Generated from packages/contracts/src by `pnpm gen:contracts`. Do not hand-edit. This is a controlled artifact — see docs/06-delivery-plan.md §7.",
-  "contractVersion": "1.3.0",
+  "contractVersion": "1.4.0",
   "definitions": {
     "Operation": {
       "anyOf": [
@@ -317,6 +317,120 @@
             "payload"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalSeq": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/terminalSeq"
+            },
+            "entityId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "opType": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opType"
+            },
+            "baseVersion": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/baseVersion"
+            },
+            "tenantId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "branchId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/branchId"
+            },
+            "actorId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "clientTs": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            "entityType": {
+              "type": "string",
+              "const": "controlled_dispense"
+            },
+            "payload": {
+              "$ref": "#/definitions/ControlledDispensePayload"
+            }
+          },
+          "required": [
+            "opId",
+            "terminalId",
+            "terminalSeq",
+            "entityId",
+            "opType",
+            "baseVersion",
+            "tenantId",
+            "branchId",
+            "actorId",
+            "clientTs",
+            "entityType",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalSeq": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/terminalSeq"
+            },
+            "entityId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "opType": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opType"
+            },
+            "baseVersion": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/baseVersion"
+            },
+            "tenantId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "branchId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/branchId"
+            },
+            "actorId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "clientTs": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            "entityType": {
+              "type": "string",
+              "const": "controlled_adjustment"
+            },
+            "payload": {
+              "$ref": "#/definitions/ControlledAdjustmentPayload"
+            }
+          },
+          "required": [
+            "opId",
+            "terminalId",
+            "terminalSeq",
+            "entityId",
+            "opType",
+            "baseVersion",
+            "tenantId",
+            "branchId",
+            "actorId",
+            "clientTs",
+            "entityType",
+            "payload"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -365,7 +479,7 @@
       "properties": {
         "contractVersion": {
           "type": "string",
-          "default": "1.3.0"
+          "default": "1.4.0"
         },
         "terminalId": {
           "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
@@ -978,6 +1092,138 @@
         "note",
         "countedAt",
         "previousQtyOnHand"
+      ],
+      "additionalProperties": false
+    },
+    "PrescriptionPayload": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "prescriber": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "issuedOn": {
+          "$ref": "#/definitions/StockBatchRef/properties/expiryDate"
+        }
+      },
+      "required": [
+        "number",
+        "prescriber",
+        "issuedOn"
+      ],
+      "additionalProperties": false
+    },
+    "ControlledDispensePayload": {
+      "type": "object",
+      "properties": {
+        "shiftId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Client-generated UUIDv7 identifier"
+        },
+        "cashierId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "dispensedAt": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        },
+        "productId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "lineId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "qty": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Integer quantity in the base unit"
+        },
+        "unitPriceSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "lineTotalSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "prescription": {
+          "$ref": "#/definitions/PrescriptionPayload"
+        },
+        "payments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/PaymentPayload"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "shiftId",
+        "cashierId",
+        "dispensedAt",
+        "productId",
+        "lineId",
+        "qty",
+        "unitPriceSantim",
+        "lineTotalSantim",
+        "prescription",
+        "payments"
+      ],
+      "additionalProperties": false
+    },
+    "ControlledAdjustmentPayload": {
+      "type": "object",
+      "properties": {
+        "productId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "delta": {
+          "$ref": "#/definitions/StockBatchRef/properties/qtyOnHand"
+        },
+        "reason": {
+          "$ref": "#/definitions/StockAdjustmentPayload/properties/reason"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "correctsEventId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Client-generated UUIDv7 identifier"
+        },
+        "countedAt": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        }
+      },
+      "required": [
+        "productId",
+        "delta",
+        "reason",
+        "note",
+        "correctsEventId",
+        "countedAt"
       ],
       "additionalProperties": false
     },

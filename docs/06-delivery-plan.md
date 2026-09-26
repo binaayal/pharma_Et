@@ -43,7 +43,7 @@ flowchart LR
 |---|---|---|
 | **P0 Foundations + Walking Skeleton** | Repos, CI/CD, environments (incl. staging) stood up; the thin vertical slice (`03`§9): one tenant/branch/terminal, receive→sell→decrement→sync→dashboard. | Skeleton passes guardian **G1, G2, G4, G7**; CI/CD auto-promotes to staging; staging reachable. |
 | **P1 Core loop** ✅ | FR-1, FR-2, FR-3 (standard, FEFO, negative-stock), FR-4 (standard sale), FR-7 (base receipt), FR-8 (+ cash-up), FR-9 (single-writer), FR-10. | All guardian suites full; core e2e journeys green; perf within NFR-3 on staging. **Closed 2026-09-23** — see the note below on where perf was measured. |
-| **P2 Compliance subset** ◐ | FR-6 (ledger), FR-4 (psychotropic rules), general audit log. **Entry gate: A-1 verified.** | Compliance tests **final** (not provisional); RTM complete for regulated reqs; sign-off. **Closed partial 2026-09-24** — see the note below. |
+| **P2 Compliance subset** ◐ | FR-6 (ledger), FR-4 (psychotropic rules), general audit log. **Entry gate: A-1 verified.** | Compliance tests **final** (not provisional); RTM complete for regulated reqs; sign-off. **Closed partial 2026-09-24**; **regulated half built provisionally 2026-09-26, switched off until A-1** (ADR-024) — see the notes below. |
 | **P3 Hardening + Field UAT** | Performance + security passes, low-end Android device matrix, pilot in a real pharmacy through real outages. | Pilot sign-off; launch-readiness checklist (§11) green. |
 | **P4 GA** | Staged production rollout. | Post-deploy health within thresholds. |
 
@@ -83,6 +83,12 @@ flowchart LR
 > and it carries no 5- or 7-year retention. That reading is recorded in
 > `../compliance-sign-off.md` as an engineering reading, explicitly not a compliance
 > sign-off. Holding the phase open would not move it.
+>
+> **Built provisionally (2026-09-26, ADR-024).** By owner decision the regulated half now
+> exists — ledger, projection, psychotropic rules on the till and the server, dispense and
+> ledger screens — behind `CONTROLLED_DISPENSING`, which stays **off** in every deployed
+> environment until A-1 is verified and recorded. Off, every controlled operation is refused
+> and writes nothing (guardian-asserted). What remains of P2 is verification, not engineering.
 >
 > **What reopens it.** A-1 verified against the correct directive. At that point the
 > regulated half is a known, bounded build — the event store it needs is already in

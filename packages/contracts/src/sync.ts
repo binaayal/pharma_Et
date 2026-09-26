@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   cashUpPayload,
+  controlledAdjustmentPayload,
+  controlledDispensePayload,
   goodsReceiptPayload,
   salePayload,
   shiftPayload,
@@ -30,7 +32,16 @@ import { CONTRACT_VERSION } from './version.js';
  * Entity types a terminal may push. Grows per phase, additively (ADR-012 §1); every
  * addition appends to the version log in that ADR.
  */
-export const entityType = z.enum(['sale', 'goods_receipt', 'shift', 'cash_up', 'stock_adjustment']);
+export const entityType = z.enum([
+  'sale',
+  'goods_receipt',
+  'shift',
+  'cash_up',
+  'stock_adjustment',
+  // 1.4.0 — the controlled-substance ledger (ADR-024), refused until A-1 is verified.
+  'controlled_dispense',
+  'controlled_adjustment',
+]);
 export type EntityType = z.infer<typeof entityType>;
 
 /**
@@ -76,6 +87,16 @@ export const operation = z.discriminatedUnion('entityType', [
     ...operationBase,
     entityType: z.literal('stock_adjustment'),
     payload: stockAdjustmentPayload,
+  }),
+  z.object({
+    ...operationBase,
+    entityType: z.literal('controlled_dispense'),
+    payload: controlledDispensePayload,
+  }),
+  z.object({
+    ...operationBase,
+    entityType: z.literal('controlled_adjustment'),
+    payload: controlledAdjustmentPayload,
   }),
 ]);
 export type Operation = z.infer<typeof operation>;

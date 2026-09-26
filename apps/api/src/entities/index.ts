@@ -30,10 +30,10 @@ export * from './user-branch.entity';
 /**
  * The entity set as far as Phase 1 has built it.
  *
- * The `event` table is present — it carries the general action audit log, which Vision
- * §2.1.1 folds into V1 as product capability rather than compliance. What remains absent is
- * the regulated subset: no `controlled.*` event type, no projection, no retention rule.
- * ADR-015 draws that line and explains why it is where it is.
+ * The `event` table carries both the general action audit log (Vision §2.1.1) and, on the
+ * `controlled_stock` stream, the controlled-substance ledger — built ahead of A-1 and refused
+ * while the switch is off (ADR-024). Its projection, `controlled_stock_view`, is maintained
+ * with raw SQL in `modules/ledger/`. No retention rule exists: the store never deletes.
  */
 export const ALL_ENTITIES = [
   Tenant,

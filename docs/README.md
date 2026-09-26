@@ -77,6 +77,7 @@ answer, permanently.
 | [ADR-021](adr/ADR-021-telemetry-and-what-it-may-carry.md) | Telemetry goes to stdout as JSON, and never carries a credential | Accepted |
 | [ADR-022](adr/ADR-022-signup-requests.md) | Sign-up requests: anyone may ask, a person decides | Accepted |
 | [ADR-023](adr/ADR-023-offline-sign-in.md) | Offline sign-in with a cached PIN, bounded by the offline window | Accepted |
+| [ADR-024](adr/ADR-024-regulated-half-built-provisionally.md) | The regulated half, built ahead of A-1 and switched off until it clears | Accepted |
 
 ---
 

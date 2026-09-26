@@ -37,9 +37,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
     if (_products == null) {
       // Controlled items post a receipt *event* to the ledger instead of a mutable count
       // (ADR-004) — which arrives with the compliance phase, so they are not offered here.
-      unawaited(TerminalScope.read(context).catalog.products().then((p) {
+      final t = TerminalScope.read(context);
+      unawaited(t.catalog.products().then((p) {
         if (mounted) {
-          setState(() => _products = p.where((x) => !x.isControlled).toList());
+          // Controlled lines become ledger events on the server (ADR-004), so they are
+          // offered only once the regulated half is live (ADR-024).
+          setState(() => _products =
+              p.where((x) => !x.isControlled || t.controlledEnabled).toList());
         }
       }));
     }
