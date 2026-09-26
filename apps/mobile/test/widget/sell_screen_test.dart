@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
+import 'package:pharmaet_mobile/ui/dispense_screen.dart';
 import 'package:pharmaet_mobile/ui/home_screen.dart';
 import 'package:pharmaet_mobile/ui/kit.dart';
 import 'package:pharmaet_mobile/ui/sell_screen.dart';
@@ -99,8 +100,38 @@ void main() {
       await tester.tap(find.text('Diazepam'));
       await tester.pump();
 
-      expect(find.textContaining('compliance phase'), findsOneWidget);
+      expect(find.textContaining('switched off until EFDA'), findsOneWidget);
       expect(t.terminal.cart, isEmpty);
+    });
+  });
+
+  group('controlled dispensing, once the switch is on (ADR-024)', () {
+    testWidgets('opens the dispense screen instead of the cart',
+        (tester) async {
+      final t = TestTerminal.build(db, role: 'cashier');
+      t.addProduct('p2', 'Diazepam', controlled: true);
+      await t.terminal.controlled.rememberSwitch(true);
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      await tester.tap(find.text('Diazepam'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DispenseScreen), findsOneWidget);
+      expect(find.text('Controlled dispense'), findsOneWidget);
+      expect(t.terminal.cart, isEmpty);
+    });
+
+    testWidgets('there is no dispense button until every rule is met (BR-4.2)',
+        (tester) async {
+      final t = TestTerminal.build(db, role: 'cashier');
+      t.addProduct('p2', 'Diazepam', controlled: true);
+      await pumpTerminalScreen(tester, t.terminal,
+          DispenseScreen(product: t.catalog.products_.single));
+
+      final record = tester.widget<PButton>(find.byType(PButton));
+      expect(record.label, 'Dispense & record to ledger');
+      expect(record.onPressed, isNull);
+      expect(find.textContaining('provisional until EFDA'), findsOneWidget);
     });
   });
 

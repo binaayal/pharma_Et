@@ -49,7 +49,7 @@ class LocalDb {
   Future<void> acknowledgeQuarantine() =>
       db.delete('meta', where: 'key = ?', whereArgs: [_quarantineKey]);
 
-  static const _version = 3;
+  static const _version = 4;
 
   /// Opens the terminal's database, and **always returns one** (ADR-018).
   ///
@@ -252,6 +252,7 @@ class LocalDb {
 
     await _createShiftSchema(db);
     await _createInventorySchema(db);
+    await _createControlledSchema(db);
 
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
@@ -342,6 +343,29 @@ class LocalDb {
     ''');
   }
 
+  /// Controlled dispenses taken on this device (FR-4 §4a; ADR-024).
+  ///
+  /// Kept beside the sale they belong to, so the one-psychotropic-per-prescription rule can
+  /// be checked with no network — the prescriptions this till has already filled are here.
+  static Future<void> _createControlledSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE controlled_dispense (
+        id                TEXT PRIMARY KEY,
+        sale_id           TEXT NOT NULL REFERENCES sale(id),
+        product_id        TEXT NOT NULL,
+        qty               INTEGER NOT NULL,
+        prescription_no   TEXT NOT NULL,
+        prescription_key  TEXT NOT NULL,
+        prescriber        TEXT NOT NULL,
+        issued_on         TEXT NOT NULL,
+        dispensed_at      TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX controlled_dispense_rx ON controlled_dispense (prescription_key)',
+    );
+  }
+
   /// Schema upgrades run on a device holding real, unsynced sales.
   ///
   /// So they are additive only — new tables and new nullable columns. Anything that
@@ -356,6 +380,9 @@ class LocalDb {
     }
     if (from < 3) {
       await _createInventorySchema(db);
+    }
+    if (from < 4) {
+      await _createControlledSchema(db);
     }
   }
 

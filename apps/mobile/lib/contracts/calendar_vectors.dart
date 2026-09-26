@@ -7,7 +7,7 @@
 // two agree. Cases are chosen for the places conversion actually breaks — the new-year
 // boundary, Pagume 6, and Gregorian leap days.
 //
-// Contract version: 1.3.0
+// Contract version: 1.4.0
 
 // ignore_for_file: lines_longer_than_80_chars
 

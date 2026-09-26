@@ -8,6 +8,7 @@ import '../auth/session.dart';
 import '../contracts/contracts.dart';
 import '../core/permissions.dart';
 import '../data/catalog_repository.dart';
+import '../data/controlled_repository.dart';
 import '../data/inventory_repository.dart';
 import '../data/sale_repository.dart';
 import '../data/shift_repository.dart';
@@ -27,6 +28,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     required this.sales,
     required this.shifts,
     required this.inventory,
+    required this.controlled,
     required this.syncService,
     required this.api,
     required this.client,
@@ -46,6 +48,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   final SaleRepository sales;
   final ShiftRepository shifts;
   final InventoryRepository inventory;
+  final ControlledRepository controlled;
   final SyncService syncService;
   final TenantApi api;
   final SyncClient client;
@@ -68,6 +71,9 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   ActiveShift? shift;
   List<LocalProduct> products = [];
   SubscriptionInfo? subscription;
+
+  /// Whether controlled dispensing is live (ADR-024) — off until A-1 is verified.
+  bool controlledEnabled = false;
   final List<CartLine> cart = [];
 
   /// The batch FEFO chose for each cart line, and what the branch holds of that product —
@@ -125,6 +131,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<void> refresh() async {
     revision++;
+    controlledEnabled = await controlled.enabled();
     products = await catalog.products();
     status = await syncService.status();
     shift = await shifts.activeShift(session.scope.userId);
@@ -158,7 +165,22 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     // Cheap, owner-only, and the way a suspension or a verified payment reaches a phone
     // that stays open all day.
     unawaited(loadSubscription());
+    unawaited(_learnSwitch());
     return status;
+  }
+
+  /// Asks the server whether the regulated half is live, and remembers the answer offline.
+  Future<void> _learnSwitch() async {
+    try {
+      final on = await api.controlledDispensingEnabled();
+      await controlled.rememberSwitch(on);
+      if (on != controlledEnabled) {
+        controlledEnabled = on;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Offline: the last answer stands.
+    }
   }
 
   /// An online call with the session's token, renewed once on a 401 (ADR-019).

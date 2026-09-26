@@ -6,7 +6,7 @@
 // AC-2.1 requires a denial at both the app and the API layer. Both read this one table, so
 // the app cannot offer something the server will refuse.
 //
-// Contract version: 1.3.0
+// Contract version: 1.4.0
 
 // ignore_for_file: lines_longer_than_80_chars
 

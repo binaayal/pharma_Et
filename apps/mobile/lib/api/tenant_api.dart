@@ -153,6 +153,57 @@ class TenantApi {
     _decode(await http.Response.fromStream(streamed));
   }
 
+  // --------------------------------------------------------- controlled ledger
+
+  /// Whether the regulated half is live on this server (ADR-024). Public: it says nothing
+  /// about any pharmacy, only whether A-1 has been cleared for this deployment.
+  Future<bool> controlledDispensingEnabled() async {
+    final response = await _client
+        .get(Uri.parse('$baseUrl/health'), headers: _headers(null))
+        .timeout(_timeout);
+    final json = _decode(response) as Map<String, dynamic>;
+    final features = json['features'] as Map<String, dynamic>?;
+    return features?['controlledDispensing'] == true;
+  }
+
+  /// AC-6.2 — the ordered history, newest last.
+  Future<List<LedgerEntry>> ledger(String token,
+      {required DateTime from, required DateTime to, String? productId}) async {
+    final rows = await _get(
+        '/ledger?from=${from.toUtc().toIso8601String()}&to=${to.toUtc().toIso8601String()}'
+        '${productId == null ? '' : '&productId=$productId'}',
+        token) as List<dynamic>;
+    return rows
+        .map((r) => LedgerEntry.fromJson(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Current controlled stock — the projection over the events (BR-3.3).
+  Future<Map<String, int>> controlledStock(String token) async {
+    final rows = await _get('/ledger/stock', token) as List<dynamic>;
+    final out = <String, int>{};
+    for (final r in rows.cast<Map<String, dynamic>>()) {
+      final id = r['productId'] as String;
+      out[id] = (out[id] ?? 0) + _int(r['qtyOnHand']);
+    }
+    return out;
+  }
+
+  /// BR-6.3 — the ledger as a CSV an inspector can file.
+  Future<String> ledgerCsv(String token,
+      {required DateTime from, required DateTime to}) async {
+    final response = await _client
+        .get(
+            Uri.parse(
+                '$baseUrl/ledger/export?from=${from.toUtc().toIso8601String()}&to=${to.toUtc().toIso8601String()}'),
+            headers: _headers(token))
+        .timeout(_timeout);
+    if (response.statusCode >= 400) {
+      throw ApiException(_messageOf(response.body), response.statusCode);
+    }
+    return response.body;
+  }
+
   // --------------------------------------------------------------- onboarding
 
   /// "Request an account" (ADR-022). Anonymous: it creates a request that a person at the
@@ -362,4 +413,43 @@ class SubscriptionInfo {
   final int pendingProofCount;
 
   bool get suspended => state == 'suspended';
+}
+
+class LedgerEntry {
+  const LedgerEntry({
+    required this.id,
+    required this.seq,
+    required this.eventType,
+    required this.productId,
+    required this.productName,
+    required this.branchName,
+    required this.delta,
+    required this.actorName,
+    required this.occurredAt,
+    required this.payload,
+  });
+  factory LedgerEntry.fromJson(Map<String, dynamic> j) => LedgerEntry(
+        id: j['id'] as String,
+        seq: _int(j['seq']),
+        eventType: j['eventType'] as String,
+        productId: j['productId'] as String,
+        productName: j['productName'] as String,
+        branchName: j['branchName'] as String,
+        delta: _int(j['delta']),
+        actorName: j['actorName'] as String?,
+        occurredAt: DateTime.parse(j['occurredAt'] as String),
+        payload: (j['payload'] as Map<String, dynamic>?) ?? const {},
+      );
+  final String id;
+  final int seq;
+
+  /// `controlled.received`, `controlled.dispensed` or `controlled.adjusted`.
+  final String eventType;
+  final String productId;
+  final String productName;
+  final String branchName;
+  final int delta;
+  final String? actorName;
+  final DateTime occurredAt;
+  final Map<String, dynamic> payload;
 }

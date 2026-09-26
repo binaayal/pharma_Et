@@ -87,7 +87,7 @@ export class TestHarness {
         TRUNCATE event, oversell_event, applied_op, payment, sale_line, sale,
                  goods_receipt_line, goods_receipt, stock_batch, product,
                  user_branch, app_user, branch, tenant_change_seq, tenant,
-                 login_attempt, signup_request
+                 login_attempt, signup_request, controlled_stock_view
         RESTART IDENTITY CASCADE;
       `);
     } finally {

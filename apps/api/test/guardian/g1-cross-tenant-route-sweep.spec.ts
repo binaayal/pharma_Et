@@ -98,6 +98,9 @@ const ROUTES: Record<string, RouteSpec> = {
   },
 
   'GET /api/audit': { cls: 'tenant', why: 'one pharmacy’s action history' },
+  'GET /api/ledger': { cls: 'tenant', why: 'one pharmacy’s controlled-substance ledger' },
+  'GET /api/ledger/stock': { cls: 'tenant', why: 'that pharmacy’s controlled-stock projection' },
+  'GET /api/ledger/export': { cls: 'tenant', why: 'the same ledger, as an inspector’s file' },
   'GET /api/audit/verify': { cls: 'tenant', why: 'hash-chain verification over that history' },
   'GET /api/branches': { cls: 'tenant', why: 'the pharmacy’s own branches' },
   'POST /api/branches': { cls: 'tenant', why: 'creates under the caller’s tenant' },
