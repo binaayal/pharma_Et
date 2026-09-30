@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Ip } from '@nestjs/common';
 import { CONTRACT_VERSION, SUPPORTED_CONTRACT_VERSIONS } from '@pharmaet/contracts';
 import { Public } from '../../common/auth/public.decorator';
 
@@ -10,9 +10,16 @@ export class HealthController {
    */
   @Public()
   @Get()
-  health() {
+  health(@Ip() clientIp: string) {
     return {
       status: 'ok',
+      // The commit this image was built from (Dockerfile ARG APP_COMMIT). CD waits for it
+      // to change before smoking the live URL, so it tests the release it just shipped.
+      commit: process.env.APP_COMMIT ?? 'dev',
+      // The caller's own address as the server sees it — the one-look check that TRUST_PROXY
+      // is right for the host (docs/engineering/hosting.md). If this shows the host's proxy
+      // rather than your own public IP, every pharmacy shares one login-throttle counter.
+      clientIp,
       contractVersion: CONTRACT_VERSION,
       supportedContractVersions: SUPPORTED_CONTRACT_VERSIONS,
       time: new Date().toISOString(),

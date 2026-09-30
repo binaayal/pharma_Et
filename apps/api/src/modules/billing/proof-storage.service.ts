@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { resolve } from 'node:path';
+import { type BlobStore, LocalBlobStore, S3BlobStore } from './blob-store';
 
 /**
  * Where a payment screenshot actually lives (docs/04 §5.8).
@@ -60,8 +60,28 @@ export class ProofStorageService {
     return Buffer.concat([decipher.update(stored.subarray(32)), decipher.final()]);
   }
 
-  private get root(): string {
-    return resolve(this.config.get<string>('PAYMENT_PROOF_DIR', './.payment-proofs'));
+  private store?: BlobStore;
+
+  /**
+   * The backend, chosen once from configuration (`PROOF_STORAGE`, see blob-store.ts).
+   * Built lazily so a unit test that only seals and opens needs no configuration at all.
+   */
+  get blobs(): BlobStore {
+    if (this.store) return this.store;
+    if (this.config.get<string>('PROOF_STORAGE') === 's3') {
+      this.store = new S3BlobStore({
+        endpoint: this.config.getOrThrow<string>('S3_ENDPOINT'),
+        bucket: this.config.getOrThrow<string>('S3_BUCKET'),
+        accessKeyId: this.config.getOrThrow<string>('S3_ACCESS_KEY_ID'),
+        secretAccessKey: this.config.getOrThrow<string>('S3_SECRET_ACCESS_KEY'),
+        region: this.config.get<string>('S3_REGION') ?? 'auto',
+      });
+    } else {
+      this.store = new LocalBlobStore(
+        resolve(this.config.get<string>('PAYMENT_PROOF_DIR') ?? './.payment-proofs'),
+      );
+    }
+    return this.store;
   }
 
   /**
@@ -90,23 +110,15 @@ export class ProofStorageService {
     }
 
     const storageKey = `proofs/${tenantId}/${randomUUID()}`;
-    const path = join(this.root, storageKey);
-    await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, this.seal(file.buffer), { mode: 0o600 });
+    await this.blobs.write(storageKey, this.seal(file.buffer), file.mimetype);
 
     this.logger.log(`stored payment proof ${storageKey} (${file.size} bytes)`);
     return { storageKey, byteSize: file.size, contentType: file.mimetype };
   }
 
   async get(storageKey: string): Promise<Buffer> {
-    // The key comes from a database row, never from a request parameter, so there is no
-    // user-controlled path here. The resolve check is belt and braces against a future
-    // caller that forgets that.
-    const path = resolve(join(this.root, storageKey));
-    if (!path.startsWith(resolve(this.root))) {
-      throw new BadRequestException('invalid storage key');
-    }
-    return this.open(await readFile(path));
+    // The key comes from a database row, never from a request parameter.
+    return this.open(await this.blobs.read(storageKey));
   }
 
   /** Content-based type check. The first bytes of a file are harder to lie about. */

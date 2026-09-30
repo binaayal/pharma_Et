@@ -49,6 +49,11 @@ RUN addgroup -S pharmaet && adduser -S pharmaet -G pharmaet
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# The commit this image was built from, reported by /api/health so a deploy can be confirmed
+# to have landed (CD sets it; a local build says "dev").
+ARG APP_COMMIT=dev
+ENV APP_COMMIT=$APP_COMMIT
+
 COPY --from=build --chown=pharmaet:pharmaet /app/node_modules ./node_modules
 COPY --from=build --chown=pharmaet:pharmaet /app/packages/contracts/dist ./packages/contracts/dist
 COPY --from=build --chown=pharmaet:pharmaet /app/packages/contracts/package.json ./packages/contracts/

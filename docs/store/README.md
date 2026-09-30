@@ -170,9 +170,8 @@ screen. Do **not** give reviewers the seeded `abay` demo: its credentials are pu
 
 ## 6. Owner checklist before the first submission
 
-- [ ] A production (or cleaned staging) environment on your own domain, with the steps in
-      `../engineering/security.md` §2 done (encryption key, your own platform admin, the
-      seeded admin retired, demo tenants deactivated).
+- [ ] The live environment from `../engineering/hosting.md`, ideally on your own domain
+      (§11 there) before the store listing points its privacy URL at it.
 - [ ] Build the store release against **that** URL: set the repository variable
       `MOBILE_API_BASE_URL=https://<your-domain>/api`. A release build refuses `http://`.
 - [ ] Google Play: developer account ($25), create the app, turn on Play App Signing,

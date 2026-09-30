@@ -77,7 +77,7 @@ build & publish image (API + dashboard, GHCR, immutable sha-<commit> tag)
   └─ verify: stand THAT image up against a real Postgres, migrate, seed,
              run scripts/smoke.sh over HTTP, confirm the dashboard is served and
              /api still 404s, re-run the migration to prove it no-ops
-       └─ deploy to Fly.io → release command migrates → rolling → smoke the live URL
+       └─ live: migrate Neon with that image → Render deploy hook → wait for the commit → read-only smoke (ADR-027)
             └─ production: manual dispatch only, and currently refuses (GA checklist unmet)
 ```
 
@@ -86,18 +86,7 @@ nobody depends on, so a deploy that would have failed fails there. Three things 
 that a unit test cannot: the image actually boots, the migrations actually apply from inside
 it, and the API actually serves the walking skeleton over HTTP.
 
-- **Migrations** run as Fly's `release_command`, from the **same image** that will serve the
-  traffic — a separate migration image drifts, and the drift surfaces as a schema the running
-  code does not expect. Forward-only and expand-then-contract, so the previous release still
-  works if this one is rolled back.
-- **Backend** deploys rolling, and must keep **serving the N-1 sync contract** throughout
-  (ADR-009). Rollback is redeploying the previous sha-tagged image; the schema is never
-  reversed.
-- **Dashboard** is built into the API image and served by it (`docs/03` §7). One artifact,
-  one origin: no CORS, and a console can never be live against a server it was not built
-  for. Vite's `assets/` output is cached `immutable` for a year; `index.html` is `no-cache`,
-  because caching it means a deploy never reaches anyone holding the old copy.
-- **Mobile** clients update out-of-band. **The server never assumes a client has updated.**
+- **Migrations** run in CD from the **same image** that will serve, against Neon, *before* Render is told to deploy it (ADR-027). A failed migration stops the release.
 
 Setup, rollback and running the whole thing locally: [`staging.md`](staging.md).
 
@@ -107,7 +96,8 @@ Setup, rollback and running the whole thing locally: [`staging.md`](staging.md).
 |---|---|---|
 | Local | Synthetic, 2 tenants | Real Postgres in Docker so RLS runs |
 | CI | Synthetic, ephemeral | Real Postgres service container, multi-tenant seed |
-| Staging | **Synthetic only** — two fixture tenants | Fly.io (`fra`) + Neon Postgres 16; dashboard on GitHub Pages. Same Postgres major, same RLS policies, same non-owner app role as production will use. Low-end Android device lab is Phase 1. |
+| Pre-release (CD verify) | **Synthetic only** — two fixture tenants | docker compose in CD: the release image + Postgres 16, same RLS policies and non-owner app role as live (`staging.md`). |
+| Live | Real pharmacies | Render (Frankfurt) + Neon Postgres 16 + Cloudflare R2, free tiers (ADR-027, `hosting.md`). |
 | Production | Live | Single region; managed Postgres; backups sized to the **7-year** ledger retention |
 
 Staging and production share **no** credentials and **no** data. Staging never holds real
@@ -124,7 +114,7 @@ patient or controlled-substance data.
 | `api / contract-n1` | Your envelope change is not backward compatible. Make it additive, or cut a new contract version with dual support (ADR-009). |
 | `mobile / analyze` | `dart format` or analyzer findings. Format with the CI invocation — it skips the generated contract file — then re-run. |
 | `cd / verify` | The image did not boot, the migration did not apply inside it, or the smoke test failed. Reproduce exactly: `docker compose -f docker-compose.staging.yml up -d --wait && ./scripts/smoke.sh http://localhost:3100/api`. |
-| `cd / deploy-staging-api` | Usually a missing `FLY_API_TOKEN` — the job says so in its summary and does not fail the pipeline. Otherwise read the release-command output: it is the migration. |
+| `cd / deploy-live` | Usually a missing secret or variable — the job lists them in its summary and does not fail the pipeline (`hosting.md` §6). Otherwise: the *Migrate Neon* step is the migration; *Wait* failing means read the Render deploy log. |
 | `cd / release-android`, `cd / release-ios` | Usually missing signing secrets. Each job says which ones in its summary and builds nothing. Setup: `mobile-release.md`. A red Android run that says *debug-signed* means `key.properties` was not written. |
 
 **Never** re-run a red guardian job hoping for green. A flaky guardian test is a blocking

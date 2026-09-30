@@ -22,7 +22,7 @@ suites.
 
 - **Version code / build number:** the CD run number, so every merge installs over the last one.
 - **API base URL:** the repository variable `MOBILE_API_BASE_URL`, falling back to
-  `https://pharmaet-staging.fly.dev/api`.
+  `https://pharmaet.onrender.com/api` (set it to your live URL, `hosting.md` §6).
 - **Controlled dispensing:** the app has no switch of its own. It follows the server's
   `/health` → `features.controlledDispensing`, which stays off until A-1 is signed off
   (ADR-024, `../compliance-sign-off.md`).

@@ -69,6 +69,8 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: true
+          build-args: |
+            APP_COMMIT=${{ github.sha }}
           # Immutable sha tag is what gets deployed and what a rollback names; `latest` is a
           # convenience for humans and is never what a deploy references.
           tags: |
@@ -135,76 +137,105 @@ jobs:
         run: docker compose -f docker-compose.staging.yml down -v
 
   # ------------------------------------------------------------ deploy API
-  deploy-staging-api:
-    name: deploy API to staging
+  #
+  # Render (docs/engineering/hosting.md). Render never builds PharmaEt: it runs the image this
+  # workflow already built and verified above. The order is the whole point —
+  #
+  #   migrate Neon with the new image → tell Render to run that image → wait until the live
+  #   server reports this commit → read-only smoke of the live URL
+  #
+  # — so a migration that fails stops the release before any server runs code that expects
+  # it, exactly as Fly's release_command did. Render's free plan has no pre-deploy command,
+  # and this works identically on a paid plan, so the upgrade changes nothing here.
+  deploy-live:
+    name: deploy to Render (live)
     needs: [image, verify]
     runs-on: ubuntu-latest
     environment:
-      name: staging
-      url: https://pharmaet-staging.fly.dev
+      name: live
+      url: ${{ vars.LIVE_URL }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Check the deploy is configured
         id: configured
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          DB: ${{ secrets.NEON_DATABASE_URL }}
+          APP_PW: ${{ secrets.DATABASE_APP_PASSWORD }}
+          LIVE_URL: ${{ vars.LIVE_URL }}
         run: |
-          if [ -z "$FLY_API_TOKEN" ]; then
+          missing=""
+          [ -n "$HOOK" ]     || missing="$missing RENDER_DEPLOY_HOOK_URL(secret)"
+          [ -n "$DB" ]       || missing="$missing NEON_DATABASE_URL(secret)"
+          [ -n "$APP_PW" ]   || missing="$missing DATABASE_APP_PASSWORD(secret)"
+          [ -n "$LIVE_URL" ] || missing="$missing LIVE_URL(variable)"
+          if [ -n "$missing" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
             {
-              echo "### Staging API not deployed"
+              echo "### Live not deployed"
               echo ""
-              echo "\`FLY_API_TOKEN\` is not set, so this job had nothing to deploy to."
-              echo "The image is built, published and verified — only the hosted target is missing."
-              echo ""
-              echo "See \`docs/engineering/staging.md\` for the three commands that fix this."
+              echo "Missing:$missing. The image is built, published and verified — only the"
+              echo "hosted target is not configured. See \`docs/engineering/hosting.md\` §3."
             } >> "$GITHUB_STEP_SUMMARY"
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - uses: docker/login-action@v3
         if: steps.configured.outputs.configured == 'true'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy
-        if: steps.configured.outputs.configured == 'true'
-        working-directory: apps/api
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          # The release command runs migrations before the new version takes traffic, from
-          # the same image that will serve it (fly.toml [deploy]). Rolling strategy, so the
-          # N-1 sync contract stays served throughout (ADR-009).
-          flyctl deploy --remote-only --wait-timeout 300
-
-      - name: Seed staging if it is empty
+      - name: Migrate Neon with the image about to be deployed
         if: steps.configured.outputs.configured == 'true'
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE: ${{ needs.image.outputs.image }}:${{ needs.image.outputs.tag }}
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          DATABASE_APP_PASSWORD: ${{ secrets.DATABASE_APP_PASSWORD }}
         run: |
-          # Synthetic fixtures only (docs/06 §5). The seed refuses to run against a database
-          # that already holds tenants, so re-running it on every deploy is safe.
-          flyctl ssh console -a pharmaet-staging -C "/usr/local/bin/entrypoint seed" || \
-            echo "::notice::seed skipped (already seeded, or ssh unavailable)"
+          # Forward-only and expand-then-contract (docs/06 §6.2): the server still running
+          # keeps working against the new schema while the new one starts.
+          docker run --rm \
+            -e NODE_ENV=production \
+            -e DATABASE_URL -e DATABASE_APP_PASSWORD -e DATABASE_APP_USER=pharmaet_app \
+            "$IMAGE" migrate
 
-      - name: Post-deploy smoke against the live URL
+      - name: Deploy that exact image
         if: steps.configured.outputs.configured == 'true'
-        run: ./scripts/smoke.sh https://pharmaet-staging.fly.dev/api
-
-      - name: Confirm the dashboard is served from the same origin
-        if: steps.configured.outputs.configured == 'true'
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          IMAGE: ${{ needs.image.outputs.image }}:${{ needs.image.outputs.tag }}
         run: |
-          # The console and the API are one deployment. If this 404s, the bundle did not
-          # make it into the image and staging is only half there.
-          curl -fsS https://pharmaet-staging.fly.dev/ | grep -q '<div id="root">' \
-            && echo "dashboard served at https://pharmaet-staging.fly.dev/" \
-            || { echo "::error::the dashboard bundle is not in the image"; exit 1; }
+          encoded=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$IMAGE")
+          curl -fsS -X POST "${HOOK}&imgURL=${encoded}" -o /dev/null
+          echo "asked Render to run $IMAGE"
+
+      - name: Wait until the live server reports this commit
+        if: steps.configured.outputs.configured == 'true'
+        env:
+          LIVE_URL: ${{ vars.LIVE_URL }}
+        run: |
+          # A free instance may be asleep, and pulling an image takes a minute or two.
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 20 "$LIVE_URL/api/health" | grep -q "\"commit\":\"$GITHUB_SHA\""; then
+              echo "live is serving $GITHUB_SHA"; exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::live did not report $GITHUB_SHA within 15 minutes — check the Render deploy log"
+          exit 1
+
+      - name: Read-only smoke of the live URL
+        if: steps.configured.outputs.configured == 'true'
+        run: ./scripts/smoke-live.sh "${{ vars.LIVE_URL }}" "$GITHUB_SHA"
 
   # ------------------------------------------------------------- production
   deploy-production:
     name: deploy to production
-    needs: [image, deploy-staging-api]
+    needs: [image, deploy-live]
     if: github.event_name == 'workflow_dispatch' && inputs.deploy_production
     runs-on: ubuntu-latest
     # A protected environment with required reviewers is the manual release gate
@@ -245,7 +276,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FLUTTER_VERSION: '3.47.5'
-      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet-staging.fly.dev/api' }}
+      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet.onrender.com/api' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -347,7 +378,7 @@ jobs:
     runs-on: macos-latest
     env:
       FLUTTER_VERSION: '3.47.5'
-      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet-staging.fly.dev/api' }}
+      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet.onrender.com/api' }}
     steps:
       - uses: actions/checkout@v4
 

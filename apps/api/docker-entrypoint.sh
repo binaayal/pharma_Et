@@ -11,6 +11,13 @@ case "${1:-serve}" in
     exec node dist/main.js
     ;;
   migrate)
+    # The first migration creates the application's login role with DATABASE_APP_PASSWORD,
+    # falling back to the development password that is published in this repository. On a
+    # database reachable from the internet (Neon) that would be a working login for anyone.
+    if [ "$NODE_ENV" = "production" ] && [ -z "$DATABASE_APP_PASSWORD" ]; then
+      echo "refusing to migrate: DATABASE_APP_PASSWORD is not set" >&2
+      exit 1
+    fi
     # Forward-only, gated (docs/06 §6.2). The data source resolves its migration glob
     # relative to itself, so this finds dist/migrations/*.js inside the container.
     exec node node_modules/typeorm/cli.js -d dist/config/data-source.js migration:run

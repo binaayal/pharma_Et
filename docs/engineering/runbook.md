@@ -68,12 +68,13 @@ incident."* **Suspected**, not confirmed. Rollback first, investigate from the p
 # 1. Is it up, and is it serving the contract window?
 curl -s https://<host>/api/health | jq
 
-# 2. Does the whole loop still work, end to end?
-API=https://<host>/api ./scripts/smoke.sh
+# 2. Is live healthy, serving the expected commit, headers and routes? (read-only)
+./scripts/smoke-live.sh https://<host>
+# The full loop (sign-in, sync, isolation) is smoke.sh — ONLY against the local
+# pre-release stack, never live: it writes demo sales (staging.md §3).
 
 # 3. What changed?
-gh run list --branch main --limit 5
-fly releases -a pharmaet-staging        # or the production app
+gh run list --branch main --limit 5     # and Render → pharmaet → Events
 ```
 
 `smoke.sh` is the fastest honest answer: 18 assertions covering login, sync, isolation,
@@ -207,10 +208,10 @@ Migrations are **forward-only** (`../06` §6.2). Rollback is redeploying the pre
 onto a database that has already migrated forward — the schema is never reversed.
 
 ```bash
-fly releases -a <app>                 # find the previous version
-fly deploy -a <app> --image ghcr.io/<owner>/<repo>/api:sha-<previous>
-curl -s https://<host>/api/health | jq   # confirm it is serving
-API=https://<host>/api ./scripts/smoke.sh
+# the previous build's tag is on its CD run (sha-<12 chars>)
+curl -X POST "$RENDER_DEPLOY_HOOK_URL&imgURL=ghcr.io%2Fbinaayal%2Fpharma_et%2Fapi%3Asha-<previous>"
+curl -s https://<host>/api/health | jq   # confirm the commit it reports
+./scripts/smoke-live.sh https://<host>
 ```
 
 This is safe because every migration PR proves it in advance: the `rollback_safety` CI job

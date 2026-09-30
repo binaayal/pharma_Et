@@ -22,7 +22,7 @@ const envSchema = z.object({
 
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
 
-  /** Reverse proxies in front of the app — 1 behind Fly's edge (see common/http/security.ts). */
+  /** Reverse proxies in front of the app — 1 behind Render's edge (see common/http/security.ts). */
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 
   /** Per-address request budgets. Off only where a suite deliberately floods one address. */
@@ -35,6 +35,18 @@ const envSchema = z.object({
    * AES-256 key for payment screenshots at rest, base64 (32 bytes). Required in staging and
    * production: those images are somebody's bank app (docs/engineering/security.md).
    */
+  /**
+   * Where payment screenshots are kept (modules/billing/blob-store.ts). `s3` is any
+   * S3-compatible store (Cloudflare R2 by default); `local` is a directory, and is only right
+   * on a machine whose disk survives a restart — Render's does not.
+   */
+  PROOF_STORAGE: z.enum(['local', 's3']).optional(),
+  S3_ENDPOINT: z.string().url().optional(),
+  S3_BUCKET: z.string().min(1).optional(),
+  S3_ACCESS_KEY_ID: z.string().min(1).optional(),
+  S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  S3_REGION: z.string().default('auto'),
+
   PROOF_ENCRYPTION_KEY: z
     .string()
     .optional()
@@ -59,6 +71,23 @@ export function loadConfiguration(): AppConfig {
     // HS256 is only as strong as its key. Sixteen characters was the floor for development.
     throw new Error('JWT_SECRET must be at least 32 characters in production');
   }
+  if (parsed.data.PROOF_STORAGE === 's3') {
+    const missing = (
+      ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY_ID', 'S3_SECRET_ACCESS_KEY'] as const
+    ).filter((k) => !parsed.data[k]);
+    if (missing.length) {
+      throw new Error(`PROOF_STORAGE=s3 needs ${missing.join(', ')} (docs/engineering/hosting.md)`);
+    }
+  }
+  if (parsed.data.NODE_ENV === 'production' && !parsed.data.PROOF_STORAGE) {
+    // Said explicitly, not defaulted: on a host with an ephemeral disk the default (a local
+    // directory) loses every payment screenshot at the next deploy, and nobody notices until
+    // a pharmacy disputes a payment.
+    throw new Error(
+      'PROOF_STORAGE must be set in production: "s3" for object storage (R2), or "local" only ' +
+        'on a machine with a persistent disk',
+    );
+  }
   if (parsed.data.NODE_ENV === 'production' && !parsed.data.PROOF_ENCRYPTION_KEY) {
     throw new Error(
       'PROOF_ENCRYPTION_KEY is required in production: payment screenshots are encrypted at ' +
@@ -70,7 +99,7 @@ export function loadConfiguration(): AppConfig {
     // environment down on the next merge — but it says so on every start.
     console.warn(
       'WARNING: PROOF_ENCRYPTION_KEY is not set — payment screenshots are stored UNENCRYPTED. ' +
-        'Set it: fly secrets set PROOF_ENCRYPTION_KEY=$(openssl rand -base64 32)',
+        "Set it in the host's environment: openssl rand -base64 32",
     );
   }
   return {

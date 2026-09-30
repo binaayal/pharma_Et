@@ -34,5 +34,6 @@ quietly work around an accepted ADR in code.
 | [ADR-024](ADR-024-regulated-half-built-provisionally.md) | The regulated half, built ahead of A-1 and switched off until it clears | Accepted |
 | [ADR-025](ADR-025-forced-deactivation.md) | Forced deactivation of a pharmacy by the platform | Accepted |
 | [ADR-026](ADR-026-security-baseline.md) | The security baseline: console cookie, rate limits, encryption at rest | Accepted |
+| [ADR-027](ADR-027-hosting-on-free-tiers.md) | Hosting on Render + Neon + Cloudflare R2, starting on free tiers | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

@@ -3,7 +3,7 @@
 interface ImportMetaEnv {
   /**
    * Absolute base URL of the API, baked in at build time for a deployed bundle (e.g.
-   * `https://pharmaet-staging.fly.dev/api`). Unset in development, where the Vite proxy
+   * `https://pharmaet.onrender.com/api`). Unset in development, where the Vite proxy
    * serves `/api` same-origin.
    */
   readonly VITE_API_BASE_URL?: string;

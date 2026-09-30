@@ -80,6 +80,7 @@ answer, permanently.
 | [ADR-024](adr/ADR-024-regulated-half-built-provisionally.md) | The regulated half, built ahead of A-1 and switched off until it clears | Accepted |
 | [ADR-025](adr/ADR-025-forced-deactivation.md) | Forced deactivation of a pharmacy by the platform | Accepted |
 | [ADR-026](adr/ADR-026-security-baseline.md) | The security baseline: console cookie, rate limits, encryption at rest | Accepted |
+| [ADR-027](adr/ADR-027-hosting-on-free-tiers.md) | Hosting on Render + Neon + Cloudflare R2, starting on free tiers | Accepted |
 
 ---
 
@@ -117,7 +118,7 @@ the RTM (`02-srs.md` §6) records what is implemented against each requirement.
 |---|---|
 | Skeleton passes G1, G2, G4, G7 | ✅ 37 API + 28 mobile tests, green on every PR |
 | CI/CD pipeline | ✅ on merge: publish image → stand it up against real Postgres → migrate → smoke 12/12 over HTTP → deploy. Green today. |
-| **Staging reachable** | ⛔ **needs `FLY_API_TOKEN` and a Neon `DATABASE_URL`** — accounts only the owner can create. The deploy job reports this in its run summary and does not pretend to have shipped. Three commands: `engineering/staging.md` §3. |
+| **Live reachable** | ⛔ **needs the Render, Neon and R2 accounts** only the owner can create. The deploy job lists what is missing in its run summary and does not pretend to have shipped. Step by step: `engineering/hosting.md`. |
 
 So the spine is proven and the promotion path works; staging has nowhere to land yet.
 **Phase 1 should not start until it does** — the point of the gate is that breadth lands on

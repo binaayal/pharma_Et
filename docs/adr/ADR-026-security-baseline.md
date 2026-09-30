@@ -22,10 +22,10 @@ SQL). Five needed a decision rather than a patch.
    the test suites. The phone app is unchanged: it has no cookies, and its tokens are in the
    Keychain/Keystore.
 
-2. **Proxy trust is explicit (`TRUST_PROXY`).** Behind Fly, every request came from the edge's
+2. **Proxy trust is explicit (`TRUST_PROXY`).** Behind Fly (the host at the time; Render since ADR-027), every request came from the edge's
    address, so ADR-017's "20 failures per address" was one counter for the whole country.
    Any twenty wrong PINs anywhere locked everyone out of signing in for 15 minutes. This was
-   a latent outage, not a hardening item. `fly.toml` now sets `TRUST_PROXY=1`.
+   a latent outage, not a hardening item. The host config sets `TRUST_PROXY=1` (now `render.yaml`).
 
 3. **Rate limits in front of the credential throttle, in memory.** A per-address budget
    (sign-in 30/min, refresh 60/min, sign-up 5/hour, everything 600/min) protects the argon2

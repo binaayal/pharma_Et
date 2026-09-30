@@ -354,7 +354,7 @@ jobs:
       - name: Build for iOS (unsigned)
         run: >
           flutter build ios --release --no-codesign
-          --dart-define=API_BASE_URL=https://pharmaet-staging.fly.dev/api
+          --dart-define=API_BASE_URL=https://pharmaet.onrender.com/api
 
   # The single required check for branch protection.
   #

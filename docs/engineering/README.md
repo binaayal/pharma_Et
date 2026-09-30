@@ -17,6 +17,7 @@
 | [`mobile-release.md`](mobile-release.md) | Signed Android bundles and iOS TestFlight builds from CD: what each needs, and what the owner must create |
 | [`device-matrix.md`](device-matrix.md) | NFR-3.2 on real handsets: why CI cannot answer it, how to run it, where the results live |
 | [`security.md`](security.md) | The twenty-point security checklist: each control, its code, and the test that fails without it — plus the operator's one-time steps |
+| [`hosting.md`](hosting.md) | **Live on Render + Neon + Cloudflare R2**: step by step from zero, the free-tier limits, and how to upgrade without breaking anything |
 | [`runbook.md`](runbook.md) | On-call: severity, signals, playbooks, rollback, restore — and what is not yet true |
 | [`field-uat.md`](field-uat.md) | The pilot protocol: what a real pharmacy tests that CI cannot, and what signing it off means |
 

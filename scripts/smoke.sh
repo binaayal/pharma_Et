@@ -7,7 +7,7 @@
 # sees none of it.
 #
 # Run it against anything: a container, CI, or the real staging URL.
-#   ./scripts/smoke.sh https://pharmaet-staging.fly.dev/api
+#   ./scripts/smoke.sh https://pharmaet.onrender.com/api
 set -euo pipefail
 
 API="${1:-${API_BASE_URL:-http://localhost:3000/api}}"
