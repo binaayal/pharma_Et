@@ -14,6 +14,7 @@ void main() {
     defaultValue: 'http://10.0.2.2:3000/api',
   );
 
-  runApp(PharmaEtApp(
-      apiBaseUrl: resolveApiBaseUrl(configured, release: kReleaseMode)));
+  final apiBaseUrl = resolveApiBaseUrl(configured, release: kReleaseMode);
+  publicSite = siteFromApi(apiBaseUrl);
+  runApp(PharmaEtApp(apiBaseUrl: apiBaseUrl));
 }
