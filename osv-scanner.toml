@@ -1,0 +1,14 @@
+# OSV scanner exceptions (docs/engineering/security.md #20).
+#
+# Each entry says why the advisory cannot reach PharmaEt and when to look again. An
+# exception without an expiry is a finding nobody will revisit.
+
+[[IgnoredVulns]]
+id = "GHSA-36xv-jgw5-4q75"
+ignoreUntil = 2027-03-31
+reason = """
+@nestjs/core SseStream does not neutralise newlines in Server-Sent Event `type`/`id`.
+PharmaEt has no SSE endpoint (no @Sse anywhere; asserted by apps/api/test/unit/security.spec.ts),
+so the vulnerable code is never reached. The fix ships only in NestJS 11 — a major upgrade
+scheduled on its own rather than on launch day.
+"""
