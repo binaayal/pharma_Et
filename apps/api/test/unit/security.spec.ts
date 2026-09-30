@@ -103,6 +103,16 @@ describe('security baseline — pure parts', () => {
       });
     }
 
+    it('serves no Server-Sent Events — the premise of the one OSV exception', () => {
+      // osv-scanner.toml ignores GHSA-36xv-jgw5-4q75 (NestJS SSE newline injection) because
+      // nothing here uses SSE. Adding an @Sse route makes that exception false; this fails
+      // first, so the upgrade to NestJS 11 happens before the endpoint ships.
+      const users = files(join(__dirname, '../../src')).filter((file) =>
+        /@Sse\(/.test(readFileSync(file, 'utf8')),
+      );
+      expect(users).toEqual([]);
+    });
+
     it('no query string interpolates a value', () => {
       const offenders: string[] = [];
       for (const file of files(join(__dirname, '../../src'))) {
