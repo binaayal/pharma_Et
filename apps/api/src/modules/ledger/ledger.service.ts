@@ -372,12 +372,14 @@ export class LedgerService {
   }
 
   /** BR-6.3 — the ledger in a form a person can read and an inspector can file. */
+  // Free text in this file — a prescriber, a supplier, a reason — was typed by a person at a
+  // counter. See `neutraliseFormula`.
   async exportCsv(
     scope: TenantScope,
     options: { from: Date; to: Date; branchIds: string[] | null },
   ): Promise<string> {
     const rows = await this.entries(scope, options);
-    const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const cell = (v: unknown) => `"${neutraliseFormula(v).replace(/"/g, '""')}"`;
     const header = [
       'occurred_at_utc', 'branch', 'product', 'event', 'quantity_change', 'prescription',
       'prescriber', 'prescription_issued', 'by', 'reason_or_supplier', 'event_id', 'seq',
@@ -425,4 +427,18 @@ export class LedgerService {
       [tenantId],
     );
   }
+}
+
+/**
+ * CSV formula injection (OWASP): a cell beginning `=`, `+`, `-`, `@`, tab or CR is run as a
+ * formula by Excel and LibreOffice, quoted or not. A prescriber typed as
+ * `=HYPERLINK("http://…")` would otherwise execute on the inspector's machine.
+ *
+ * Text only: a number is written as a number, so a negative quantity change stays `-5`
+ * rather than turning into the string `'-5` that no spreadsheet can sum.
+ */
+export function neutraliseFormula(value: unknown): string {
+  if (typeof value === 'number' || typeof value === 'bigint') return String(value);
+  const text = String(value ?? '');
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
 }

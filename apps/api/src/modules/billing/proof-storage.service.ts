@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomUUID } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
@@ -23,7 +23,42 @@ export class ProofStorageService {
   private static readonly ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
   private static readonly MAX_BYTES = 8 * 1024 * 1024;
 
+  /**
+   * Marks an encrypted file: `PEP1` ‖ 12-byte IV ‖ 16-byte GCM tag ‖ ciphertext.
+   *
+   * A screenshot of a transfer shows a name, an account number and a balance. At rest it is
+   * AES-256-GCM under PROOF_ENCRYPTION_KEY, so a copied disk, a leaked backup or a volume
+   * snapshot yields noise — and GCM's tag means a file altered on disk fails to open rather
+   * than showing a reviewer a doctored image. Files written before the key existed have no
+   * marker and are read as they are; nothing needs migrating.
+   */
+  private static readonly MAGIC = Buffer.from('PEP1');
+
   constructor(private readonly config: ConfigService) {}
+
+  private get key(): Buffer | null {
+    const b64 = this.config.get<string>('PROOF_ENCRYPTION_KEY');
+    return b64 ? Buffer.from(b64, 'base64') : null;
+  }
+
+  /** Exposed for the suite that proves the bytes on disk are not the image. */
+  seal(plain: Buffer): Buffer {
+    const key = this.key;
+    if (!key) return plain;
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    const body = Buffer.concat([cipher.update(plain), cipher.final()]);
+    return Buffer.concat([ProofStorageService.MAGIC, iv, cipher.getAuthTag(), body]);
+  }
+
+  open(stored: Buffer): Buffer {
+    if (!stored.subarray(0, 4).equals(ProofStorageService.MAGIC)) return stored;
+    const key = this.key;
+    if (!key) throw new BadRequestException('this proof is encrypted and no key is configured');
+    const decipher = createDecipheriv('aes-256-gcm', key, stored.subarray(4, 16));
+    decipher.setAuthTag(stored.subarray(16, 32));
+    return Buffer.concat([decipher.update(stored.subarray(32)), decipher.final()]);
+  }
 
   private get root(): string {
     return resolve(this.config.get<string>('PAYMENT_PROOF_DIR', './.payment-proofs'));
@@ -57,7 +92,7 @@ export class ProofStorageService {
     const storageKey = `proofs/${tenantId}/${randomUUID()}`;
     const path = join(this.root, storageKey);
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, file.buffer);
+    await writeFile(path, this.seal(file.buffer), { mode: 0o600 });
 
     this.logger.log(`stored payment proof ${storageKey} (${file.size} bytes)`);
     return { storageKey, byteSize: file.size, contentType: file.mimetype };
@@ -71,7 +106,7 @@ export class ProofStorageService {
     if (!path.startsWith(resolve(this.root))) {
       throw new BadRequestException('invalid storage key');
     }
-    return readFile(path);
+    return this.open(await readFile(path));
   }
 
   /** Content-based type check. The first bytes of a file are harder to lie about. */

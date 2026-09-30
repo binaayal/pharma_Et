@@ -1,0 +1,22 @@
+# Weekly update PRs for every ecosystem in the repository (docs/engineering/security.md).
+# Each arrives as an ordinary PR and goes through the same gates as any other change —
+# including the guardian suites — so an update that breaks an invariant cannot merge.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: pub
+    directory: /apps/mobile
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /apps/api
+    schedule: { interval: weekly }

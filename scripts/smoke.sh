@@ -116,13 +116,20 @@ check "unknown contract refused loudly" "$CODE" "400"
 say "10. security response headers (NFR-4.3)"
 HEADERS=$(curl -sI "$API/health")
 for H in "x-content-type-options: nosniff" "x-frame-options: DENY" \
-         "referrer-policy: no-referrer" "cross-origin-opener-policy: same-origin"; do
+         "referrer-policy: no-referrer" "cross-origin-opener-policy: same-origin" \
+         "content-security-policy: default-src" "strict-transport-security: max-age"; do
   if printf '%s' "$HEADERS" | tr 'A-Z' 'a-z' | grep -qi "^${H%%:*}:"; then
     ok "${H%%:*} present"
   else
     bad "${H%%:*} missing"
   fi
 done
+
+if printf '%s' "$HEADERS" | tr 'A-Z' 'a-z' | grep -q "^x-powered-by:"; then
+  bad "x-powered-by names the framework"
+else
+  ok "no x-powered-by"
+fi
 
 say "11. login throttling (NFR-4.2, ADR-017)"
 # Six attempts against a username that does NOT exist — which is the case worth smoking.

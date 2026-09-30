@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { uuidv7 } from 'uuidv7';
 import { AppModule } from '../src/app.module';
 import { PLATFORM_DATA_SOURCE } from '../src/common/db/scoped-db.service';
+import { applyHttpSecurity } from '../src/common/http/security';
 
 /**
  * Multi-tenant test harness (docs/05-qa §11).
@@ -57,6 +58,14 @@ export class TestHarness {
     // real server rejects, and the guardian assertion about a maximum-size push would pass
     // against a server that does not exist.
     (harness.app as NestExpressApplication).useBodyParser('json', { limit: '2mb' });
+    // The same headers, proxy trust and HTTPS rule main.ts applies. Rate limits stay off:
+    // every suite signs in dozens of times from one address, and the limiter has its own
+    // suite (g1-http-security).
+    applyHttpSecurity(harness.app as NestExpressApplication, {
+      nodeEnv: 'test',
+      trustProxy: 0,
+      rateLimit: false,
+    });
     await harness.app.init();
     harness.platform = harness.app.get<DataSource>(getDataSourceToken(PLATFORM_DATA_SOURCE));
     return harness;
@@ -227,7 +236,10 @@ export class TestHarness {
    * Seeded directly, because there is deliberately no endpoint that mints one: an API that
    * creates platform identities is an escalation path however well it is guarded.
    */
-  async seedPlatformAdmin(email = 'ops@pharmaet.test', password = 'platform-pass-1'): Promise<string> {
+  async seedPlatformAdmin(
+    email = 'ops@pharmaet.test',
+    password = 'platform-pass-1',
+  ): Promise<string> {
     const hash = await argon2.hash(password, { type: argon2.argon2id });
     await this.platform.query(`DELETE FROM platform_admin WHERE lower(email) = lower($1)`, [email]);
     await this.platform.query(

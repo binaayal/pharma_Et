@@ -48,13 +48,22 @@ export function isSessionExpired(cause: unknown): boolean {
  */
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
-async function request<T>(path: string, init: RequestInit = {}, token?: string): Promise<T> {
+/**
+ * Every call rides on the platform session **cookie** — HttpOnly, SameSite=Strict, set by
+ * `/platform/login` — never on a token this script holds. An injected script therefore has
+ * no credential to steal: the one that can deactivate a pharmacy is out of JavaScript's
+ * reach (docs/engineering/security.md).
+ *
+ * The contract header doubles as the server's CSRF check on writes: a cross-site form or
+ * image cannot set a custom header, and a cross-site script cannot pass CORS preflight.
+ */
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${BASE}${path}`, {
     ...init,
+    credentials: 'same-origin',
     headers: {
       'content-type': 'application/json',
       [CONTRACT_VERSION_HEADER]: CONTRACT_VERSION,
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },
   });
@@ -63,6 +72,7 @@ async function request<T>(path: string, init: RequestInit = {}, token?: string):
     const body = await response.json().catch(() => ({}));
     throw new ApiError(body.message ?? `request failed (${response.status})`, response.status);
   }
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 
@@ -131,88 +141,73 @@ export type SignupDecision =
 export const api = {
   health: () => request<{ status: string; contractVersion: string }>('/health'),
 
+  /** Sets the session cookie. The token in the body is for scripts; the console ignores it. */
   login: (email: string, password: string) =>
-    request<{ accessToken: string; admin: { id: string; email: string; displayName: string } }>(
-      '/platform/login',
-      { method: 'POST', body: JSON.stringify({ email, password }) },
-    ),
+    request<{ admin: { id: string; email: string; displayName: string } }>('/platform/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
 
-  tenants: (token: string) => request<PlatformTenant[]>('/platform/tenants', {}, token),
+  /** Whether this browser holds a live session — the console cannot read the cookie itself. */
+  me: () => request<{ id: string; email: string }>('/platform/me'),
 
-  tenant: (token: string, id: string) =>
-    request<TenantDetail>(`/platform/tenants/${id}`, {}, token),
+  logout: () => request<void>('/platform/logout', { method: 'POST' }),
 
-  onboard: (
-    token: string,
-    body: {
-      name: string;
-      code: string;
-      ownerUsername: string;
-      ownerDisplayName: string;
-      ownerPin: string;
-    },
-  ) =>
-    request<{ tenantId: string }>(
-      '/platform/tenants',
-      { method: 'POST', body: JSON.stringify(body) },
-      token,
-    ),
+  tenants: () => request<PlatformTenant[]>('/platform/tenants'),
 
-  signupRequests: (token: string, status: SignupRequest['status']) =>
-    request<SignupRequest[]>(`/platform/signup-requests?status=${status}`, {}, token),
+  tenant: (id: string) => request<TenantDetail>(`/platform/tenants/${id}`),
 
-  decideSignup: (token: string, id: string, decision: SignupDecision) =>
-    request<unknown>(
-      `/platform/signup-requests/${id}/decide`,
-      { method: 'POST', body: JSON.stringify(decision) },
-      token,
-    ),
+  onboard: (body: {
+    name: string;
+    code: string;
+    ownerUsername: string;
+    ownerDisplayName: string;
+    ownerPin: string;
+  }) =>
+    request<{ tenantId: string }>('/platform/tenants', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
-  pendingProofs: (token: string) => request<PendingProof[]>('/platform/payment-proofs', {}, token),
+  signupRequests: (status: SignupRequest['status']) =>
+    request<SignupRequest[]>(`/platform/signup-requests?status=${status}`),
 
-  decideProof: (token: string, id: string, body: { accept: boolean; reason?: string }) =>
-    request<unknown>(
-      `/platform/payment-proofs/${id}/decide`,
-      { method: 'POST', body: JSON.stringify(body) },
-      token,
-    ),
+  decideSignup: (id: string, decision: SignupDecision) =>
+    request<unknown>(`/platform/signup-requests/${id}/decide`, {
+      method: 'POST',
+      body: JSON.stringify(decision),
+    }),
 
-  /**
-   * The screenshot, fetched with the platform token.
-   *
-   * It used to be a plain link, which a browser follows without an Authorization header — so
-   * the guard refused it and the reviewer could never see the proof they were approving.
-   */
-  proofImage: async (token: string, id: string): Promise<string> => {
+  pendingProofs: () => request<PendingProof[]>('/platform/payment-proofs'),
+
+  decideProof: (id: string, body: { accept: boolean; reason?: string }) =>
+    request<unknown>(`/platform/payment-proofs/${id}/decide`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** The screenshot, as an object URL — fetched with the session cookie. */
+  proofImage: async (id: string): Promise<string> => {
     const response = await fetch(`${BASE}/platform/payment-proofs/${id}/image`, {
-      headers: { authorization: `Bearer ${token}` },
+      credentials: 'same-origin',
     });
     if (!response.ok) throw new ApiError('could not load the screenshot', response.status);
     return URL.createObjectURL(await response.blob());
   },
 
   /** ADR-025: every request the pharmacy makes is refused until it is reactivated. */
-  deactivate: (token: string, tenantId: string, reason: string) =>
-    request<unknown>(
-      `/platform/tenants/${tenantId}/deactivate`,
-      { method: 'POST', body: JSON.stringify({ reason }) },
-      token,
-    ),
+  deactivate: (tenantId: string, reason: string) =>
+    request<unknown>(`/platform/tenants/${tenantId}/deactivate`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
 
-  reactivate: (token: string, tenantId: string, note?: string) =>
-    request<unknown>(
-      `/platform/tenants/${tenantId}/reactivate`,
-      { method: 'POST', body: JSON.stringify({ note }) },
-      token,
-    ),
+  reactivate: (tenantId: string, note?: string) =>
+    request<unknown>(`/platform/tenants/${tenantId}/reactivate`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
 
-  setState: (
-    token: string,
-    body: { tenantId: string; state: 'active' | 'suspended'; reason?: string },
-  ) =>
-    request<unknown>(
-      '/platform/subscriptions',
-      { method: 'POST', body: JSON.stringify(body) },
-      token,
-    ),
+  setState: (body: { tenantId: string; state: 'active' | 'suspended'; reason?: string }) =>
+    request<unknown>('/platform/subscriptions', { method: 'POST', body: JSON.stringify(body) }),
 };

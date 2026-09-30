@@ -69,6 +69,11 @@ export class SignupService {
     });
   }
 
+  /** What a honeypot hit is told: indistinguishable from a real submission, stored nowhere. */
+  decoy(): { id: string; status: 'pending' } {
+    return { id: uuidv7(), status: 'pending' };
+  }
+
   async list(status?: 'pending' | 'approved' | 'rejected'): Promise<SignupRequestView[]> {
     const rows = await this.db.runAsPlatform('list sign-up requests', (em) =>
       em.query(

@@ -72,3 +72,34 @@ jobs:
             exit 1
           fi
           echo "no payment screenshots in tracked files"
+
+  # The grep above catches the shapes we know about. Gitleaks knows several hundred — cloud
+  # keys, webhook URLs, JWTs, private keys in any encoding — and reads the WHOLE history, so
+  # a secret committed and then "deleted" in a later commit is still found (it is still in
+  # the public repository, which is the point).
+  gitleaks:
+    name: no secrets anywhere in history
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Scan the full history
+        run: |
+          curl -sSfL -o gl.tgz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          echo "5bc41815076e6ed6ef8fbecc9d9b75bcae31f39029ceb55da08086315316e3ba  gl.tgz" | sha256sum -c -
+          tar xzf gl.tgz gitleaks
+          ./gitleaks git . --no-banner --redact --config .gitleaks.toml --exit-code 1
+
+  # `pnpm audit` covers the npm half. The phone app's Dart packages had no scanner at all;
+  # OSV reads pubspec.lock and pnpm-lock.yaml against the same advisory database GitHub uses.
+  osv:
+    name: dependency advisories (npm + pub)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
+            --lockfile=apps/mobile/pubspec.lock

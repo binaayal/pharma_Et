@@ -9,7 +9,7 @@ import type { PageProps } from './Console';
  * The screenshot is shown inline, next to the two decisions: the reviewer is judging an
  * image, and making them open it somewhere else is how proofs get approved unseen.
  */
-export function Payments({ token, data, reload, fail }: PageProps) {
+export function Payments({ data, reload, fail }: PageProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
@@ -24,7 +24,7 @@ export function Payments({ token, data, reload, fail }: PageProps) {
     setImage(null);
     setImageError(false);
     api
-      .proofImage(token, selected.id)
+      .proofImage(selected.id)
       .then((u) => {
         url = u;
         if (live) setImage(u);
@@ -34,7 +34,7 @@ export function Payments({ token, data, reload, fail }: PageProps) {
       live = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [token, selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function decide(accept: boolean) {
     if (!selected) return;
@@ -46,7 +46,7 @@ export function Payments({ token, data, reload, fail }: PageProps) {
     }
     setBusy(true);
     try {
-      await api.decideProof(token, selected.id, { accept, reason });
+      await api.decideProof(selected.id, { accept, reason });
       setSelectedId(null);
       await reload();
     } catch (cause) {

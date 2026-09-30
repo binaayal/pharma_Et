@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { BillingController, PlatformController, SignupController } from './billing.controller';
 import { BillingService } from './billing.service';
+import { PlatformAdminCheck } from './platform-admin-check';
 import { PlatformAuthService } from './platform-auth.service';
 import { ProofStorageService } from './proof-storage.service';
 import { SignupService } from './signup.service';
@@ -13,7 +14,13 @@ import { SignupService } from './signup.service';
   // than two keys nobody remembers which is which.
   imports: [AuthModule],
   controllers: [BillingController, PlatformController, SignupController],
-  providers: [BillingService, PlatformAuthService, ProofStorageService, SignupService],
+  providers: [
+    BillingService,
+    PlatformAuthService,
+    PlatformAdminCheck,
+    ProofStorageService,
+    SignupService,
+  ],
   exports: [BillingService],
 })
 export class BillingModule {}

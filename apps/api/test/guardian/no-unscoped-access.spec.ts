@@ -30,6 +30,10 @@ const ALLOWED = new Set([
   'config/data-source.ts',
   // Development seeding, outside request scope by nature.
   'seed.ts',
+  // The operator's CLI for creating or rotating a Platform Admin. Run by hand with the
+  // owner's credentials, outside any request, and touches only `platform_admin` — which has
+  // no tenant and no RLS policy by design (BR-2.2).
+  'create-admin.ts',
   // Login throttling (NFR-4.2, ADR-017). `login_attempt` has no tenant_id and cannot have
   // one: an attempt may name a tenant that does not exist, which is precisely the case that
   // must be counted or the limiter becomes an account-enumeration oracle. Throttling also

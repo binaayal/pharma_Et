@@ -3,6 +3,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  Ip,
   Param,
   ParseUUIDPipe,
   Post,
@@ -13,13 +15,14 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { AllowWhenSuspended } from '../../common/auth/allow-when-suspended.decorator';
 import { RequireCapability } from '../../common/auth/capability.decorator';
 import { CurrentScope } from '../../common/auth/current-scope.decorator';
-import { PlatformAdminGuard } from '../../common/auth/platform-admin.guard';
+import { PLATFORM_COOKIE, PlatformAdminGuard } from '../../common/auth/platform-admin.guard';
 import { Public } from '../../common/auth/public.decorator';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { ZodValidationPipe } from '../../common/http/zod-validation.pipe';
@@ -43,12 +46,36 @@ const decideProof = z.object({
   periodDays: z.number().int().min(1).max(366).optional(),
 });
 
+/**
+ * A name, as a person types one. No links and no markup: the only reason a pharmacy name
+ * contains `http://` or `<` is that a bot is using our queue to deliver something to the
+ * operator who reads it.
+ */
+const plainName = (min: number, max: number) =>
+  z
+    .string()
+    .trim()
+    .min(min)
+    .max(max)
+    .refine((v) => !/(https?:\/\/|www\.|<|>)/i.test(v), 'letters, numbers and punctuation only');
+
 const signupRequest = z.object({
-  pharmacyName: z.string().trim().min(2).max(200),
-  ownerName: z.string().trim().min(2).max(120),
-  phone: z.string().trim().min(9).max(20),
-  city: z.string().trim().min(2).max(80),
+  pharmacyName: plainName(2, 200),
+  ownerName: plainName(2, 120),
+  phone: z
+    .string()
+    .trim()
+    .min(9)
+    .max(20)
+    .regex(/^\+?[\d\s()-]+$/, 'digits only'),
+  city: plainName(2, 80),
   branchBand: z.enum(['1', '2-3', '4+']),
+  /**
+   * Honeypot. The app never sends it and a person never sees it; a bot filling every field
+   * it can find does. A filled one is answered exactly like a success and stored nowhere, so
+   * the bot learns nothing about what gave it away.
+   */
+  website: z.string().max(500).optional(),
 });
 
 const decideSignup = z.discriminatedUnion('accept', [
@@ -125,7 +152,13 @@ export class BillingController {
   @Post('payment-proofs')
   @RequireCapability('settings.configure')
   @AllowWhenSuspended()
-  @UseInterceptors(FileInterceptor('screenshot', { limits: { fileSize: 8 * 1024 * 1024 } }))
+  // One file, a few small fields. Multer's defaults are unlimited file and field counts,
+  // which is a free way to make the server buffer as much as a client cares to send.
+  @UseInterceptors(
+    FileInterceptor('screenshot', {
+      limits: { fileSize: 8 * 1024 * 1024, files: 1, fields: 5, fieldSize: 2048, parts: 6 },
+    }),
+  )
   async submit(
     @CurrentScope() scope: TenantScope,
     @UploadedFile() file: { buffer: Buffer; mimetype: string; size: number } | undefined,
@@ -153,7 +186,9 @@ export class SignupController {
   @Public()
   @Post()
   submit(@Body(new ZodValidationPipe(signupRequest)) body: z.infer<typeof signupRequest>) {
-    return this.signups.submit(body);
+    const { website, ...request } = body;
+    if (website?.trim()) return this.signups.decoy();
+    return this.signups.submit(request);
   }
 }
 
@@ -163,6 +198,7 @@ export class PlatformController {
     private readonly billing: BillingService,
     private readonly auth: PlatformAuthService,
     private readonly signups: SignupService,
+    private readonly config: ConfigService,
   ) {}
 
   @Get('signup-requests')
@@ -177,7 +213,7 @@ export class PlatformController {
   @Public()
   @UseGuards(PlatformAdminGuard)
   decideSignup(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(decideSignup)) body: z.infer<typeof decideSignup>,
     @Req() request: { platformAdmin: { id: string } },
   ) {
@@ -187,14 +223,59 @@ export class PlatformController {
   @Get('tenants/:id')
   @Public()
   @UseGuards(PlatformAdminGuard)
-  tenant(@Param('id') id: string) {
+  tenant(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.billing.tenantDetail(id);
   }
 
+  /**
+   * Signs a Platform Admin in, and sets the console's HttpOnly session cookie.
+   *
+   * The token is also in the body, for scripts and the test suites that send it as a bearer.
+   * The console ignores it and relies on the cookie, so no script on the page ever holds
+   * the credential that can deactivate a pharmacy.
+   */
   @Public()
   @Post('login')
-  login(@Body(new ZodValidationPipe(platformLogin)) body: z.infer<typeof platformLogin>) {
-    return this.auth.login(body.email, body.password);
+  async login(
+    @Body(new ZodValidationPipe(platformLogin)) body: z.infer<typeof platformLogin>,
+    @Ip() sourceIp: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.auth.login(body.email, body.password, sourceIp);
+    res.cookie(PLATFORM_COOKIE, result.accessToken, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: this.secureCookies,
+      path: '/api/platform',
+      maxAge: this.auth.sessionSeconds * 1000,
+    });
+    return result;
+  }
+
+  /** Clears the console's cookie. Public, so an expired session can still sign out cleanly. */
+  @Public()
+  @Post('logout')
+  @HttpCode(204)
+  logout(@Res({ passthrough: true }) res: Response): void {
+    res.clearCookie(PLATFORM_COOKIE, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: this.secureCookies,
+      path: '/api/platform',
+    });
+  }
+
+  /** Who is signed in — how the console learns it has a session it cannot read. */
+  @Get('me')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  me(@Req() request: { platformAdmin: { id: string; email: string } }) {
+    return request.platformAdmin;
+  }
+
+  private get secureCookies(): boolean {
+    const env = this.config.get<string>('NODE_ENV');
+    return env === 'production' || env === 'staging';
   }
 
   @Get('tenants')
@@ -248,7 +329,7 @@ export class PlatformController {
   @Get('payment-proofs/:id/image')
   @Public()
   @UseGuards(PlatformAdminGuard)
-  async image(@Param('id') id: string, @Res() res: Response) {
+  async image(@Param('id', new ParseUUIDPipe()) id: string, @Res() res: Response) {
     const { buffer, contentType } = await this.billing.proofImage(id);
     // Never cached: a payment screenshot is somebody's bank app, and it has no business
     // sitting in a proxy or a browser cache after the tab closes.
@@ -261,7 +342,7 @@ export class PlatformController {
   @Public()
   @UseGuards(PlatformAdminGuard)
   decide(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(decideProof)) body: z.infer<typeof decideProof>,
     @Req() request: { platformAdmin: { id: string } },
   ) {

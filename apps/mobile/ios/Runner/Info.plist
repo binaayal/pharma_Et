@@ -73,6 +73,11 @@
 	<string>Attach the screenshot of your subscription payment so it can be verified.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Photograph a payment receipt to attach as proof of your subscription payment.</string>
+	<!-- The app uses only the encryption built into iOS (HTTPS, the Keychain), which is exempt
+	     from US export rules; saying so here answers App Store Connect's question once
+	     instead of on every upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<!-- Plain HTTP to the local network only, for a developer's API on the same Wi-Fi. Every
 	     deployed environment is HTTPS, and nothing else is exempted. -->
 	<key>NSAppTransportSecurity</key>

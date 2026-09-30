@@ -4,6 +4,7 @@ import { CurrentScope } from '../../common/auth/current-scope.decorator';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { AUDIT_EVENT_TYPES, AuditService } from './audit.service';
+import { OPTIONAL_UUID } from '../../common/http/params';
 
 /**
  * The audit trail (FR-6 generalized, Vision §2.1.1).
@@ -25,8 +26,8 @@ export class AuditController {
   @RequireCapability('settings.configure')
   async list(
     @CurrentScope() scope: TenantScope,
-    @Query('streamId') streamId?: string,
-    @Query('actorId') actorId?: string,
+    @Query('streamId', OPTIONAL_UUID) streamId?: string,
+    @Query('actorId', OPTIONAL_UUID) actorId?: string,
     @Query('eventType') eventType?: string,
     @Query('limit') limit?: string,
   ) {
@@ -56,7 +57,10 @@ export class AuditController {
    */
   @Get('verify')
   @RequireCapability('settings.configure')
-  async verify(@CurrentScope() scope: TenantScope, @Query('streamId') streamId: string) {
+  async verify(
+    @CurrentScope() scope: TenantScope,
+    @Query('streamId', OPTIONAL_UUID) streamId: string,
+  ) {
     if (!streamId) throw new BadRequestException('streamId is required');
     return this.db.runInScope(scope, (em) => this.audit.verifyContinuity(em, streamId));
   }

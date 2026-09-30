@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Get,
   Param,
+  ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
 import { RequireCapability } from '../../common/auth/capability.decorator';
@@ -11,6 +12,7 @@ import { CurrentScope } from '../../common/auth/current-scope.decorator';
 import { grantFor } from '@pharmaet/contracts';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { ReportingService } from './reporting.service';
+import { OPTIONAL_UUID, boundedLimit } from '../../common/http/params';
 
 @Controller('reports')
 export class ReportingController {
@@ -21,7 +23,7 @@ export class ReportingController {
   @RequireCapability('report.branch')
   sales(@CurrentScope() scope: TenantScope, @Query('limit') limit?: string) {
     assertNotOwnScoped(scope, 'the branch sales list');
-    return this.reporting.recentSales(scope, limit ? Number(limit) : 50);
+    return this.reporting.recentSales(scope, boundedLimit(limit, 50, 500));
   }
 
   @Get('oversells')
@@ -40,7 +42,10 @@ export class ReportingController {
    */
   @Get('cash-up/:shiftId')
   @RequireCapability('report.branch')
-  async cashUp(@CurrentScope() scope: TenantScope, @Param('shiftId') shiftId: string) {
+  async cashUp(
+    @CurrentScope() scope: TenantScope,
+    @Param('shiftId', new ParseUUIDPipe()) shiftId: string,
+  ) {
     const report = await this.reporting.cashUpReport(scope, shiftId);
     if (scope.role === 'cashier' && report.userId !== scope.userId) {
       throw new ForbiddenException('a cashier may only read their own shift');
@@ -53,11 +58,11 @@ export class ReportingController {
   @RequireCapability('report.branch')
   cashUpSummary(
     @CurrentScope() scope: TenantScope,
-    @Query('branchId') branchId?: string,
+    @Query('branchId', OPTIONAL_UUID) branchId?: string,
     @Query('limit') limit?: string,
   ) {
     assertNotOwnScoped(scope, 'the branch cash-up summary');
-    return this.reporting.cashUpSummary(scope, branchId, limit ? Number(limit) : 30);
+    return this.reporting.cashUpSummary(scope, branchId, boundedLimit(limit, 30, 500));
   }
 
   /**
@@ -77,7 +82,7 @@ export class ReportingController {
     @CurrentScope() scope: TenantScope,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('branchId') branchId?: string,
+    @Query('branchId', OPTIONAL_UUID) branchId?: string,
   ) {
     // `own` has no meaning for an aggregate across a branch: there is nothing to narrow it
     // to. A cashier's report grant covers their own shift, which is the cash-up, not this.
@@ -93,7 +98,7 @@ export class ReportingController {
   @RequireCapability('report.branch')
   stock(
     @CurrentScope() scope: TenantScope,
-    @Query('branchId') branchId?: string,
+    @Query('branchId', OPTIONAL_UUID) branchId?: string,
     @Query('expiringWithinDays') expiringWithinDays?: string,
   ) {
     assertNotOwnScoped(scope, 'the stock report');
