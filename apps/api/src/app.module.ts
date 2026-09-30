@@ -6,6 +6,8 @@ import { CapabilityGuard } from './common/auth/capability.guard';
 import { JwtAuthGuard } from './common/auth/jwt-auth.guard';
 import { RolesGuard } from './common/auth/roles.guard';
 import { SubscriptionGuard } from './common/auth/subscription.guard';
+import { TenantStatusGuard } from './common/auth/tenant-status.guard';
+import { TenantStatusModule } from './common/auth/tenant-status.module';
 import { DbModule } from './common/db/db.module';
 import { ObservabilityModule } from './common/observability/observability.module';
 import { PLATFORM_DATA_SOURCE } from './common/db/scoped-db.service';
@@ -73,6 +75,7 @@ function appConnectionUrl(config: ConfigService): string {
     }),
 
     DbModule,
+    TenantStatusModule,
     ObservabilityModule,
     // Global, so anything that changes tenant state can record that it did without an
     // import chain making it inconvenient enough to skip (ADR-015).
@@ -91,6 +94,9 @@ function appConnectionUrl(config: ConfigService): string {
     // with @Public() — defaulting the other way means a forgotten decorator is a data breach
     // rather than a bug.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // ADR-025. Straight after authentication: a pharmacy the platform has deactivated is
+    // told so, before any question of what its role or its subscription would allow.
+    { provide: APP_GUARD, useClass: TenantStatusGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     // The FR-2 matrix. Global, so a handler that forgets @RequireCapability is merely
     // unrestricted-by-omission rather than silently bypassing a check it appeared to have.

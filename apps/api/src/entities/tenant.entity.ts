@@ -6,6 +6,8 @@ import { Column, Entity, PrimaryColumn } from 'typeorm';
  * `tenant` itself is not tenant-scoped data — it IS the tenant — so it does not extend
  * SyncedEntity.
  */
+export type TenantStatus = 'active' | 'closed' | 'deactivated';
+
 @Entity('tenant')
 export class Tenant {
   @PrimaryColumn('uuid')
@@ -21,9 +23,25 @@ export class Tenant {
   @Column('text')
   code: string;
 
-  /** Operational state of the business record. Subscription state lives separately. */
+  /**
+   * Operational state of the business record. Subscription state lives separately.
+   *
+   * `deactivated` is the platform's forced stop for a policy breach (ADR-025) — unlike a
+   * suspended subscription (ADR-016), it refuses every request, sign-in included.
+   */
   @Column('text', { default: 'active' })
-  status: 'active' | 'closed';
+  status: TenantStatus;
+
+  @Column('timestamptz', { name: 'deactivated_at', nullable: true })
+  deactivatedAt: Date | null;
+
+  /** Shown to the owner verbatim. Required whenever `status` is `deactivated`. */
+  @Column('text', { name: 'deactivated_reason', nullable: true })
+  deactivatedReason: string | null;
+
+  /** The platform admin who did it. Never a tenant user. */
+  @Column('uuid', { name: 'deactivated_by', nullable: true })
+  deactivatedBy: string | null;
 
   @Column('timestamptz', { name: 'created_at', default: () => 'now()' })
   createdAt: Date;

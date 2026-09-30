@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, type PlatformTenant, type TenantDetail } from '../lib/api';
 import { formatEtb, formatInstant, relativeAge, formatPhone } from '../lib/format';
-import { StateBadge, type PageProps } from './Console';
+import { StateBadge, TenantBadge, type PageProps } from './Console';
 
 /** Screen 23 — every pharmacy, with plan and status. */
 export function Tenants({ token, data, reload, fail, go }: PageProps) {
@@ -67,7 +67,7 @@ export function Tenants({ token, data, reload, fail, go }: PageProps) {
                   <td>{t.ownerName ?? '—'}</td>
                   <td>{t.priceSantim !== null ? `${formatEtb(t.priceSantim)}/mo` : '—'}</td>
                   <td>
-                    <StateBadge state={t.subscriptionState} />
+                    <TenantBadge tenant={t} />
                   </td>
                   <td>›</td>
                 </tr>
@@ -98,6 +98,7 @@ export function Tenants({ token, data, reload, fail, go }: PageProps) {
 export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { id: string }) {
   const [tenant, setTenant] = useState<TenantDetail | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState<'deactivate' | 'reactivate' | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -134,8 +135,25 @@ export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { 
     }
   }
 
+  async function changeAccount(action: 'deactivate' | 'reactivate', text: string) {
+    if (!tenant) return;
+    setBusy(true);
+    try {
+      if (action === 'deactivate') await api.deactivate(token, tenant.id, text);
+      else await api.reactivate(token, tenant.id, text || undefined);
+      setConfirming(null);
+      setTenant(await api.tenant(token, id));
+      await reload();
+    } catch (cause) {
+      fail(cause);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!tenant) return <div className="empty">Loading…</div>;
   const suspended = tenant.subscriptionState === 'suspended';
+  const deactivated = tenant.status === 'deactivated';
 
   return (
     <>
@@ -148,7 +166,7 @@ export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { 
             >
               Tenants ›
             </a>{' '}
-            {tenant.name} <StateBadge state={tenant.subscriptionState} />
+            {tenant.name} <TenantBadge tenant={tenant} />
           </h3>
           <p>
             Owner: {tenant.ownerName ?? '—'}
@@ -166,6 +184,18 @@ export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { 
           </button>
         </div>
       </div>
+      {deactivated && (
+        <div className="notice n-red">
+          <div>
+            <b>Account deactivated</b>
+            {tenant.deactivatedAt
+              ? ` on ${formatInstant(tenant.deactivatedAt).replace(/ \d\d:\d\d$/, '')}`
+              : ''}
+            : {tenant.deactivatedReason}. Every sign-in, sync and request from this pharmacy is
+            refused until it is reactivated. Nothing has been deleted.
+          </div>
+        </div>
+      )}
       {tenant.suspendedReason && (
         <div className="notice n-red">
           <div>
@@ -246,11 +276,143 @@ export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { 
           </div>
         </div>
       </div>
+      <div className="wpanel danger">
+        <div className="wpanel-h">
+          <b>Account access</b>
+        </div>
+        <div className="pad">
+          {deactivated ? (
+            <>
+              <p className="lead">
+                Reactivating restores sign-in and sync exactly as they were. Sales the pharmacy's
+                terminals queued in the meantime upload on their next sync.
+              </p>
+              <button
+                className="wbtn a"
+                disabled={busy}
+                onClick={() => setConfirming('reactivate')}
+              >
+                Reactivate account
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="lead">
+                For a pharmacy that breaks the terms of service. Unlike a suspension, which only
+                pauses management changes, deactivation refuses <b>every</b> sign-in, sync and
+                request, and signs out every terminal. No record is deleted.
+              </p>
+              <button
+                className="wbtn r"
+                disabled={busy}
+                onClick={() => setConfirming('deactivate')}
+              >
+                Deactivate account…
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      {confirming && (
+        <AccountDialog
+          tenant={tenant}
+          action={confirming}
+          busy={busy}
+          onClose={() => setConfirming(null)}
+          onConfirm={(text) => void changeAccount(confirming, text)}
+        />
+      )}
       <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>
         Last sync is when a branch's records last arrived — operational health, never what they
         said. Suspension blocks management changes only; queued sales still sync (ADR-016).
       </p>
     </>
+  );
+}
+
+/**
+ * Deactivation is confirmed by typing the pharmacy code — a click is too cheap for an action
+ * that stops a business trading on our platform — and it must say why, because the owner is
+ * shown the reason on their phone.
+ */
+export function AccountDialog({
+  tenant,
+  action,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  tenant: PlatformTenant;
+  action: 'deactivate' | 'reactivate';
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: (text: string) => void;
+}) {
+  const [text, setText] = useState('');
+  const [typed, setTyped] = useState('');
+  const deactivating = action === 'deactivate';
+  const ready = deactivating
+    ? text.trim().length >= 10 && typed.trim().toLowerCase() === tenant.code.toLowerCase()
+    : true;
+
+  return (
+    <div className="scrim" onClick={onClose}>
+      <div
+        className="dialog"
+        role="dialog"
+        aria-label={deactivating ? 'Deactivate account' : 'Reactivate account'}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h4>
+          {deactivating ? 'Deactivate' : 'Reactivate'} {tenant.name}?
+        </h4>
+        {deactivating ? (
+          <p className="lead">
+            Every terminal is signed out and cannot sign back in, online or offline. Their records
+            stay on the phones and on our server; nothing is deleted.
+          </p>
+        ) : (
+          <p className="lead">Sign-in and sync are restored immediately.</p>
+        )}
+        <div className="fld">
+          <label htmlFor="account-text">
+            {deactivating ? 'Reason — shown to the owner' : 'Note (optional, kept in the audit)'}
+          </label>
+          <textarea
+            id="account-text"
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          {deactivating && <div className="hint">At least 10 characters.</div>}
+        </div>
+        {deactivating && (
+          <div className="fld">
+            <label htmlFor="account-code">
+              Type the pharmacy code <b>{tenant.code}</b> to confirm
+            </label>
+            <input
+              id="account-code"
+              autoComplete="off"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </div>
+        )}
+        <div className="btn-pair">
+          <button className="wbtn d" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className={deactivating ? 'wbtn r' : 'wbtn a'}
+            disabled={!ready || busy}
+            onClick={() => onConfirm(text.trim())}
+          >
+            {busy ? 'Saving…' : deactivating ? 'Deactivate account' : 'Reactivate account'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -334,7 +496,9 @@ function NewTenant({
 function exportCsv(tenants: PlatformTenant[]) {
   const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = [
-    ['Pharmacy', 'Code', 'Branches', 'Owner', 'Phone', 'State', 'Paid until'].map(cell).join(','),
+    ['Pharmacy', 'Code', 'Branches', 'Owner', 'Phone', 'Account', 'State', 'Paid until']
+      .map(cell)
+      .join(','),
     ...tenants.map((t) =>
       [
         t.name,
@@ -342,6 +506,7 @@ function exportCsv(tenants: PlatformTenant[]) {
         t.branchCount,
         t.ownerName,
         t.ownerPhone,
+        t.status,
         t.subscriptionState,
         t.currentPeriodEnd,
       ]

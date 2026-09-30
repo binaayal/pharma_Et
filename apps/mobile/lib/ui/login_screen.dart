@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../auth/offline_credentials.dart';
 import '../auth/session.dart';
 import '../contracts/contracts.dart';
+import '../core/payment_accounts.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import '../sync/sync_client.dart';
@@ -25,6 +26,7 @@ class LoginScreen extends StatefulWidget {
     this.offline,
     this.onForget,
     this.onRequestAccount,
+    this.deactivatedReason,
   });
 
   final SyncClient client;
@@ -38,6 +40,10 @@ class LoginScreen extends StatefulWidget {
   final OfflineCredentials? offline;
   final VoidCallback? onForget;
   final VoidCallback? onRequestAccount;
+
+  /// Set when the platform deactivated this pharmacy while a terminal was signed in
+  /// (ADR-025): the reason, shown until someone signs in again.
+  final String? deactivatedReason;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -54,6 +60,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   String _pin = '';
   String? _error;
+
+  /// The platform's reason, when it deactivated this pharmacy (ADR-025). Kept apart from
+  /// [_error] because it is worded in [build], where the language is known.
+  late String? _deactivated = widget.deactivatedReason;
   bool _offline = false;
   bool _busy = false;
   late bool _usePassword = widget.remembered?.usesPassword ?? false;
@@ -97,6 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _busy = true;
       _error = null;
       _offline = false;
+      _deactivated = null;
     });
     try {
       final response = await widget.client.login(LoginRequest(
@@ -122,6 +133,18 @@ class _LoginScreenState extends State<LoginScreen> {
       // nothing about any account, and "check the details" would send someone retyping a
       // correct PIN at a dead network.
       final status = error is SyncTransportException ? error.statusCode : null;
+      // ADR-025: the credential was right and the pharmacy is deactivated. Wipe what this
+      // phone could otherwise use to open the till offline, and say why.
+      if (error is SyncTransportException && error.accountDeactivated) {
+        await widget.offline?.forgetTenant(_tenantCode.text.trim());
+        if (!mounted) return;
+        setState(() {
+          _pin = '';
+          _password.clear();
+          _deactivated = error.message;
+        });
+        return;
+      }
       // No network at all: try the PIN against what this phone cached at the last online
       // sign-in (AC-2.2, ADR-023) before telling anyone the till cannot open.
       if (status == null && widget.offline != null) {
@@ -170,6 +193,12 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// The app's own sentence, then the platform's reason in its own words.
+  String _deactivatedText(BuildContext context, String reason) {
+    final head = context.tf('login.deactivated', {'phone': supportPhone});
+    return reason.trim().isEmpty ? head : '$head\n“${reason.trim()}”';
   }
 
   @override
@@ -232,6 +261,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     _PinDots(length: _pin.length),
                     const SizedBox(height: 4),
                   ],
+                  if (_deactivated != null && _error == null)
+                    PNotice.text(Tone.red, Icons.block,
+                        _deactivatedText(context, _deactivated!)),
                   if (_offline || _error != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 14),

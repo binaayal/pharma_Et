@@ -35,6 +35,10 @@ export const AUDIT_EVENT_TYPES = [
   'audit.payment_rejected',
   'audit.subscription_changed',
   'audit.tenant_onboarded',
+  // ADR-025. In the tenant's own trail for the same reason as the billing events: the
+  // pharmacy can see what the platform did to it, and when.
+  'audit.tenant_deactivated',
+  'audit.tenant_reactivated',
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];

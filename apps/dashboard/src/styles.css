@@ -572,6 +572,21 @@ td .sub {
   margin-bottom: 16px;
 }
 
+/* ADR-025: the one control on the console that stops a pharmacy trading. */
+.wpanel.danger {
+  margin-top: 16px;
+  border: 1px solid var(--red-t);
+}
+.wpanel.danger .wpanel-h b {
+  color: var(--red);
+}
+.wpanel.danger p.lead {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 14px;
+  max-width: 680px;
+}
+
 @media (max-width: 900px) {
   .web {
     flex-direction: column;

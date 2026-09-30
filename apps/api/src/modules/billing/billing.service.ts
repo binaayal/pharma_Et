@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { uuidv7 } from 'uuidv7';
+import { TenantStatusService } from '../../common/auth/tenant-status';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { PaymentProof, Subscription, type SubscriptionState, Tenant } from '../../entities';
@@ -31,6 +32,7 @@ export class BillingService {
     private readonly db: ScopedDbService,
     private readonly audit: AuditService,
     private readonly storage: ProofStorageService,
+    private readonly tenantStatus: TenantStatusService,
   ) {}
 
   /* ------------------------------------------------------ the tenant's view */
@@ -284,6 +286,84 @@ export class BillingService {
     });
   }
 
+  /**
+   * Forcefully deactivates a pharmacy for a policy breach (ADR-025).
+   *
+   * Every request from the tenant is refused from the next one on — sign-in, refresh, reads
+   * and sync alike — and a terminal that hears it wipes its offline sign-in. Nothing is
+   * deleted: the tenant's records stay exactly as they are, and so does its subscription,
+   * so reactivating puts the account back as it was.
+   *
+   * The reason is required and is shown to the owner verbatim. A deactivation the owner
+   * cannot explain to themselves is a dispute before it is a support call.
+   */
+  async deactivateTenant(adminId: string, tenantId: string, reason: string) {
+    const why = reason.trim();
+    if (why.length < 10) {
+      throw new BadRequestException('say why, in words the owner will be shown (10+ characters)');
+    }
+
+    const result = await this.db.runAsPlatform(`deactivate tenant ${tenantId}`, async (em) => {
+      const tenant = await em.getRepository(Tenant).findOne({ where: { id: tenantId } });
+      if (!tenant || tenant.deletedAt) throw new NotFoundException('no such pharmacy');
+      if (tenant.status === 'deactivated') {
+        // Deactivating twice would overwrite who did it and why — the record a dispute
+        // turns on. Reactivate first if the reason needs to change.
+        throw new BadRequestException('this pharmacy is already deactivated');
+      }
+
+      const previousStatus = tenant.status;
+      tenant.status = 'deactivated';
+      tenant.deactivatedAt = new Date();
+      tenant.deactivatedReason = why;
+      tenant.deactivatedBy = adminId;
+      await em.getRepository(Tenant).save(tenant);
+
+      await this.recordPlatformEvent(em, tenantId, adminId, 'audit.tenant_deactivated', {
+        previousStatus,
+        reason: why,
+      });
+      return {
+        tenantId,
+        status: tenant.status,
+        deactivatedAt: tenant.deactivatedAt.toISOString(),
+        deactivatedReason: why,
+      };
+    });
+
+    this.tenantStatus.forget(tenantId);
+    this.logger.warn(`tenant ${tenantId}: DEACTIVATED by platform admin ${adminId}`);
+    return result;
+  }
+
+  /** Lifts a deactivation. The account comes back exactly as it was left. */
+  async reactivateTenant(adminId: string, tenantId: string, note?: string) {
+    const result = await this.db.runAsPlatform(`reactivate tenant ${tenantId}`, async (em) => {
+      const tenant = await em.getRepository(Tenant).findOne({ where: { id: tenantId } });
+      if (!tenant || tenant.deletedAt) throw new NotFoundException('no such pharmacy');
+      if (tenant.status !== 'deactivated') {
+        throw new BadRequestException('this pharmacy is not deactivated');
+      }
+
+      const previousReason = tenant.deactivatedReason;
+      tenant.status = 'active';
+      tenant.deactivatedAt = null;
+      tenant.deactivatedReason = null;
+      tenant.deactivatedBy = null;
+      await em.getRepository(Tenant).save(tenant);
+
+      await this.recordPlatformEvent(em, tenantId, adminId, 'audit.tenant_reactivated', {
+        previousReason,
+        note: note?.trim() || null,
+      });
+      return { tenantId, status: tenant.status };
+    });
+
+    this.tenantStatus.forget(tenantId);
+    this.logger.warn(`tenant ${tenantId}: reactivated by platform admin ${adminId}`);
+    return result;
+  }
+
   /** Onboards a pharmacy: tenant, its subscription, and its first owner. */
   async createTenant(
     adminId: string,
@@ -371,6 +451,8 @@ export class BillingService {
     const rows = await this.db.runAsPlatform('list tenants for the platform console', (em) =>
       em.query(
         `SELECT t.id, t.name, t.code, t.status, t.created_at AS "createdAt",
+                t.deactivated_at AS "deactivatedAt",
+                t.deactivated_reason AS "deactivatedReason",
                 s.state AS "subscriptionState",
                 s.current_period_end AS "currentPeriodEnd",
                 s.suspended_reason AS "suspendedReason",
@@ -401,6 +483,7 @@ export class BillingService {
       currentPeriodEnd: r.currentPeriodEnd
         ? new Date(r.currentPeriodEnd as string).toISOString()
         : null,
+      deactivatedAt: r.deactivatedAt ? new Date(r.deactivatedAt as string).toISOString() : null,
     }));
   }
 

@@ -67,6 +67,10 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
   Placement? _placement;
   bool _booting = true;
 
+  /// Set when the server said this pharmacy is deactivated (ADR-025): the reason, shown on
+  /// the sign-in screen until someone signs in again.
+  String? _deactivatedReason;
+
   /// Set when the local database could not be read and was replaced (ADR-018). Held until
   /// someone acknowledges it; it gates nothing, but it must not be possible to miss.
   String? _quarantinedFile;
@@ -221,6 +225,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
         }
       },
       onSignOut: () => async.unawaited(_signOut()),
+      onDeactivated: (reason) => async.unawaited(_deactivated(reason)),
     );
     setState(() => _terminal = terminal);
     await terminal.start();
@@ -261,6 +266,16 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       _identity = identity;
     });
     await _place();
+  }
+
+  /// ADR-025: the platform deactivated this pharmacy. Stop the till, wipe this device's
+  /// offline sign-in for the pharmacy so it cannot reopen without the network, and say why.
+  /// The outbox is untouched — those records are the pharmacy's, deactivated or not.
+  Future<void> _deactivated(String reason) async {
+    final tenantCode = _session?.tenantCode;
+    if (tenantCode != null) await _offline.forgetTenant(tenantCode);
+    if (mounted) setState(() => _deactivatedReason = reason);
+    await _signOut();
   }
 
   Future<void> _signOut() async {
@@ -339,8 +354,12 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
         onRequestAccount: () => _navigator.currentState!.push(
             MaterialPageRoute<void>(
                 builder: (_) => RequestAccountScreen(api: _api))),
-        onSignedIn: (response, tenantCode, username, usedPassword) => async
-            .unawaited(_signIn(response, tenantCode, username, usedPassword)),
+        deactivatedReason: _deactivatedReason,
+        onSignedIn: (response, tenantCode, username, usedPassword) {
+          setState(() => _deactivatedReason = null);
+          async
+              .unawaited(_signIn(response, tenantCode, username, usedPassword));
+        },
       );
     }
     if (_placement != null) {

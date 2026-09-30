@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -72,6 +73,14 @@ const setState = z.object({
   tenantId: z.string().uuid(),
   state: z.enum(['active', 'suspended']),
   reason: z.string().max(500).optional(),
+});
+
+const deactivate = z.object({
+  reason: z.string().trim().min(10).max(500),
+});
+
+const reactivate = z.object({
+  note: z.string().trim().max(500).optional(),
 });
 
 const onboard = z.object({
@@ -203,6 +212,29 @@ export class PlatformController {
     @Req() request: { platformAdmin: { id: string } },
   ) {
     return this.billing.createTenant(request.platformAdmin.id, body);
+  }
+
+  /** ADR-025: stop serving a pharmacy that broke its terms. Every request it makes is refused. */
+  @Post('tenants/:id/deactivate')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  deactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(deactivate)) body: z.infer<typeof deactivate>,
+    @Req() request: { platformAdmin: { id: string } },
+  ) {
+    return this.billing.deactivateTenant(request.platformAdmin.id, id, body.reason);
+  }
+
+  @Post('tenants/:id/reactivate')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  reactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(reactivate)) body: z.infer<typeof reactivate>,
+    @Req() request: { platformAdmin: { id: string } },
+  ) {
+    return this.billing.reactivateTenant(request.platformAdmin.id, id, body.note);
   }
 
   /** The work queue: everything waiting on a human, oldest first. */
