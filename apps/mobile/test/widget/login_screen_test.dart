@@ -69,6 +69,19 @@ void main() {
     expect(find.bySemanticsLabel('1 digits entered'), findsOneWidget);
   });
 
+  testWidgets('suggests no pharmacy, user or PIN — this screen is sold',
+      (tester) async {
+    // It used to pre-fill the development seed and print its PIN in debug builds. A debug
+    // build is what ends up in a demo or a screenshot, so nothing here may name an account.
+    await open(tester, _RefusingClient(401, 'invalid credentials'));
+    for (final field in tester.widgetList<TextField>(find.byType(TextField))) {
+      expect(field.controller?.text ?? '', isEmpty);
+    }
+    expect(find.textContaining('seed'), findsNothing);
+    expect(find.textContaining('1234'), findsNothing);
+    expect(find.text('How do I use PharmaEt?'), findsOneWidget);
+  });
+
   testWidgets('a returning user is greeted by name and only asked for a PIN',
       (tester) async {
     await open(tester, _RefusingClient(401, 'invalid credentials'),

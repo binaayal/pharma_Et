@@ -53,3 +53,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # The logo only. `icon-source.png` beside it is the input to scripts/make-app-icons.py and
+  # has no business in the app bundle.
+  assets:
+    - assets/brand/logo.png

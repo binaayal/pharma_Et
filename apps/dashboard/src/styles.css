@@ -511,6 +511,17 @@ td .sub {
   gap: 11px;
   margin-bottom: 20px;
 }
+.logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  flex: none;
+}
+.login-card .brand .logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+}
 .login-card .brand .mark {
   width: 36px;
   height: 36px;

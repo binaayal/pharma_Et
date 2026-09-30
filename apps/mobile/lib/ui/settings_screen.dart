@@ -5,6 +5,7 @@ import '../core/permissions.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import 'cash_up_screen.dart';
+import 'help_screen.dart';
 import 'kit.dart';
 import 'staff_screen.dart';
 import 'subscription_screens.dart';
@@ -96,6 +97,14 @@ class SettingsScreen extends StatelessWidget {
                         ? const SubscriptionEndedScreen()
                         : const PaymentProofScreen())),
               ),
+            PRow(
+              title: context.t('help.open'),
+              subtitle: context.t('help.openSub'),
+              avatarIcon: Icons.help_outline,
+              chevron: true,
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
+            ),
             PRow(
               title: context.t('settings.signOut'),
               titleColor: PharmaColors.red,

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/money.dart';
+import '../core/payment_accounts.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
+import 'help_screen.dart';
 import 'kit.dart';
 import 'terminal.dart';
 
@@ -87,11 +90,10 @@ class SubscriptionEndedScreen extends StatelessWidget {
   }
 }
 
-enum PayChannel { telebirr, cbe }
-
 /// Submit payment proof (prototype screen 05) → proof submitted (06).
 ///
-/// Pay ETB 1,000 by Telebirr or CBE Birr, attach the screenshot, and a person verifies it.
+/// Pay ETB 1,000 to our CBE or Telebirr account, attach the screenshot, and a person verifies
+/// it. The account the owner pays into is on the screen, with a copy button.
 /// No self-unlock: the subscription changes only when platform staff approve it.
 class PaymentProofScreen extends StatefulWidget {
   const PaymentProofScreen({super.key});
@@ -101,7 +103,7 @@ class PaymentProofScreen extends StatefulWidget {
 }
 
 class _PaymentProofScreenState extends State<PaymentProofScreen> {
-  PayChannel _channel = PayChannel.telebirr;
+  PayChannel _channel = PayChannel.cbe;
   final _reference = TextEditingController();
   final _amount = TextEditingController();
   XFile? _image;
@@ -142,7 +144,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
     });
     try {
       final bytes = await _image!.readAsBytes();
-      final channel = _channel == PayChannel.telebirr ? 'Telebirr' : 'CBE Birr';
+      final channel = paymentAccounts[_channel]!.label;
       await t.authed((token) => t.api.submitPaymentProof(
             token,
             screenshot: bytes,
@@ -178,12 +180,24 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
             PField(
               label: context.t('sub.method'),
               child: PSegmented<PayChannel>(
-                options: const [
-                  (PayChannel.telebirr, 'Telebirr'),
-                  (PayChannel.cbe, 'CBE Birr'),
+                options: [
+                  for (final account in paymentAccounts.values)
+                    (account.channel, account.label),
                 ],
                 value: _channel,
                 onChanged: (c) => setState(() => _channel = c),
+              ),
+            ),
+            PayToCard(account: paymentAccounts[_channel]!),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                        builder: (_) =>
+                            const HelpScreen(initialTopic: 'payment'))),
+                icon: const Icon(Icons.help_outline, size: 18),
+                label: Text(context.t('help.howToPay')),
               ),
             ),
             PField(
@@ -271,9 +285,7 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
                 const SizedBox(height: 10),
                 Text(
                   context.tf('sub.sentBody', {
-                    'channel': _channel == PayChannel.telebirr
-                        ? 'Telebirr'
-                        : 'CBE Birr',
+                    'channel': paymentAccounts[_channel]!.label,
                     'amount': formatEtbShort(parseBirr(_amount.text) ?? 0),
                   }),
                   textAlign: TextAlign.center,
@@ -296,5 +308,64 @@ class _PaymentProofScreenState extends State<PaymentProofScreen> {
             ),
           ),
         ),
+      );
+}
+
+/// The account to pay into, with the number large enough to read across a counter and a
+/// button that copies it — retyping a thirteen-digit account number is how money goes to
+/// the wrong place.
+class PayToCard extends StatelessWidget {
+  const PayToCard({super.key, required this.account});
+
+  final PaymentAccount account;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        decoration: BoxDecoration(
+          color: PharmaColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: PharmaColors.green, width: 1.5),
+          boxShadow: cardShadow,
+        ),
+        child: Row(children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.tf('sub.payTo', {'channel': account.label}),
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                        color: PharmaColors.faint)),
+                const SizedBox(height: 4),
+                SelectableText(account.number,
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
+                        color: PharmaColors.greenDark,
+                        fontFeatures: [FontFeature.tabularFigures()])),
+                const SizedBox(height: 2),
+                Text(context.tf('sub.accountHolder', {'name': account.holder}),
+                    style: const TextStyle(
+                        fontSize: 12.5, color: PharmaColors.muted)),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: context.t('sub.copy'),
+            icon: const Icon(Icons.copy_rounded, color: PharmaColors.green),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: account.number));
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(
+                      context.tf('sub.copied', {'number': account.number}))));
+            },
+          ),
+        ]),
       );
 }

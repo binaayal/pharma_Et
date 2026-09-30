@@ -1006,29 +1006,27 @@ class PMark extends StatelessWidget {
 
 /// The ℞ brand mark from the login screen (`.pin-logo`).
 class PLogo extends StatelessWidget {
-  const PLogo({super.key});
+  const PLogo({super.key, this.size = 68});
+  final double size;
 
+  /// The launcher icon itself (scripts/make-app-icons.py renders both from one source), so
+  /// the first thing a pharmacist sees after tapping the icon is the icon they tapped.
   @override
   Widget build(BuildContext context) => Container(
-        width: 68,
-        height: 68,
-        alignment: Alignment.center,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [PharmaColors.heroFrom, PharmaColors.heroTo]),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(size * 0.225),
           boxShadow: const [
             BoxShadow(
                 color: Color(0x330D3B2B), blurRadius: 26, offset: Offset(0, 12))
           ],
         ),
-        child: const Text('℞',
-            style: TextStyle(
-                color: PharmaColors.gold,
-                fontSize: 34,
-                fontWeight: FontWeight.w800)),
+        child: Image.asset('assets/brand/logo.png',
+            width: size,
+            height: size,
+            filterQuality: FilterQuality.medium,
+            semanticLabel: 'PharmaEt'),
       );
 }
 

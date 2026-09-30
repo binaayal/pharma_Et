@@ -27,6 +27,9 @@ export type Route =
   | { page: 'payments' }
   | { page: 'subscriptions' };
 
+/** The app icon, rendered for the web by scripts/make-app-icons.py. */
+const LOGO = `${import.meta.env.BASE_URL}icon-192.png`;
+
 const TOKEN_KEY = 'pharmaet.platform';
 
 function readToken(): string | null {
@@ -92,7 +95,7 @@ function Login({ onSignedIn }: { onSignedIn: (token: string) => void }) {
     <div className="login-bg">
       <form className="login-card" onSubmit={(e) => void submit(e)}>
         <div className="brand">
-          <div className="mark">P</div>
+          <img className="logo" src={LOGO} alt="" />
           <div>
             <b>PharmaEt</b>
             <span>Platform console</span>
@@ -186,7 +189,7 @@ function Shell({ token, onSignOut }: { token: string; onSignOut: () => void }) {
     <div className="web">
       <nav className="wnav">
         <div className="wb">
-          <div className="mark">P</div>
+          <img className="logo" src={LOGO} alt="" />
           <b>PharmaEt</b>
         </div>
         {nav('overview', '▤ Overview')}

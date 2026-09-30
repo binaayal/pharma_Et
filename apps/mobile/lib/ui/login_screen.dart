@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../auth/offline_credentials.dart';
@@ -7,6 +6,7 @@ import '../contracts/contracts.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import '../sync/sync_client.dart';
+import 'help_screen.dart';
 import 'kit.dart';
 
 /// Login (prototype screen 03; FR-2, ADR-017).
@@ -44,12 +44,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Pre-filled with the development seed in debug builds only. A release build is what a
-  // pharmacy installs, and it must not suggest a tenant — let alone a working PIN.
-  late final _tenantCode = TextEditingController(
-      text: widget.remembered?.tenantCode ?? (kDebugMode ? 'abay' : ''));
-  late final _username = TextEditingController(
-      text: widget.remembered?.username ?? (kDebugMode ? 'cashier' : ''));
+  // Never pre-filled with anything but the identity this device remembers. The app is sold
+  // to pharmacies, and a login screen that suggests a pharmacy code — even only in debug
+  // builds — ends up in a screenshot, a demo, or a store review.
+  late final _tenantCode =
+      TextEditingController(text: widget.remembered?.tenantCode ?? '');
+  late final _username =
+      TextEditingController(text: widget.remembered?.username ?? '');
   final _password = TextEditingController();
   String _pin = '';
   String? _error;
@@ -280,10 +281,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                     ],
                   ),
-                  if (kDebugMode && !_known)
-                    const Text('Development seed: abay / cashier / 1234',
-                        style:
-                            TextStyle(color: PharmaColors.faint, fontSize: 12)),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                            builder: (_) => const HelpScreen())),
+                    icon: const Icon(Icons.help_outline, size: 18),
+                    label: Text(context.t('help.login')),
+                  ),
                   if (widget.onRequestAccount != null) ...[
                     const SizedBox(height: 14),
                     const Divider(color: PharmaColors.line),
