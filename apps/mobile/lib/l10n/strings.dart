@@ -486,7 +486,23 @@ const Map<String, String> _en = {
   'settings.pending': 'Pending uploads',
   'settings.pendingSub': '{n} records waiting',
   'settings.account': 'Account',
-  'settings.footer': 'PharmaEt 0.1.0 · Ethiopian calendar · UTC storage',
+  'settings.footer': 'PharmaEt 1.0.0 · Ethiopian calendar',
+  'settings.privacy': 'Privacy policy',
+  'settings.deleteAccount': 'Delete account',
+  'delete.title': 'Delete account',
+  'delete.intro':
+      'Only the owner can close the pharmacy\'s account. Call PharmaEt support: we confirm by calling the owner\'s registered number, so nobody else can close it, and it is done within 30 days.',
+  'delete.deletedTitle': 'Deleted',
+  'delete.deleted':
+      'Names, usernames, phone numbers and sign-in details of the owner and staff; payment screenshots; the product catalogue and prices.',
+  'delete.keptTitle': 'Kept only where the law requires it',
+  'delete.kept':
+      'Sales, stock and controlled-substance records that Ethiopian pharmacy regulations oblige the pharmacy to keep, for the required period, then deleted.',
+  'delete.staffTitle': 'Removing one staff member instead?',
+  'delete.staff':
+      'Use More → Branches & staff, open the person and tap Deactivate. Their past sales stay in the pharmacy\'s records.',
+  'delete.readMore': 'How account deletion works',
+  'delete.call': 'Call support to delete the account',
   'sub.title': 'Subscription',
   'sub.unknown': 'Connect to see your subscription',
   'sub.month': 'mo',
@@ -920,7 +936,23 @@ const Map<String, String> _am = {
   'settings.pending': 'የሚጠባበቁ',
   'settings.pendingSub': '{n} መዝገቦች ይጠባበቃሉ',
   'settings.account': 'መለያ',
-  'settings.footer': 'ፋርማኢት 0.1.0 · የኢትዮጵያ ዘመን አቆጣጠር · UTC ማከማቻ',
+  'settings.footer': 'ፋርማኢት 1.0.0 · የኢትዮጵያ ዘመን አቆጣጠር',
+  'settings.privacy': 'የግላዊነት ፖሊሲ',
+  'settings.deleteAccount': 'መለያ ሰርዝ',
+  'delete.title': 'መለያ ሰርዝ',
+  'delete.intro':
+      'የፋርማሲውን መለያ መዝጋት የሚችለው ባለቤቱ ብቻ ነው። የፋርማኢት ድጋፍን ይደውሉ፦ ሌላ ሰው እንዳይዘጋው በባለቤቱ የተመዘገበ ቁጥር ደውለን እናረጋግጣለን፤ በ30 ቀናት ውስጥም ይፈጸማል።',
+  'delete.deletedTitle': 'የሚሰረዙ',
+  'delete.deleted':
+      'የባለቤቱና የሠራተኞች ስም፣ የተጠቃሚ ስም፣ ስልክ ቁጥርና የመግቢያ መረጃ፤ የክፍያ ቅጽበታዊ ገጽ እይታዎች፤ የምርት ካታሎግና ዋጋዎች።',
+  'delete.keptTitle': 'ሕግ በሚያስገድድበት ብቻ የሚቆዩ',
+  'delete.kept':
+      'የኢትዮጵያ የፋርማሲ ደንቦች ፋርማሲው እንዲያቆያቸው የሚያስገድዱት የሽያጭ፣ የክምችትና የቁጥጥር መድኃኒት መዝገቦች፤ ለሚፈለገው ጊዜ ተቀምጠው ከዚያ ይሰረዛሉ።',
+  'delete.staffTitle': 'አንድ ሠራተኛ ብቻ ማስወገድ ይፈልጋሉ?',
+  'delete.staff':
+      'ተጨማሪ → ቅርንጫፎችና ሠራተኞች ይሂዱ፣ ሰውየውን ከፍተው አቦዝን ይንኩ። ያለፉ ሽያጮቻቸው በፋርማሲው መዝገብ ውስጥ ይቆያሉ።',
+  'delete.readMore': 'መለያ መሰረዝ እንዴት እንደሚሰራ',
+  'delete.call': 'መለያውን ለመሰረዝ ድጋፍን ይደውሉ',
   'sub.title': 'ምዝገባ',
   'sub.unknown': 'ምዝገባዎን ለማየት ይገናኙ',
   'sub.month': 'ወር',

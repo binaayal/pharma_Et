@@ -21,3 +21,16 @@ String resolveApiBaseUrl(String configured, {required bool release}) {
       ? configured.substring(0, configured.length - 1)
       : configured;
 }
+
+/// The public website — the same origin as the API, which serves the console and the legal
+/// pages (docs/03 §7). Set once at startup from the API URL.
+String publicSite = 'https://pharmaet-staging.fly.dev';
+
+/// `https://host/api` → `https://host`.
+String siteFromApi(String apiBaseUrl) {
+  final uri = Uri.parse(apiBaseUrl);
+  return uri
+      .replace(path: '', query: null, fragment: null)
+      .toString()
+      .replaceAll(RegExp(r'/$'), '');
+}

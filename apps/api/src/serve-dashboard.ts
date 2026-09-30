@@ -48,6 +48,9 @@ export function serveDashboard(app: INestApplication): void {
       // index.html is served by the fallback below, so that one code path decides its
       // headers rather than two.
       index: false,
+      // `/privacy` and `/delete-account` — the public legal pages the app stores link to —
+      // resolve to their .html files, so the URLs given to Google and Apple stay clean.
+      extensions: ['html'],
       setHeaders: (res, filePath) => {
         // Vite emits every content-hashed file into `assets/` and nothing else there, so
         // the directory IS the immutability contract — a far better signal than matching

@@ -90,7 +90,14 @@ provisioning profile is stored in the repository or in secrets.
 exists yet. The unsigned build is proven on every PR. The signing and upload steps will run for
 the first time the day the secrets are added, so check that run's log.
 
-## 4. After a release
+## 4. Publishing on the stores
+
+Listing copy, the Data safety and App Privacy answers, review notes and the checklist are in
+[`../store/README.md`](../store/README.md). Release builds are obfuscated
+(`--obfuscate --split-debug-info`); keep the `build/symbols/` from the CD artifact to read a
+crash report's stack trace (`flutter symbolize`).
+
+## 5. After a release
 
 - Run the device matrix on the new build (`device-matrix.md`) before it goes to a pharmacy.
 - A pilot pharmacy should only get a build whose API URL points at an environment you intend

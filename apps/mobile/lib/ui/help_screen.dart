@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../core/payment_accounts.dart';
 import '../core/theme.dart';
 import '../l10n/help_content.dart';
 import '../l10n/locale_store.dart';
 import 'kit.dart';
+import 'links.dart';
 
 /// Help & user guide (FR-10): every task in the app, step by step, in Amharic and English.
 ///
@@ -130,6 +132,19 @@ class _HelpScreenState extends State<HelpScreen> {
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 3),
                   SelectableText(guide.contactBody),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 4, children: [
+                    TextButton.icon(
+                      onPressed: () => openLink(context, supportTel),
+                      icon: const Icon(Icons.call, size: 18),
+                      label: const Text(supportPhone),
+                    ),
+                    TextButton(
+                      onPressed: () => openLink(
+                          context, privacyPolicyUrl(l10n.strings.locale)),
+                      child: Text(l10n.strings.get('settings.privacy')),
+                    ),
+                  ]),
                 ],
               ),
             ),

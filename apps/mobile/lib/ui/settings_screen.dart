@@ -5,8 +5,10 @@ import '../core/permissions.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import 'cash_up_screen.dart';
+import 'delete_account_screen.dart';
 import 'help_screen.dart';
 import 'kit.dart';
+import 'links.dart';
 import 'staff_screen.dart';
 import 'subscription_screens.dart';
 import 'sync_chip.dart';
@@ -105,6 +107,22 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const HelpScreen())),
             ),
+            PRow(
+              title: context.t('settings.privacy'),
+              avatarIcon: Icons.privacy_tip_outlined,
+              chevron: true,
+              onTap: () =>
+                  openLink(context, privacyPolicyUrl(context.l10n.locale)),
+            ),
+            if (t.role == 'owner')
+              PRow(
+                title: context.t('settings.deleteAccount'),
+                avatarIcon: Icons.delete_outline,
+                avatarTone: Tone.red,
+                chevron: true,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const DeleteAccountScreen())),
+              ),
             PRow(
               title: context.t('settings.signOut'),
               titleColor: PharmaColors.red,
