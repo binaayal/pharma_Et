@@ -90,7 +90,7 @@ If step 4 or step 7 fails, the spine is not proven and no breadth work starts.
 | **End-to-end slice** | ✅ real Flutter stack → API → PostgreSQL: pull → 3 offline sales → reconnect → sync → 0 pending; a second sync sends nothing |
 | **CI gates** | ✅ 8 checks on every PR, path-filtered, with a gate that fails on a skipped-because-broken run |
 | **CD promotion path** | ✅ image published to GHCR, stood up against real Postgres, migrated, smoke-tested over HTTP, then deployed — all on merge |
-| **Staging reachable** | ⛔ needs `FLY_API_TOKEN` + a Neon `DATABASE_URL` (`staging.md` §3). The dashboard ships inside the API image, so it arrives with it. |
+| **Live reachable** | ⛔ needs the Render, Neon and R2 accounts (`hosting.md`). The dashboard ships inside the API image, so it arrives with it. |
 
 Totals: 37 API guardian/gate tests, 28 mobile tests, 13 contract tests, 3 dashboard tests,
 12 HTTP smoke assertions. The manual walkthrough in §5 was run and passed; so was the exact

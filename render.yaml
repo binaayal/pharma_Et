@@ -1,0 +1,55 @@
+# Render Blueprint (docs/engineering/hosting.md). Render → Blueprints → New → this repo.
+#
+# One web service that runs the image CD has already built and verified — Render never builds
+# PharmaEt itself. CD publishes ghcr.io/<owner>/<repo>/api:sha-<commit>, runs the migrations
+# against Neon, and only then calls this service's deploy hook with that exact image. So what
+# runs is byte-for-byte what was tested, and a rollback is "deploy the previous sha" (runbook).
+#
+# Moving up a plan is one line — `plan: starter` — and nothing else in this file or in the
+# app changes. See hosting.md §5 for what each paid step buys.
+services:
+  - type: web
+    name: pharmaet
+    runtime: image
+    image:
+      url: ghcr.io/binaayal/pharma_et/api:latest
+      # A GitHub token with read:packages, added in Render → Settings → Registry credentials.
+      creds:
+        fromRegistryCreds:
+          name: ghcr
+    plan: free
+    # Frankfurt: the Render region closest to Addis Ababa, and the same one Neon and R2 use,
+    # so a sync never crosses a continent twice.
+    region: frankfurt
+    healthCheckPath: /api/health
+    # CD decides when to deploy (after verification and migration), never a push.
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Render's edge is one proxy hop. Confirm with /api/health → clientIp (hosting.md §3.6).
+      - key: TRUST_PROXY
+        value: '1'
+      - key: DATABASE_APP_USER
+        value: pharmaet_app
+      - key: PROOF_STORAGE
+        value: s3
+      - key: S3_REGION
+        value: auto
+      # Secrets: entered once in the dashboard, never committed.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_APP_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PROOF_ENCRYPTION_KEY
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false

@@ -53,7 +53,7 @@ jobs:
           echo "no literal credentials in tracked files"
 
           # Deploy tokens and API keys, which have no legitimate reason to be in the tree.
-          KEYS=$(git grep -nE '(fly[_-]?api[_-]?token|FlyV1 fm2_|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' \
+          KEYS=$(git grep -nE '(fly[_-]?api[_-]?token|FlyV1 fm2_|api\.render\.com/deploy/srv-[a-z0-9]+\?key=|ghp_[A-Za-z0-9]{36}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' \
                    -- ':!*.md' ':!.github/**' || true)
           if [ -n "$KEYS" ]; then
             echo "$KEYS"

@@ -5,7 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import * as dotenv from 'dotenv';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import { applyHttpSecurity } from './common/http/security';
+import { applyHttpSecurity, httpSecurityFromEnv } from './common/http/security';
 import { serveDashboard } from './serve-dashboard';
 
 /**
@@ -44,11 +44,14 @@ async function bootstrap(): Promise<void> {
   // Proxy trust, HTTPS, security headers and per-address rate limits (NFR-4.3, docs/05 §10,
   // docs/engineering/security.md). One function, shared with the test harness, so what the
   // guardian suites assert is what this process serves.
-  applyHttpSecurity(app, {
-    nodeEnv: config.get<string>('NODE_ENV', 'development'),
-    trustProxy: config.get<number>('TRUST_PROXY', 0),
-    rateLimit: config.get<boolean>('RATE_LIMIT', true),
-  });
+  //
+  // Read through `httpSecurityFromEnv`, not `config.get<number>`: ConfigService returns the
+  // raw process.env STRING ahead of the parsed value, and Express reads `trust proxy = "1"`
+  // as an IP address to trust, not a hop count — silently trusting nothing.
+  applyHttpSecurity(
+    app,
+    httpSecurityFromEnv(config.get<string>('NODE_ENV', 'development'), process.env),
+  );
 
   // No global class-validator pipe: request validation is done by ZodValidationPipe against
   // the shared contract schemas (ADR-010), so there is exactly one definition of a valid

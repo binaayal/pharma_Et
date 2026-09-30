@@ -9,13 +9,33 @@ import type { NextFunction, Request, Response } from 'express';
 export interface HttpSecurityOptions {
   nodeEnv: string;
   /**
-   * How many reverse proxies sit in front of the app (Fly's edge is one). Without it every
+   * How many reverse proxies sit in front of the app (Render's edge is one; confirm with
+   * `/api/health` → `clientIp`, docs/engineering/hosting.md). Without it every
    * request appears to come from the proxy, and the per-address login throttle (ADR-017)
    * becomes ONE counter shared by every pharmacy in the country: twenty wrong PINs anywhere
    * would stop everyone signing in for fifteen minutes.
    */
   trustProxy: number;
   rateLimit: boolean;
+}
+
+/**
+ * The options from raw environment strings, parsed here because a string reaching Express
+ * means something else: `app.set('trust proxy', '1')` trusts the IP address "1" — nothing —
+ * and `rateLimit: 'off'` is truthy. Found by booting the release image with TRUST_PROXY=1 and
+ * watching /api/health report the proxy's address (hosting.md §7).
+ */
+export function httpSecurityFromEnv(
+  nodeEnv: string,
+  env: Record<string, string | undefined>,
+): HttpSecurityOptions {
+  const hops = Number(env.TRUST_PROXY ?? 0);
+  const limit = (env.RATE_LIMIT ?? (nodeEnv === 'test' ? 'off' : 'on')).toLowerCase();
+  return {
+    nodeEnv,
+    trustProxy: Number.isInteger(hops) && hops >= 0 ? hops : 0,
+    rateLimit: limit !== 'off' && limit !== 'false',
+  };
 }
 
 export function applyHttpSecurity(app: NestExpressApplication, options: HttpSecurityOptions) {
@@ -25,8 +45,8 @@ export function applyHttpSecurity(app: NestExpressApplication, options: HttpSecu
   // "Express" in every response tells a scanner which advisories to try first.
   app.disable('x-powered-by');
 
-  // HTTPS only. Fly already refuses plain HTTP at its edge (`force_https`); this is the same
-  // rule said by the app, so a second host or a misconfigured proxy cannot quietly serve
+  // HTTPS only. The host's edge already terminates TLS and redirects; this is the same rule
+  // said by the app, so a second host or a misconfigured proxy cannot quietly serve
   // tokens and PINs in clear text.
   if (production) {
     app.use((req: Request, res: Response, next: NextFunction) => {
