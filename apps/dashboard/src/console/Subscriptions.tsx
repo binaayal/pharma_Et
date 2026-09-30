@@ -6,7 +6,7 @@ import { StateBadge, type PageProps } from './Console';
 const DAY_MS = 24 * 3600 * 1000;
 
 /** Screen 26 — the manual billing cycle: who is due, who is overdue, who is suspended. */
-export function Subscriptions({ token, data, reload, fail, go }: PageProps) {
+export function Subscriptions({ data, reload, fail, go }: PageProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const tenants = data.tenants ?? [];
   const now = Date.now();
@@ -28,7 +28,7 @@ export function Subscriptions({ token, data, reload, fail, go }: PageProps) {
     }
     setBusyId(t.id);
     try {
-      await api.setState(token, { tenantId: t.id, state, reason });
+      await api.setState({ tenantId: t.id, state, reason });
       await reload();
     } catch (cause) {
       fail(cause);

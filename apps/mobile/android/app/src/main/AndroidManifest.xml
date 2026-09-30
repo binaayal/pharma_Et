@@ -2,10 +2,18 @@
     <!-- Flutter's template grants INTERNET only in the debug and profile manifests, so a
          release build installs, runs, and silently never syncs. Sync is the product. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Release: HTTPS only (the debug manifest opens cleartext to the developer's machine),
+         and no cloud or device-to-device backup. The local database holds a pharmacy's sales
+         and the secure store its cached sign-in; a backup restored onto another phone would
+         carry both somewhere the pharmacy never sent them. -->
     <application
         android:label="PharmaEt"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="false"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"

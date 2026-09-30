@@ -4,7 +4,7 @@ import { formatEtb, formatInstant, relativeAge, formatPhone } from '../lib/forma
 import { StateBadge, TenantBadge, type PageProps } from './Console';
 
 /** Screen 23 — every pharmacy, with plan and status. */
-export function Tenants({ token, data, reload, fail, go }: PageProps) {
+export function Tenants({ data, reload, fail, go }: PageProps) {
   const [query, setQuery] = useState('');
   const [creating, setCreating] = useState(false);
   const tenants = data.tenants ?? [];
@@ -81,7 +81,7 @@ export function Tenants({ token, data, reload, fail, go }: PageProps) {
           onClose={() => setCreating(false)}
           onCreate={async (body) => {
             try {
-              await api.onboard(token, body);
+              await api.onboard(body);
               setCreating(false);
               await reload();
             } catch (cause) {
@@ -95,7 +95,7 @@ export function Tenants({ token, data, reload, fail, go }: PageProps) {
 }
 
 /** Screen 24 — one pharmacy: branches, their sync freshness, and the subscription. */
-export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { id: string }) {
+export function TenantDetailPage({ id, reload, fail, go }: PageProps & { id: string }) {
   const [tenant, setTenant] = useState<TenantDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState<'deactivate' | 'reactivate' | null>(null);
@@ -103,13 +103,13 @@ export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { 
   useEffect(() => {
     let live = true;
     api
-      .tenant(token, id)
+      .tenant(id)
       .then((t) => live && setTenant(t))
       .catch(fail);
     return () => {
       live = false;
     };
-  }, [token, id, fail]);
+  }, [id, fail]);
 
   async function toggle() {
     if (!tenant) return;
@@ -121,12 +121,12 @@ export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { 
     }
     setBusy(true);
     try {
-      await api.setState(token, {
+      await api.setState({
         tenantId: tenant.id,
         state: suspending ? 'suspended' : 'active',
         reason,
       });
-      setTenant(await api.tenant(token, id));
+      setTenant(await api.tenant(id));
       await reload();
     } catch (cause) {
       fail(cause);
@@ -139,10 +139,10 @@ export function TenantDetailPage({ token, id, reload, fail, go }: PageProps & { 
     if (!tenant) return;
     setBusy(true);
     try {
-      if (action === 'deactivate') await api.deactivate(token, tenant.id, text);
-      else await api.reactivate(token, tenant.id, text || undefined);
+      if (action === 'deactivate') await api.deactivate(tenant.id, text);
+      else await api.reactivate(tenant.id, text || undefined);
       setConfirming(null);
-      setTenant(await api.tenant(token, id));
+      setTenant(await api.tenant(id));
       await reload();
     } catch (cause) {
       fail(cause);
@@ -494,7 +494,14 @@ function NewTenant({
 }
 
 function exportCsv(tenants: PlatformTenant[]) {
-  const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  // A pharmacy or owner name comes from the anonymous sign-up form. One beginning `=`, `+`,
+  // `-` or `@` would run as a formula in the spreadsheet this is opened in (OWASP CSV
+  // injection), so it is prefixed with `'` and shown as the text it is.
+  const cell = (v: unknown) => {
+    const text = typeof v === 'number' ? String(v) : String(v ?? '');
+    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safe.replace(/"/g, '""')}"`;
+  };
   const lines = [
     ['Pharmacy', 'Code', 'Branches', 'Owner', 'Phone', 'Account', 'State', 'Paid until']
       .map(cell)

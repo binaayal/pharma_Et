@@ -1,0 +1,18 @@
+# Gitleaks configuration (docs/engineering/security.md).
+#
+# The default rules, plus an allowlist for the handful of values that are credentials only
+# in name: development defaults that are public BY DESIGN and refused in production by the
+# server's own boot checks (config/configuration.ts, platform-admin-check.ts).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "public development defaults, refused in production"
+regexes = [
+  '''pharmaet_dev_password''',
+  '''pharmaet_app_dev_password''',
+  '''dev-only-insecure-secret-change-me''',
+  '''staging-only-secret-never-production''',
+  '''staging_local_password''',
+  '''staging_app_password''',
+]

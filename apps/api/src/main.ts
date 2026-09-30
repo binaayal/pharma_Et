@@ -4,8 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import * as dotenv from 'dotenv';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { Response as ExpressResponse } from 'express';
 import { AppModule } from './app.module';
+import { applyHttpSecurity } from './common/http/security';
 import { serveDashboard } from './serve-dashboard';
 
 /**
@@ -41,26 +41,15 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api');
 
-  // Security response headers (NFR-4.3, docs/05 §10).
-  //
-  // Written out rather than pulled from a package: this is nine lines, the set is small and
-  // stable, and every one of them is a decision worth being able to read. A dependency here
-  // would be one more thing to patch in a regulated system for no capability we need.
-  app.use((_req: unknown, res: ExpressResponse, next: () => void) => {
-    // The API serves JSON and a single-page app from one origin. Nothing here should ever
-    // be framed, sniffed into a different type, or leak a path in a referrer.
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
-    // HSTS only in production: asserting it from a development server would poison the
-    // browser's cache for localhost and break every other project on the machine.
-    if (config.get('NODE_ENV') === 'production' || config.get('NODE_ENV') === 'staging') {
-      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    }
-    next();
+  // Proxy trust, HTTPS, security headers and per-address rate limits (NFR-4.3, docs/05 §10,
+  // docs/engineering/security.md). One function, shared with the test harness, so what the
+  // guardian suites assert is what this process serves.
+  applyHttpSecurity(app, {
+    nodeEnv: config.get<string>('NODE_ENV', 'development'),
+    trustProxy: config.get<number>('TRUST_PROXY', 0),
+    rateLimit: config.get<boolean>('RATE_LIMIT', true),
   });
+
   // No global class-validator pipe: request validation is done by ZodValidationPipe against
   // the shared contract schemas (ADR-010), so there is exactly one definition of a valid
   // request and both sides of the wire are generated from it.

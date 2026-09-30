@@ -11,7 +11,7 @@ import { ApiError, api, isSessionExpired } from '../src/lib/api';
  *
  * What is worth pinning here is not that `fetch` was called. It is the three things every
  * page silently depends on and none of them asserts for itself: that a request carries the
- * contract version it was built against, that the token goes in the right header, and that a
+ * contract version it was built against, that no credential is held by the page, and that a
  * failure arrives as an `ApiError` **carrying its status** — because a 401 losing its status
  * on the way up is what turns "your session ended" into "something went wrong".
  */
@@ -40,28 +40,26 @@ describe('the dashboard API client', () => {
   describe('what every request carries', () => {
     it('declares the contract version it was built against (ADR-009)', async () => {
       ok([]);
-      await api.tenants('tok');
+      await api.tenants();
 
       // A console that did not declare its version would be served as if it spoke the
       // current one, and would misparse the day the server moved on.
       expect(lastCall().headers[CONTRACT_VERSION_HEADER]).toBe(CONTRACT_VERSION);
     });
 
-    it('sends the token as a bearer credential, and only when there is one', async () => {
+    it('carries no credential the page could leak — the session is an HttpOnly cookie', async () => {
+      // The console used to keep its token in sessionStorage and send it as a bearer. Any
+      // script that ran on the page could read it. Now the browser attaches a cookie that
+      // no script can see, so there is nothing in JavaScript to steal.
       ok([]);
-      await api.tenants('tok');
-      expect(lastCall().headers.authorization).toBe('Bearer tok');
-
-      ok({ status: 'ok' });
-      await api.health();
-      // `/health` is public. Sending an authorization header to it would be harmless and
-      // still wrong: the client should not imply a credential is needed where it is not.
+      await api.tenants();
       expect(lastCall().headers.authorization).toBeUndefined();
+      expect(lastCall().init.credentials).toBe('same-origin');
     });
 
     it('asks for JSON', async () => {
       ok([]);
-      await api.tenants('tok');
+      await api.tenants();
       expect(lastCall().headers['content-type']).toBe('application/json');
     });
   });
@@ -73,11 +71,11 @@ describe('the dashboard API client', () => {
       // The whole of the console's session handling rests on this. Every page checks
       // `status === 401` to sign the owner out; a status lost in translation would show them
       // a generic error and leave them stuck on a page that never loads.
-      await expect(api.tenants('stale')).rejects.toMatchObject({
+      await expect(api.tenants()).rejects.toMatchObject({
         status: 401,
         message: 'invalid or expired token',
       });
-      await expect(api.tenants('stale')).rejects.toBeInstanceOf(ApiError);
+      await expect(api.tenants()).rejects.toBeInstanceOf(ApiError);
     });
 
     it("keeps the server's wording when there is some", async () => {
@@ -85,7 +83,7 @@ describe('the dashboard API client', () => {
 
       // The API says something useful about scope and capability denials; replacing it with
       // a generic string would throw away the only explanation the user gets.
-      await expect(api.tenants('tok')).rejects.toThrow('that report is outside your scope');
+      await expect(api.tenants()).rejects.toThrow('that report is outside your scope');
     });
 
     it('still fails usefully when the body is not JSON at all', async () => {
@@ -99,8 +97,8 @@ describe('the dashboard API client', () => {
         },
       });
 
-      await expect(api.tenants('tok')).rejects.toMatchObject({ status: 502 });
-      await expect(api.tenants('tok')).rejects.toThrow('request failed (502)');
+      await expect(api.tenants()).rejects.toMatchObject({ status: 502 });
+      await expect(api.tenants()).rejects.toThrow('request failed (502)');
     });
   });
 
@@ -115,13 +113,15 @@ describe('the dashboard API client', () => {
       expect(headers.authorization).toBeUndefined();
     });
 
-    it('sends the platform token, never a tenant one, to platform routes', async () => {
-      ok([]);
-      await api.tenants('platform-token');
+    it('asks the server whether it is signed in, and signs out server-side', async () => {
+      ok({ id: 'a', email: 'e' });
+      await api.me();
+      expect(lastCall().url).toContain('/platform/me');
 
-      const { url, headers } = lastCall();
-      expect(url).toContain('/platform/tenants');
-      expect(headers.authorization).toBe('Bearer platform-token');
+      fetchMock.mockResolvedValue({ ok: true, status: 204, json: async () => undefined });
+      await api.logout();
+      expect(lastCall().url).toContain('/platform/logout');
+      expect(lastCall().init.method).toBe('POST');
     });
   });
 
@@ -132,14 +132,14 @@ describe('the dashboard API client', () => {
     // error handler that fails takes the page down instead of showing a sign-in screen.
     it('recognises a 401 from the API client', async () => {
       fail(401, { message: 'expired' });
-      const caught = await api.tenants('stale').catch((cause: unknown) => cause);
+      const caught = await api.tenants().catch((cause: unknown) => cause);
       expect(isSessionExpired(caught)).toBe(true);
     });
 
     it('does not mistake any other failure for an ended session', async () => {
       for (const status of [400, 403, 404, 429, 500, 502]) {
         fail(status, { message: 'nope' });
-        const caught = await api.tenants('tok').catch((cause: unknown) => cause);
+        const caught = await api.tenants().catch((cause: unknown) => cause);
         expect(isSessionExpired(caught)).toBe(false);
       }
     });
@@ -175,22 +175,20 @@ describe('the dashboard API client', () => {
   describe('query parameters reach the server', () => {
     it('asks for the sign-up queue by status', async () => {
       ok([]);
-      await api.signupRequests('tok', 'pending');
+      await api.signupRequests('pending');
       expect(lastCall().url).toContain('/platform/signup-requests?status=pending');
     });
   });
 
   describe('the payment screenshot', () => {
-    it('is fetched with the platform token, not followed as a bare link', async () => {
-      // A plain <a href> carries no Authorization header, so the guard refused it and the
-      // reviewer could never see the proof they were approving.
+    it('is fetched with the session cookie and handed over as an object URL', async () => {
       fetchMock.mockResolvedValue({ ok: true, blob: async () => new Blob(['png']) });
       vi.stubGlobal('URL', { ...URL, createObjectURL: () => 'blob:proof' });
-      const url = await api.proofImage('platform-token', 'p1');
+      const url = await api.proofImage('p1');
 
-      const { url: requested, headers } = lastCall();
+      const { url: requested, init } = lastCall();
       expect(requested).toContain('/platform/payment-proofs/p1/image');
-      expect(headers.authorization).toBe('Bearer platform-token');
+      expect(init.credentials).toBe('same-origin');
       expect(url).toBe('blob:proof');
     });
   });

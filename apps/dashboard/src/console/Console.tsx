@@ -30,49 +30,39 @@ export type Route =
 /** The app icon, rendered for the web by scripts/make-app-icons.py. */
 const LOGO = `${import.meta.env.BASE_URL}icon-192.png`;
 
-const TOKEN_KEY = 'pharmaet.platform';
-
-function readToken(): string | null {
-  try {
-    return sessionStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
+/**
+ * Whether this browser has a platform session. The credential itself is an HttpOnly cookie
+ * the page cannot read (docs/engineering/security.md), so the console asks the server —
+ * `null` while it is asking.
+ */
 export function Console() {
-  const [token, setToken] = useState<string | null>(readToken);
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
 
-  function signOut() {
-    try {
-      sessionStorage.removeItem(TOKEN_KEY);
-    } catch {
-      /* nothing stored */
-    }
-    setToken(null);
-  }
+  useEffect(() => {
+    let live = true;
+    api
+      .me()
+      .then(() => live && setSignedIn(true))
+      .catch(() => live && setSignedIn(false));
+    return () => {
+      live = false;
+    };
+  }, []);
 
-  if (!token) {
-    return (
-      <Login
-        onSignedIn={(next) => {
-          try {
-            sessionStorage.setItem(TOKEN_KEY, next);
-          } catch {
-            /* the session simply will not survive a reload */
-          }
-          setToken(next);
-        }}
-      />
-    );
-  }
-  return <Shell token={token} onSignOut={signOut} />;
+  const signOut = useCallback(() => {
+    setSignedIn(false);
+    // Clears the cookie server-side; the page never held it, so there is nothing to wipe here.
+    void api.logout().catch(() => undefined);
+  }, []);
+
+  if (signedIn === null) return <div className="empty">Loading…</div>;
+  if (!signedIn) return <Login onSignedIn={() => setSignedIn(true)} />;
+  return <Shell onSignOut={signOut} />;
 }
 
 /** Screen 20. */
-function Login({ onSignedIn }: { onSignedIn: (token: string) => void }) {
-  // Pre-filled in `vite dev` only: a built console must not suggest whose account to try.
-  const [email, setEmail] = useState(import.meta.env.DEV ? 'admin@pharmaet.local' : '');
+function Login({ onSignedIn }: { onSignedIn: () => void }) {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,8 +72,8 @@ function Login({ onSignedIn }: { onSignedIn: (token: string) => void }) {
     setBusy(true);
     setError(null);
     try {
-      const response = await api.login(email.trim(), password);
-      onSignedIn(response.accessToken);
+      await api.login(email.trim(), password);
+      onSignedIn();
     } catch {
       setError('Those details were not accepted.');
     } finally {
@@ -138,7 +128,7 @@ export interface ConsoleData {
   requests: SignupRequest[];
 }
 
-function Shell({ token, onSignOut }: { token: string; onSignOut: () => void }) {
+function Shell({ onSignOut }: { onSignOut: () => void }) {
   const [route, setRoute] = useState<Route>({ page: 'overview' });
   const [data, setData] = useState<ConsoleData>({ tenants: null, proofs: [], requests: [] });
   const [error, setError] = useState<string | null>(null);
@@ -146,9 +136,9 @@ function Shell({ token, onSignOut }: { token: string; onSignOut: () => void }) {
   const reload = useCallback(async () => {
     try {
       const [tenants, proofs, requests] = await Promise.all([
-        api.tenants(token),
-        api.pendingProofs(token),
-        api.signupRequests(token, 'pending'),
+        api.tenants(),
+        api.pendingProofs(),
+        api.signupRequests('pending'),
       ]);
       setData({ tenants, proofs, requests });
       setError(null);
@@ -156,7 +146,7 @@ function Shell({ token, onSignOut }: { token: string; onSignOut: () => void }) {
       if (isSessionExpired(cause)) return onSignOut();
       setError(cause instanceof Error ? cause.message : 'could not load');
     }
-  }, [token, onSignOut]);
+  }, [onSignOut]);
 
   useEffect(() => {
     void reload();
@@ -183,7 +173,7 @@ function Shell({ token, onSignOut }: { token: string; onSignOut: () => void }) {
     </a>
   );
 
-  const props = { token, data, reload, fail, go: setRoute };
+  const props = { data, reload, fail, go: setRoute };
 
   return (
     <div className="web">
@@ -215,7 +205,6 @@ function Shell({ token, onSignOut }: { token: string; onSignOut: () => void }) {
 }
 
 export interface PageProps {
-  token: string;
   data: ConsoleData;
   reload: () => Promise<void>;
   fail: (cause: unknown) => void;

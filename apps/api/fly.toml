@@ -18,6 +18,9 @@ primary_region = "fra"
   NODE_ENV = "staging"
   PORT = "3000"
   DATABASE_APP_USER = "pharmaet_app"
+  # Fly's edge is one proxy hop. Without this every request looks like it came from the
+  # edge, and the per-address login throttle becomes one counter for the whole country.
+  TRUST_PROXY = "1"
 
 [deploy]
   # Migrations run once, before the new version takes traffic, from the same image that will

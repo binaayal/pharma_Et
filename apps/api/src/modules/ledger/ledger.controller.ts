@@ -5,6 +5,7 @@ import { resolveBranchFilter } from '../../common/auth/branch-scope';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { assertNotOwnScoped, parseWindow } from '../reporting/reporting.controller';
 import { LedgerService } from './ledger.service';
+import { OPTIONAL_UUID } from '../../common/http/params';
 
 /**
  * The controlled-substance ledger, read (FR-6 AC-6.2, BR-6.3; prototype screen 17).
@@ -23,8 +24,8 @@ export class LedgerController {
     @CurrentScope() scope: TenantScope,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('branchId') branchId?: string,
-    @Query('productId') productId?: string,
+    @Query('branchId', OPTIONAL_UUID) branchId?: string,
+    @Query('productId', OPTIONAL_UUID) productId?: string,
   ) {
     assertNotOwnScoped(scope, 'the controlled-substance ledger');
     return this.ledger.entries(scope, {
@@ -36,7 +37,7 @@ export class LedgerController {
 
   @Get('stock')
   @RequireCapability('report.branch')
-  stock(@CurrentScope() scope: TenantScope, @Query('branchId') branchId?: string) {
+  stock(@CurrentScope() scope: TenantScope, @Query('branchId', OPTIONAL_UUID) branchId?: string) {
     assertNotOwnScoped(scope, 'controlled stock');
     return this.ledger.stock(scope, resolveBranchFilter(scope, branchId));
   }
@@ -49,7 +50,7 @@ export class LedgerController {
     @CurrentScope() scope: TenantScope,
     @Query('from') from?: string,
     @Query('to') to?: string,
-    @Query('branchId') branchId?: string,
+    @Query('branchId', OPTIONAL_UUID) branchId?: string,
   ) {
     assertNotOwnScoped(scope, 'the controlled-substance ledger');
     return this.ledger.exportCsv(scope, {

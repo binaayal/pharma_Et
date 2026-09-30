@@ -12,6 +12,14 @@ coverage/
 .env
 .env.*
 !.env.example
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pem
+*.mobileprovision
+key.properties
+.payment-proofs/
 
 # editors / OS
 .idea/

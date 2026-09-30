@@ -24,5 +24,7 @@ export default defineConfig({
   // GitHub Pages serves a project site under /<repo>/, so assets need that prefix. Local
   // dev and any root-served host set BASE_PATH to '/' (the default).
   base: process.env.BASE_PATH ?? '/',
-  build: { outDir: 'dist', sourcemap: true },
+  // No source maps in the shipped bundle: they publish the original source to anyone who
+  // opens devtools. Debug against `vite dev`.
+  build: { outDir: 'dist', sourcemap: false },
 });

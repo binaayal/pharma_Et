@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { z } from 'zod';
 import { CurrentGrant } from '../../common/auth/current-grant.decorator';
 import { CurrentScope } from '../../common/auth/current-scope.decorator';
@@ -72,7 +72,7 @@ export class ManagementController {
   @RequireCapability('branch.manage')
   updateBranch(
     @CurrentScope() scope: TenantScope,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(branchPatch)) body: z.infer<typeof branchPatch>,
   ) {
     return this.management.updateBranch(scope, id, body);
@@ -101,7 +101,7 @@ export class ManagementController {
   deactivateUser(
     @CurrentScope() scope: TenantScope,
     @CurrentGrant() grant: Grant,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.management.deactivateUser(scope, grant, id);
   }
@@ -128,7 +128,7 @@ export class ManagementController {
   @RequireCapability('catalog.manage')
   setPrice(
     @CurrentScope() scope: TenantScope,
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodValidationPipe(priceInput)) body: z.infer<typeof priceInput>,
   ) {
     return this.management.setPrice(scope, id, body.priceSantim);

@@ -4,6 +4,7 @@ import * as dotenv from 'dotenv';
 import { DataSource, EntityManager } from 'typeorm';
 import { uuidv7 } from 'uuidv7';
 import { firstRow } from './common/db/raw-query';
+import { DEV_PLATFORM_PASSWORD } from './config/dev-credentials';
 import { ALL_ENTITIES, AppUser, Branch, Product, StockBatch, Tenant, UserBranch } from './entities';
 
 dotenv.config();
@@ -52,7 +53,6 @@ const TENANTS: SeedTenant[] = [
 /** Dev-only credentials. Production users are provisioned through onboarding, never seeded. */
 const DEV_PIN = '1234';
 const DEV_PASSWORD = 'owner-dev-password';
-const DEV_PLATFORM_PASSWORD = 'platform-dev-password';
 
 async function seedTenant(em: EntityManager, spec: SeedTenant): Promise<void> {
   const tenantId = uuidv7();
@@ -198,6 +198,11 @@ async function seedPlatformAdmin(em: EntityManager): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // The seed's passwords are in a public repository. A production database that ran it
+  // would have a platform admin anyone can sign in as.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('refusing to seed a production database; use `entrypoint create-admin`');
+  }
   const dataSource = new DataSource({
     type: 'postgres',
     url: process.env.DATABASE_URL,

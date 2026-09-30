@@ -44,6 +44,14 @@ const ROUTES: Record<string, RouteSpec> = {
     cls: 'unauthenticated',
     why: 'platform-admin sign-in; issues a token with no tenant',
   },
+  'POST /api/platform/logout': {
+    cls: 'unauthenticated',
+    why: 'clears the console cookie; it must work for a session that has already expired',
+  },
+  'GET /api/platform/me': {
+    cls: 'platform',
+    why: 'the signed-in operator, as the console learns it from a cookie it cannot read',
+  },
   'POST /api/signup-requests': {
     cls: 'unauthenticated',
     why:

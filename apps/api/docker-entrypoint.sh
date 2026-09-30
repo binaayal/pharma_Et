@@ -15,6 +15,11 @@ case "${1:-serve}" in
     # relative to itself, so this finds dist/migrations/*.js inside the container.
     exec node node_modules/typeorm/cli.js -d dist/config/data-source.js migration:run
     ;;
+  create-admin)
+    # Creates a platform admin or rotates one's password, from PLATFORM_ADMIN_EMAIL /
+    # PLATFORM_ADMIN_PASSWORD; RETIRE_DEV_ADMIN=yes retires the seed's public one.
+    exec node dist/create-admin.js
+    ;;
   seed)
     # Staging only. It refuses to run against a database that already holds tenants, so a
     # re-deploy cannot duplicate the fixture data.

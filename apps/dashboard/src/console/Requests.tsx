@@ -15,7 +15,7 @@ const BAND: Record<SignupRequest['branchBand'], string> = {
  * Call the number first. Approving opens the pharmacy and its owner account in one step; the
  * starting PIN is read out to the owner on that call, since V1 sends no texts.
  */
-export function Requests({ token, data, reload, fail }: PageProps) {
+export function Requests({ data, reload, fail }: PageProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<'view' | 'approve' | 'reject'>('view');
   const [code, setCode] = useState('');
@@ -42,7 +42,6 @@ export function Requests({ token, data, reload, fail }: PageProps) {
     setBusy(true);
     try {
       await api.decideSignup(
-        token,
         selected.id,
         accept
           ? { accept: true, code: code.trim(), ownerUsername: username.trim(), ownerPin: pin }

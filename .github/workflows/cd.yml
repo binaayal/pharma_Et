@@ -304,9 +304,14 @@ jobs:
         run: |
           # The run number is the version code, so every merge is installable over the last.
           flutter pub get
+          # Obfuscated: the shipped binary does not carry our class and method names. The
+          # symbols go to a run artifact, not the store, to turn a crash report back into a
+          # readable stack (flutter symbolize).
           flutter build appbundle --release --build-number=${{ github.run_number }} \
+            --obfuscate --split-debug-info=build/symbols/android \
             --dart-define=API_BASE_URL="$API_BASE_URL"
           flutter build apk --release --build-number=${{ github.run_number }} \
+            --obfuscate --split-debug-info=build/symbols/android \
             --dart-define=API_BASE_URL="$API_BASE_URL"
           rm -f android/key.properties
 
@@ -335,6 +340,7 @@ jobs:
           path: |
             apps/mobile/build/app/outputs/bundle/release/app-release.aab
             apps/mobile/build/app/outputs/flutter-apk/app-release.apk
+            apps/mobile/build/symbols/android/
 
   release-ios:
     name: release iOS (TestFlight)
@@ -396,6 +402,7 @@ jobs:
 
           flutter pub get
           flutter build ios --release --no-codesign --build-number=${{ github.run_number }} \
+            --obfuscate --split-debug-info=build/symbols/ios \
             --dart-define=API_BASE_URL="$API_BASE_URL"
 
           xcodebuild -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \

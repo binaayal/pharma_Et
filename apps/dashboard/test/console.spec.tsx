@@ -14,7 +14,6 @@ describe('the platform console', () => {
   const json = (body: unknown) => ({ ok: true, json: async () => body });
 
   beforeEach(() => {
-    sessionStorage.clear();
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
   });
@@ -23,15 +22,25 @@ describe('the platform console', () => {
     vi.unstubAllGlobals();
   });
 
-  it('opens on the platform sign-in, not a pharmacy one', () => {
+  it('opens on the platform sign-in, not a pharmacy one', async () => {
+    // No session: `/platform/me` answers 401.
+    fetchMock.mockResolvedValue({ ok: false, status: 401, json: async () => ({}) });
     render(<Console />);
-    expect(screen.getByText('Platform console')).toBeTruthy();
+    expect(await screen.findByText('Platform console')).toBeTruthy();
     expect(screen.getByLabelText('Email')).toBeTruthy();
     expect(screen.queryByText(/Pharmacy code/i)).toBeNull();
   });
 
+  it('keeps no credential in browser storage, whatever happens', async () => {
+    // The session is an HttpOnly cookie the page cannot read (docs/engineering/security.md).
+    fetchMock.mockResolvedValue(json([]));
+    render(<Console />);
+    await screen.findAllByText(/Overview/);
+    expect(sessionStorage.length).toBe(0);
+    expect(localStorage.length).toBe(0);
+  });
+
   it('has exactly the prototype navigation, and no tenant pages', async () => {
-    sessionStorage.setItem('pharmaet.platform', 'tok');
     fetchMock.mockImplementation(async (url: string) =>
       url.includes('/platform/signup-requests')
         ? json([
@@ -69,7 +78,6 @@ describe('the platform console', () => {
   });
 
   it('shows a sign-up request with the phone to call before approving', async () => {
-    sessionStorage.setItem('pharmaet.platform', 'tok');
     fetchMock.mockImplementation(async (url: string) =>
       url.includes('/platform/signup-requests')
         ? json([

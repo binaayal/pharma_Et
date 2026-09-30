@@ -23,6 +23,6 @@ import { LoginThrottleService } from './login-throttle.service';
   ],
   controllers: [AuthController],
   providers: [AuthService, LoginThrottleService],
-  exports: [JwtModule],
+  exports: [JwtModule, LoginThrottleService],
 })
 export class AuthModule {}
