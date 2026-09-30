@@ -18,7 +18,11 @@ enum SyncState {
   synced,
   offline,
   needsAttention,
-  sessionExpired
+  sessionExpired,
+
+  /// The platform has deactivated this pharmacy (ADR-025). Nothing is removed from the
+  /// outbox — the terminal stops and says why, and the queue waits for a reactivation.
+  accountDeactivated,
 }
 
 class SyncStatus {
@@ -105,6 +109,12 @@ class SyncService {
     var activeToken = token;
     var sessionExpired = false;
 
+    SyncState failed(SyncTransportException error) => error.accountDeactivated
+        ? SyncState.accountDeactivated
+        : sessionExpired
+            ? SyncState.sessionExpired
+            : SyncState.offline;
+
     /// Runs [call] with the current access token, and on a 401 refreshes once and retries.
     ///
     /// Once, not in a loop: if a freshly minted token is also refused, the problem is not
@@ -124,7 +134,8 @@ class SyncService {
           );
         } on SyncTransportException {
           // The refresh token is spent, expired, or its user was deactivated. The terminal
-          // cannot fix any of those by trying again — a human has to sign in.
+          // cannot fix any of those by trying again — a human has to sign in. A deactivated
+          // pharmacy is carried out as such by [failed].
           sessionExpired = true;
           rethrow;
         }
@@ -178,7 +189,7 @@ class SyncService {
         // is still on this device.
         await _outbox.recordFailure(pending, error.message);
         return SyncStatus(
-          state: sessionExpired ? SyncState.sessionExpired : SyncState.offline,
+          state: failed(error),
           pending: await _outbox.depth(),
           needsAttention: await _outbox.attentionCount(),
           lastSyncedAt: _lastSyncedAt,
@@ -203,7 +214,7 @@ class SyncService {
       _lastSyncedAt = DateTime.now();
     } on SyncTransportException catch (error) {
       return SyncStatus(
-        state: sessionExpired ? SyncState.sessionExpired : SyncState.offline,
+        state: failed(error),
         pending: await _outbox.depth(),
         needsAttention: await _outbox.attentionCount(),
         lastSyncedAt: _lastSyncedAt,

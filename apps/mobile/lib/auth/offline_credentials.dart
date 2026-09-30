@@ -112,6 +112,24 @@ class OfflineCredentials {
     return session;
   }
 
+  /// Wipes every cached sign-in for a pharmacy on this device (ADR-025).
+  ///
+  /// Called when the server says the pharmacy is deactivated. Without it the phone would
+  /// keep opening the till offline for the rest of the offline window — the one place a
+  /// deactivation could not otherwise reach.
+  Future<void> forgetTenant(String tenantCode) async {
+    final prefix = 'pharmaet.offline.${tenantCode.trim().toLowerCase()}.';
+    // Collected before deleting: a storage that hands back its live map (the test double
+    // does) would otherwise be modified under the loop reading it.
+    final keys = (await _storage.readAll())
+        .keys
+        .where((k) => k.startsWith(prefix))
+        .toList();
+    for (final key in keys) {
+      await _storage.delete(key: key);
+    }
+  }
+
   /// Keeps a renewed session current, so the next offline sign-in restores the newest grant.
   Future<void> refreshSession(
       String tenantCode, String username, LoginResponse renewed) async {

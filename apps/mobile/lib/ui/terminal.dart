@@ -35,6 +35,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     required this.client,
     required this.onSessionRenewed,
     required this.onSignOut,
+    this.onDeactivated,
     this.branchName,
   }) : _session = session;
 
@@ -62,6 +63,10 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   final SyncClient client;
   final Future<void> Function(LoginResponse) onSessionRenewed;
   final VoidCallback onSignOut;
+
+  /// The platform deactivated this pharmacy (ADR-025), with the reason it gave. The app
+  /// signs out and wipes this device's offline sign-in; the outbox is left alone.
+  final void Function(String reason)? onDeactivated;
 
   /// The name of the branch this device stands in, when known.
   String? branchName;
@@ -176,6 +181,10 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     } finally {
       _syncing = false;
       _lastSync = clock.now();
+    }
+    if (status.state == SyncState.accountDeactivated) {
+      onDeactivated?.call(status.message ?? '');
+      return status;
     }
     await refresh();
     // Cheap, owner-only, and the way a suspension or a verified payment reaches a phone

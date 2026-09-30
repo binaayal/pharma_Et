@@ -72,7 +72,10 @@ export interface PlatformTenant {
   id: string;
   name: string;
   code: string;
-  status: string;
+  /** `deactivated` is the platform's forced stop (ADR-025), separate from billing. */
+  status: 'active' | 'closed' | 'deactivated';
+  deactivatedAt: string | null;
+  deactivatedReason: string | null;
   createdAt: string;
   subscriptionState: SubscriptionState | null;
   currentPeriodEnd: string | null;
@@ -187,6 +190,21 @@ export const api = {
     if (!response.ok) throw new ApiError('could not load the screenshot', response.status);
     return URL.createObjectURL(await response.blob());
   },
+
+  /** ADR-025: every request the pharmacy makes is refused until it is reactivated. */
+  deactivate: (token: string, tenantId: string, reason: string) =>
+    request<unknown>(
+      `/platform/tenants/${tenantId}/deactivate`,
+      { method: 'POST', body: JSON.stringify({ reason }) },
+      token,
+    ),
+
+  reactivate: (token: string, tenantId: string, note?: string) =>
+    request<unknown>(
+      `/platform/tenants/${tenantId}/reactivate`,
+      { method: 'POST', body: JSON.stringify({ note }) },
+      token,
+    ),
 
   setState: (
     token: string,

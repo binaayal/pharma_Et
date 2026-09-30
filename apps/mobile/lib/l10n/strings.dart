@@ -139,6 +139,9 @@ const Map<String, String> _en = {
   'sync.needsAttention': 'need attention',
   'settings.language': 'Language',
   'settings.signOut': 'Sign out',
+  'login.deactivated':
+      'This pharmacy\'s PharmaEt account has been deactivated. Call PharmaEt support on {phone}.',
+  'sync.deactivated': 'Account deactivated',
   'help.open': 'Help & user guide',
   'help.openSub': 'Step-by-step guide to every task',
   'help.login': 'How do I use PharmaEt?',
@@ -583,6 +586,8 @@ const Map<String, String> _am = {
   'sync.needsAttention': 'ትኩረት ይሻሉ',
   'settings.language': 'ቋንቋ',
   'settings.signOut': 'ውጣ',
+  'login.deactivated': 'የዚህ ፋርማሲ የፋርማኢት መለያ ተቋርጧል። የፋርማኢት ድጋፍን በ{phone} ይደውሉ።',
+  'sync.deactivated': 'መለያው ተቋርጧል',
   'help.open': 'እገዛና የአጠቃቀም መመሪያ',
   'help.openSub': 'ለእያንዳንዱ ተግባር ደረጃ በደረጃ መመሪያ',
   'help.login': 'ፋርማኢትን እንዴት እጠቀማለሁ?',

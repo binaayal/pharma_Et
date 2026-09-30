@@ -10,9 +10,18 @@ import '../contracts/contracts.dart';
 /// again later, keep everything", while a rejection means "this specific operation needs a
 /// person to look at it".
 class SyncTransportException implements Exception {
-  SyncTransportException(this.message, {this.statusCode});
+  SyncTransportException(this.message, {this.statusCode, this.code});
   final String message;
   final int? statusCode;
+
+  /// The server's machine-readable reason, when it gave one.
+  final String? code;
+
+  /// The platform has deactivated this pharmacy (ADR-025). Unlike every other failure here,
+  /// retrying cannot help and waiting cannot help: the terminal must stop, and say why.
+  bool get accountDeactivated => code == deactivatedCode;
+
+  static const deactivatedCode = 'tenant_deactivated';
 
   @override
   String toString() => 'SyncTransportException($message)';
@@ -60,10 +69,11 @@ class SyncClient {
     }
 
     if (response.statusCode >= 400) {
-      throw SyncTransportException(
-        'push rejected: ${response.body}',
-        statusCode: response.statusCode,
-      );
+      throw _deactivated(response) ??
+          SyncTransportException(
+            'push rejected: ${response.body}',
+            statusCode: response.statusCode,
+          );
     }
     return PushResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>);
@@ -89,10 +99,11 @@ class SyncClient {
     }
 
     if (response.statusCode >= 400) {
-      throw SyncTransportException(
-        'pull rejected: ${response.body}',
-        statusCode: response.statusCode,
-      );
+      throw _deactivated(response) ??
+          SyncTransportException(
+            'pull rejected: ${response.body}',
+            statusCode: response.statusCode,
+          );
     }
     return PullResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>);
@@ -123,6 +134,10 @@ class SyncClient {
         throw SyncTransportException(_messageOf(response.body),
             statusCode: 429);
       }
+      // Said only after the credential was proven (the server checks it first), so carrying
+      // the reason back enumerates nothing (ADR-025).
+      final deactivated = _deactivated(response);
+      if (deactivated != null) throw deactivated;
       throw SyncTransportException('invalid credentials',
           statusCode: response.statusCode);
     }
@@ -157,11 +172,30 @@ class SyncClient {
     }
 
     if (response.statusCode >= 400) {
-      throw SyncTransportException('session expired',
-          statusCode: response.statusCode);
+      throw _deactivated(response) ??
+          SyncTransportException('session expired',
+              statusCode: response.statusCode);
     }
     return LoginResponse.fromJson(
         jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  /// A deactivation refusal (ADR-025), carrying the reason the platform gave — or null for
+  /// any other failure.
+  static SyncTransportException? _deactivated(http.Response response) {
+    if (response.statusCode != 403) return null;
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (json['code'] != SyncTransportException.deactivatedCode) return null;
+      final message = json['message'];
+      return SyncTransportException(
+        message is String ? message : '',
+        statusCode: 403,
+        code: SyncTransportException.deactivatedCode,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   /// The server's own wording, or a usable fallback if the body is not what we expect.

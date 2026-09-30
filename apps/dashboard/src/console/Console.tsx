@@ -229,3 +229,12 @@ export function StateBadge({ state }: { state: PlatformTenant['subscriptionState
   if (state === 'pending') return <span className="badge b-amber">Pending pay</span>;
   return <span className="badge b-grey">No subscription</span>;
 }
+
+/**
+ * The subscription badge, unless the account itself is deactivated (ADR-025) — which
+ * outranks any billing state, because nothing the pharmacy does works until it is lifted.
+ */
+export function TenantBadge({ tenant }: { tenant: PlatformTenant }) {
+  if (tenant.status === 'deactivated') return <span className="badge b-red">Deactivated</span>;
+  return <StateBadge state={tenant.subscriptionState} />;
+}

@@ -6,6 +6,7 @@ import * as argon2 from 'argon2';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import { AppUser, Tenant, UserBranch } from '../../entities';
 import type { JwtPayload } from '../../common/auth/jwt-payload';
+import { tenantDeactivated } from '../../common/auth/tenant-status';
 import { LoginThrottleService } from './login-throttle.service';
 
 @Injectable()
@@ -83,6 +84,10 @@ export class AuthService {
       throw new UnauthorizedException('invalid credentials');
     }
 
+    // Only AFTER the credential is proven (ADR-025). Saying "deactivated" to a wrong PIN
+    // would confirm to anyone guessing that this pharmacy code is real.
+    if (tenant.status === 'deactivated') throw tenantDeactivated(tenant.deactivatedReason);
+
     return this.issueTokens(tenant.id, found.user, found.branchIds, request.terminalId);
   }
 
@@ -140,6 +145,13 @@ export class AuthService {
     // Deactivated between login and refresh. The token is still cryptographically perfect,
     // and that is precisely why the check is a database read rather than a signature check.
     if (!found) throw new UnauthorizedException('invalid or expired refresh token');
+
+    // The same holds for the whole pharmacy (ADR-025): a refresh token is thirty days of
+    // access, and a deactivation that a refresh could outlive would not be one.
+    const tenant = await this.db.runInScope(scope, (em) =>
+      em.getRepository(Tenant).findOne({ where: { id: payload.tid } }),
+    );
+    if (tenant?.status === 'deactivated') throw tenantDeactivated(tenant.deactivatedReason);
 
     return this.issueTokens(
       payload.tid,

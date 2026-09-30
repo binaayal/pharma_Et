@@ -110,6 +110,10 @@ class SyncChip extends StatelessWidget {
             context.t('sync.signInAgain'),
             ChipTone.alert
           ),
+        SyncState.accountDeactivated => (
+            context.t('sync.deactivated'),
+            ChipTone.alert
+          ),
         SyncState.needsAttention => (
             '${status.needsAttention} ${context.t('sync.needsAttention')}',
             ChipTone.alert

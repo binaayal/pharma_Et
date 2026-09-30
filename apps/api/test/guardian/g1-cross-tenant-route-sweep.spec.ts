@@ -82,6 +82,16 @@ const ROUTES: Record<string, RouteSpec> = {
     cls: 'platform',
     why: 'the operator grants the subscription a tenant cannot grant itself',
   },
+  'POST /api/platform/tenants/:id/deactivate': {
+    cls: 'platform',
+    why:
+      'the operator stops serving an account that broke its terms (ADR-025); a tenant token ' +
+      'is refused here outright',
+  },
+  'POST /api/platform/tenants/:id/reactivate': {
+    cls: 'platform',
+    why: 'lifting a deactivation is the operator’s act, never the tenant’s (ADR-025)',
+  },
   'GET /api/platform/tenants/:id': {
     cls: 'platform',
     why:
