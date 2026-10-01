@@ -276,7 +276,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FLUTTER_VERSION: '3.47.5'
-      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet.onrender.com/api' }}
+      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -285,6 +285,13 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_B64 }}
         run: |
+          # No default server URL: `pharmaet.onrender.com` turned out to be someone else's
+          # service, and a phone app built against a guessed URL sends a pharmacy's sales there.
+          if [ -z "$API_BASE_URL" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "### Android release not built — set the repository variable \`MOBILE_API_BASE_URL\` (hosting.md §6)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           if [ -z "$KEYSTORE_B64" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
             {
@@ -350,8 +357,16 @@ jobs:
         if: steps.configured.outputs.configured == 'true'
         working-directory: apps/mobile
         run: |
-          signer=$(keytool -printcert -jarfile build/app/outputs/flutter-apk/app-release.apk | grep -m1 'Owner:')
+          # apksigner, not `keytool -printcert -jarfile`: with minSdk 24+ the APK carries only
+          # the v2/v3 signature, which keytool cannot read — it printed nothing, its grep failed,
+          # and the step died looking exactly like a debug-signed build.
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          "$apksigner" verify --print-certs build/app/outputs/flutter-apk/app-release.apk > certs.txt
+          signer=$(grep -m1 'certificate DN' certs.txt || true)
           echo "$signer"
+          if [ -z "$signer" ]; then
+            echo "::error::the release APK carries no signature apksigner can read"; exit 1
+          fi
           if echo "$signer" | grep -q 'CN=Android Debug'; then
             echo "::error::the release APK is debug-signed"; exit 1
           fi
@@ -378,7 +393,7 @@ jobs:
     runs-on: macos-latest
     env:
       FLUTTER_VERSION: '3.47.5'
-      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://pharmaet.onrender.com/api' }}
+      API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -390,6 +405,11 @@ jobs:
           ASC_KEY_P8_B64: ${{ secrets.APP_STORE_CONNECT_KEY_P8_B64 }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          if [ -z "$API_BASE_URL" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "### iOS release not built — set the repository variable \`MOBILE_API_BASE_URL\`" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_KEY_P8_B64" ] || [ -z "$APPLE_TEAM_ID" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
             {
