@@ -12,11 +12,10 @@ services:
     name: pharmaet
     runtime: image
     image:
+      # Public on GHCR (anonymous pull verified 2026-10-01), so Render needs no credential.
+      # If the package is ever made private, add a registry credential named `ghcr` in
+      # Render and put back:  creds: { fromRegistryCreds: { name: ghcr } }
       url: ghcr.io/binaayal/pharma_et/api:latest
-      # A GitHub token with read:packages, added in Render → Settings → Registry credentials.
-      creds:
-        fromRegistryCreds:
-          name: ghcr
     plan: free
     # Frankfurt: the Render region closest to Addis Ababa, and the same one Neon and R2 use,
     # so a sync never crosses a continent twice.
