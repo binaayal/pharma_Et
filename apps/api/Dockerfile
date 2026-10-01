@@ -4,7 +4,7 @@
 # The workspace is a pnpm monorepo, so the install needs the lockfile and every manifest
 # it references — copied before the sources so a code change does not invalidate the
 # dependency layer.
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 RUN corepack enable
 
@@ -39,7 +39,7 @@ RUN pnpm --filter @pharmaet/contracts build \
 RUN pnpm install --frozen-lockfile --prod --filter @pharmaet/api... --filter @pharmaet/contracts...
 
 # ------------------------------------------------------------------------- runtime
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 
 # Runs unprivileged. The process needs no root capability, and a container that cannot write
