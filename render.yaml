@@ -26,11 +26,12 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Two hops: Render's edge, then an internal proxy (10.x). With '1', /api/health reported
-      # the internal proxy as every client — one login-throttle counter for every pharmacy.
+      # Three hops: Cloudflare (Render's CDN), Render's edge, then an internal proxy. Measured
+      # on the live service: '1' reported a 10.x internal proxy as every client, '2' a
+      # Cloudflare edge (172.70.x) — either way one login-throttle counter for every pharmacy.
       # Confirm with /api/health → clientIp = your own public IP (hosting.md §7).
       - key: TRUST_PROXY
-        value: '2'
+        value: '3'
       - key: DATABASE_APP_USER
         value: pharmaet_app
       # Screenshots in Postgres for now (ADR-028): no object storage account yet. When R2 or

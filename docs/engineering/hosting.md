@@ -135,7 +135,8 @@ without anything writing to live data (`scripts/smoke-live.sh`).
 1. Open `https://pharmaet-2yw8.onrender.com/api/health`.
    - `"status":"ok"`, and `"commit"` is the latest `main` commit.
    - **`"clientIp"` must be your own public IP** (compare with whatismyip.com). On Render it
-     takes `TRUST_PROXY=2` (set in `render.yaml`): with `1` it showed a `10.x` internal proxy.
+     takes `TRUST_PROXY=3` (set in `render.yaml`): `1` showed a `10.x` internal proxy and `2`
+     a Cloudflare edge address.
      If it ever shows a `10.x`/`172.x` address again, raise it by one and look again. Get this right: otherwise every pharmacy shares one login-throttle counter.
 2. Open `https://pharmaet-2yw8.onrender.com/`, sign in with the admin from §4.
 3. Open `/privacy` and `/delete-account`.
