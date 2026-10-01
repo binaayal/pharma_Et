@@ -89,12 +89,10 @@ seed refuses in production anyway.
 
 ## 5. Render — the server (15 min)
 
-1. **Let Render pull the image.** Open
-   `github.com/binaayal?tab=packages` → `pharma_et/api`.
-   - If it says **Public**, skip to step 2 and delete the `creds:` block from `render.yaml`.
-   - If it's **Private**: create a GitHub *classic* token with only **read:packages**
-     (github.com/settings/tokens). Then in Render go to **Account → Registry Credentials →
-     Add**: name `ghcr`, registry *GitHub*, username `binaayal`, the token.
+1. **The image is public** on GHCR (`ghcr.io/binaayal/pharma_et/api`, anonymous pull
+   verified), so Render needs no registry credential. If you ever make the package private,
+   add a Render registry credential named `ghcr` (a GitHub token with only `read:packages`)
+   and restore the `creds:` line noted in `render.yaml`.
 2. Sign up at **render.com** → **New → Blueprint** → pick this repository. Render reads
    `render.yaml` and asks for every value marked `sync: false`. Fill in:
 
