@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  GoneException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { uuidv7 } from 'uuidv7';
 import { TenantStatusService } from '../../common/auth/tenant-status';
@@ -170,7 +176,68 @@ export class BillingService {
       em.getRepository(PaymentProof).findOne({ where: { id: proofId } }),
     );
     if (!proof) throw new NotFoundException('payment proof not found');
+    if (proof.imageDeletedAt) {
+      throw new GoneException('this screenshot was deleted after the payment was decided');
+    }
     return { buffer: await this.storage.get(proof.storageKey), contentType: proof.contentType };
+  }
+
+  /**
+   * Deletes a decided proof's screenshot for good (ADR-028), keeping the billing record.
+   *
+   * Only once decided: deleting the evidence before the decision would leave a pending
+   * proof nobody can verify. Idempotent — deleting twice is not an error.
+   */
+  async deleteProofImage(adminId: string, proofId: string) {
+    const proof = await this.db.runAsPlatform(`look up payment proof ${proofId}`, (em) =>
+      em.getRepository(PaymentProof).findOne({ where: { id: proofId } }),
+    );
+    if (!proof) throw new NotFoundException('payment proof not found');
+    if (proof.result === 'pending') {
+      throw new BadRequestException('decide on this payment before deleting its screenshot');
+    }
+    if (proof.imageDeletedAt) return { id: proof.id, imageDeletedAt: proof.imageDeletedAt };
+
+    await this.storage.remove(proof.storageKey);
+    const deletedAt = new Date();
+    await this.db.runAsPlatform(`mark payment proof ${proofId} image deleted`, async (em) => {
+      await em.getRepository(PaymentProof).update({ id: proof.id }, { imageDeletedAt: deletedAt });
+      await this.recordPlatformEvent(
+        em,
+        proof.tenantId,
+        adminId,
+        'audit.payment_proof_image_deleted',
+        {
+          proofId: proof.id,
+          result: proof.result,
+        },
+      );
+    });
+    return { id: proof.id, imageDeletedAt: deletedAt.toISOString() };
+  }
+
+  /** Every decided proof whose screenshot is still stored — the console's "free space" list. */
+  async decidedProofsWithImages() {
+    const rows = await this.db.runAsPlatform('count decided screenshots still stored', (em) =>
+      em.query(
+        `SELECT p.id, p.byte_size AS "byteSize" FROM payment_proof p
+          WHERE p.result <> 'pending' AND p.image_deleted_at IS NULL`,
+      ),
+    );
+    return rows.map((r: { id: string; byteSize: string }) => ({
+      id: r.id,
+      byteSize: Number(r.byteSize),
+    }));
+  }
+
+  /** Deletes every decided proof's screenshot that is still stored. */
+  async purgeDecidedImages(adminId: string) {
+    const decided = await this.decidedProofsWithImages();
+    for (const proof of decided) await this.deleteProofImage(adminId, proof.id);
+    return {
+      deleted: decided.length,
+      bytesFreed: decided.reduce((sum: number, p: { byteSize: number }) => sum + p.byteSize, 0),
+    };
   }
 
   /**
@@ -181,6 +248,22 @@ export class BillingService {
    * early, which is exactly the customer you least want to penalise.
    */
   async decideProof(
+    adminId: string,
+    proofId: string,
+    decision: { accept: boolean; reason?: string; periodDays?: number; deleteImage?: boolean },
+  ) {
+    const result = await this.decide(adminId, proofId, decision);
+    // After the decision has committed: a failed delete must never undo a payment decision.
+    // The console's "free space" action catches anything left behind.
+    if (decision.deleteImage) {
+      await this.deleteProofImage(adminId, proofId).catch((error) =>
+        this.logger.warn(`screenshot for ${proofId} not deleted: ${error}`),
+      );
+    }
+    return { ...result, imageDeleted: Boolean(decision.deleteImage) };
+  }
+
+  private async decide(
     adminId: string,
     proofId: string,
     decision: { accept: boolean; reason?: string; periodDays?: number },

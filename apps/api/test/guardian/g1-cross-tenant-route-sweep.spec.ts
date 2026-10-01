@@ -82,6 +82,14 @@ const ROUTES: Record<string, RouteSpec> = {
     cls: 'platform',
     why: 'the bank slip the operator is deciding on',
   },
+  'GET /api/platform/payment-proofs/decided-images': {
+    cls: 'platform',
+    why: 'decided screenshots still stored, across tenants — the operator frees the space (ADR-028)',
+  },
+  'POST /api/platform/payment-proofs/purge-decided-images': {
+    cls: 'platform',
+    why: 'deletes decided screenshots; billing rows are kept (ADR-028)',
+  },
   'POST /api/platform/payment-proofs/:id/decide': {
     cls: 'platform',
     why: 'approval is the operator’s act, never the tenant’s',

@@ -2,7 +2,8 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
-import { type BlobStore, LocalBlobStore, S3BlobStore } from './blob-store';
+import { ScopedDbService } from '../../common/db/scoped-db.service';
+import { type BlobStore, DbBlobStore, LocalBlobStore, S3BlobStore } from './blob-store';
 
 /**
  * Where a payment screenshot actually lives (docs/04 §5.8).
@@ -34,7 +35,10 @@ export class ProofStorageService {
    */
   private static readonly MAGIC = Buffer.from('PEP1');
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly db?: ScopedDbService,
+  ) {}
 
   private get key(): Buffer | null {
     const b64 = this.config.get<string>('PROOF_ENCRYPTION_KEY');
@@ -68,7 +72,11 @@ export class ProofStorageService {
    */
   get blobs(): BlobStore {
     if (this.store) return this.store;
-    if (this.config.get<string>('PROOF_STORAGE') === 's3') {
+    const kind = this.config.get<string>('PROOF_STORAGE');
+    if (kind === 'db') {
+      if (!this.db) throw new Error('PROOF_STORAGE=db needs the database service');
+      this.store = new DbBlobStore(this.db);
+    } else if (kind === 's3') {
       this.store = new S3BlobStore({
         endpoint: this.config.getOrThrow<string>('S3_ENDPOINT'),
         bucket: this.config.getOrThrow<string>('S3_BUCKET'),
@@ -110,7 +118,7 @@ export class ProofStorageService {
     }
 
     const storageKey = `proofs/${tenantId}/${randomUUID()}`;
-    await this.blobs.write(storageKey, this.seal(file.buffer), file.mimetype);
+    await this.blobs.write(storageKey, this.seal(file.buffer), file.mimetype, tenantId);
 
     this.logger.log(`stored payment proof ${storageKey} (${file.size} bytes)`);
     return { storageKey, byteSize: file.size, contentType: file.mimetype };
@@ -119,6 +127,11 @@ export class ProofStorageService {
   async get(storageKey: string): Promise<Buffer> {
     // The key comes from a database row, never from a request parameter.
     return this.open(await this.blobs.read(storageKey));
+  }
+
+  /** Deletes a screenshot's bytes for good (ADR-028). */
+  async remove(storageKey: string): Promise<void> {
+    await this.blobs.remove(storageKey);
   }
 
   /** Content-based type check. The first bytes of a file are harder to lie about. */

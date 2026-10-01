@@ -10,7 +10,7 @@ never a code change and never an app update** for the pharmacies' phones.
 |---|---|---|---|
 | API + web console | **Render** web service (Frankfurt) | free instance | the Docker image CD builds; nothing stored on its disk |
 | Database | **Neon** Postgres (AWS Frankfurt) | free project | every pharmacy's records, with RLS |
-| Payment screenshots | **Cloudflare R2** bucket | 10 GB | encrypted screenshot files only |
+| Payment screenshots | **Neon** (`payment_proof_blob`, ADR-028) until a card allows **Cloudflare R2** | within Neon's 0.5 GB; deleted once decided | encrypted screenshot bytes only |
 
 ```
 phone / browser ──HTTPS──▶ Render (pharmaet) ──TLS──▶ Neon Postgres
@@ -44,7 +44,13 @@ GitHub Actions: build image → verify → migrate Neon → Render deploy hook �
    The first migration creates the role `pharmaet_app` with this password. The server
    connects as that role, which **row-level security applies to** (ADR-007).
 
-## 3. Cloudflare R2 — the screenshot bucket (10 min)
+## 3. Cloudflare R2 — the screenshot bucket (10 min) — *later*
+
+> **Skip this section for now.** Without a card there is no R2 or B2 account, so
+> `render.yaml` sets `PROOF_STORAGE=db`: screenshots are kept, encrypted, in Neon and deleted
+> when you approve or reject the payment (ADR-028). Come back here when you can open R2; the
+> switch is `PROOF_STORAGE=s3` plus the four `S3_*` values in Render. Generate the two secrets
+> in step 4 below either way.
 
 1. Sign up at **dash.cloudflare.com** → **R2 Object Storage**. Cloudflare asks for a payment
    method before enabling R2, even on the free tier. Nothing is charged under 10 GB.
@@ -102,7 +108,6 @@ seed refuses in production anyway.
    | `DATABASE_APP_PASSWORD` | 🔑 from §2 |
    | `JWT_SECRET` | 🔑 from §3 |
    | `PROOF_ENCRYPTION_KEY` | 🔑 from §3 |
-   | `S3_ENDPOINT`, `S3_BUCKET` (`pharmaet-proofs`), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | from §3 |
 
    **Apply.** The first deploy pulls `:latest` and starts. Note the URL, e.g.
    `https://pharmaet.onrender.com`. If that name was taken it has a suffix; use yours

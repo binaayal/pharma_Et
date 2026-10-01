@@ -34,6 +34,8 @@ export const AUDIT_EVENT_TYPES = [
   'audit.payment_accepted',
   'audit.payment_rejected',
   'audit.subscription_changed',
+  // ADR-028: the screenshot is deleted once decided; the proof row is kept.
+  'audit.payment_proof_image_deleted',
   'audit.tenant_onboarded',
   // ADR-025. In the tenant's own trail for the same reason as the billing events: the
   // pharmacy can see what the platform did to it, and when.

@@ -180,11 +180,21 @@ export const api = {
 
   pendingProofs: () => request<PendingProof[]>('/platform/payment-proofs'),
 
-  decideProof: (id: string, body: { accept: boolean; reason?: string }) =>
+  decideProof: (id: string, body: { accept: boolean; reason?: string; deleteImage?: boolean }) =>
     request<unknown>(`/platform/payment-proofs/${id}/decide`, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  /** Decided proofs whose screenshot is still stored (ADR-028). */
+  decidedImages: () =>
+    request<Array<{ id: string; byteSize: number }>>('/platform/payment-proofs/decided-images'),
+
+  purgeDecidedImages: () =>
+    request<{ deleted: number; bytesFreed: number }>(
+      '/platform/payment-proofs/purge-decided-images',
+      { method: 'POST' },
+    ),
 
   /** The screenshot, as an object URL — fetched with the session cookie. */
   proofImage: async (id: string): Promise<string> => {
