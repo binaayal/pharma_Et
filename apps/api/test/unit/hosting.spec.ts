@@ -72,6 +72,11 @@ describe('hosting configuration', () => {
       expect(httpSecurityFromEnv('production', { TRUST_PROXY: 'x' }).trustProxy).toBe(0);
     });
 
+    it('refuses plain HTTP unless explicitly told otherwise', () => {
+      expect(httpSecurityFromEnv('production', {}).forceHttps).toBe(true);
+      expect(httpSecurityFromEnv('staging', { FORCE_HTTPS: 'off' }).forceHttps).toBe(false);
+    });
+
     it('reads RATE_LIMIT=off as off — the string "off" is truthy', () => {
       expect(httpSecurityFromEnv('production', { RATE_LIMIT: 'off' }).rateLimit).toBe(false);
       expect(httpSecurityFromEnv('production', {}).rateLimit).toBe(true);
