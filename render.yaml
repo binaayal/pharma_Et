@@ -26,9 +26,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      # Render's edge is one proxy hop. Confirm with /api/health → clientIp (hosting.md §3.6).
+      # Two hops: Render's edge, then an internal proxy (10.x). With '1', /api/health reported
+      # the internal proxy as every client — one login-throttle counter for every pharmacy.
+      # Confirm with /api/health → clientIp = your own public IP (hosting.md §7).
       - key: TRUST_PROXY
-        value: '1'
+        value: '2'
       - key: DATABASE_APP_USER
         value: pharmaet_app
       # Screenshots in Postgres for now (ADR-028): no object storage account yet. When R2 or
