@@ -110,7 +110,7 @@ seed refuses in production anyway.
    | `PROOF_ENCRYPTION_KEY` | 🔑 from §3 |
 
    **Apply.** The first deploy pulls `:latest` and starts. Note the URL, e.g.
-   `https://pharmaet.onrender.com`. If that name was taken it has a suffix; use yours
+   `https://pharmaet-2yw8.onrender.com`. If that name was taken it has a suffix; use yours
    everywhere below.
 3. **Service → Settings → Deploy Hook → copy it.** 🔑 This is `RENDER_DEPLOY_HOOK_URL`.
 
@@ -123,8 +123,8 @@ Repository **Settings → Secrets and variables → Actions**:
 | Secret | `RENDER_DEPLOY_HOOK_URL` | from §5.3 |
 | Secret | `NEON_DATABASE_URL` | from §2 |
 | Secret | `DATABASE_APP_PASSWORD` | from §2 |
-| Variable | `LIVE_URL` | `https://pharmaet.onrender.com` |
-| Variable | `MOBILE_API_BASE_URL` | `https://pharmaet.onrender.com/api` |
+| Variable | `LIVE_URL` | `https://pharmaet-2yw8.onrender.com` |
+| Variable | `MOBILE_API_BASE_URL` | `https://pharmaet-2yw8.onrender.com/api` |
 
 Then **Actions → CD → Run workflow** on `main`. From now on every merge to `main` builds,
 verifies, **migrates Neon, deploys that exact image, waits for it, and smoke-tests it**
@@ -132,14 +132,14 @@ without anything writing to live data (`scripts/smoke-live.sh`).
 
 ## 7. Check it (5 min)
 
-1. Open `https://pharmaet.onrender.com/api/health`.
+1. Open `https://pharmaet-2yw8.onrender.com/api/health`.
    - `"status":"ok"`, and `"commit"` is the latest `main` commit.
-   - **`"clientIp"` must be your own public IP** (compare with whatismyip.com). If it shows
-     a `10.x`/`172.x` or Render address, set `TRUST_PROXY` to `2` in Render, save, and look
-     again. Get this right: otherwise every pharmacy shares one login-throttle counter.
-2. Open `https://pharmaet.onrender.com/`, sign in with the admin from §4.
+   - **`"clientIp"` must be your own public IP** (compare with whatismyip.com). On Render it
+     takes `TRUST_PROXY=2` (set in `render.yaml`): with `1` it showed a `10.x` internal proxy.
+     If it ever shows a `10.x`/`172.x` address again, raise it by one and look again. Get this right: otherwise every pharmacy shares one login-throttle counter.
+2. Open `https://pharmaet-2yw8.onrender.com/`, sign in with the admin from §4.
 3. Open `/privacy` and `/delete-account`.
-4. `./scripts/smoke-live.sh https://pharmaet.onrender.com` → **live smoke passed**.
+4. `./scripts/smoke-live.sh https://pharmaet-2yw8.onrender.com` → **live smoke passed**.
 
 ## 8. Keep it awake, and hear when it isn't (5 min)
 
@@ -147,7 +147,7 @@ A free Render instance **sleeps after 15 minutes without traffic**, and the next
 waits 30–60 s. A cashier's first sign-in after lunch would time out. So:
 
 - **uptimerobot.com** (free) → New monitor → HTTP(s) →
-  `https://pharmaet.onrender.com/api/health`, every **5 minutes**, alert to your email/phone.
+  `https://pharmaet-2yw8.onrender.com/api/health`, every **5 minutes**, alert to your email/phone.
 
 This keeps the one instance awake: Render's 750 free hours a month cover one service running
 all month. It is also your downtime alarm (runbook §2). `/api/health` does not touch the
@@ -219,5 +219,5 @@ Migrations only move forward, so the previous image runs on the new schema (docs
 ```sh
 # the previous build's tag is on its CD run, e.g. sha-1a2b3c4d5e6f
 curl -X POST "$RENDER_DEPLOY_HOOK_URL&imgURL=ghcr.io%2Fbinaayal%2Fpharma_et%2Fapi%3Asha-1a2b3c4d5e6f"
-./scripts/smoke-live.sh https://pharmaet.onrender.com
+./scripts/smoke-live.sh https://pharmaet-2yw8.onrender.com
 ```

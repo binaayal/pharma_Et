@@ -24,7 +24,7 @@ String resolveApiBaseUrl(String configured, {required bool release}) {
 
 /// The public website — the same origin as the API, which serves the console and the legal
 /// pages (docs/03 §7). Set once at startup from the API URL.
-String publicSite = 'https://pharmaet.onrender.com';
+String publicSite = 'https://pharmaet-2yw8.onrender.com';
 
 /// `https://host/api` → `https://host`.
 String siteFromApi(String apiBaseUrl) {

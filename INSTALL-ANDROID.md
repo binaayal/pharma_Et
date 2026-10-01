@@ -1,7 +1,8 @@
 # Installing PharmaEt on a pharmacy's Android phone
 
 Until PharmaEt is on Google Play, you install it by hand from an APK file. It takes about five
-minutes per phone. The app talks to the live server on Render. Nothing is set up on the
+minutes per phone. The app talks to the live server on Render
+(`https://pharmaet-2yw8.onrender.com`; your web console is the same address). Nothing is set up on the
 phone except the sign-in.
 
 ---
