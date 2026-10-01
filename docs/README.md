@@ -81,6 +81,7 @@ answer, permanently.
 | [ADR-025](adr/ADR-025-forced-deactivation.md) | Forced deactivation of a pharmacy by the platform | Accepted |
 | [ADR-026](adr/ADR-026-security-baseline.md) | The security baseline: console cookie, rate limits, encryption at rest | Accepted |
 | [ADR-027](adr/ADR-027-hosting-on-free-tiers.md) | Hosting on Render + Neon + Cloudflare R2, starting on free tiers | Accepted |
+| [ADR-028](adr/ADR-028-screenshots-in-postgres-until-object-storage.md) | Payment screenshots in Postgres until there is object storage | Accepted |
 
 ---
 

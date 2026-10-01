@@ -42,6 +42,8 @@ const platformLogin = z.object({
 
 const decideProof = z.object({
   accept: z.boolean(),
+  /** Delete the screenshot once decided (ADR-028). The console sends true by default. */
+  deleteImage: z.boolean().optional(),
   reason: z.string().max(500).optional(),
   periodDays: z.number().int().min(1).max(366).optional(),
 });
@@ -336,6 +338,21 @@ export class PlatformController {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Type', contentType);
     res.send(buffer);
+  }
+
+  /** Frees the space of every decided screenshot still stored (ADR-028). */
+  @Get('payment-proofs/decided-images')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  decidedImages() {
+    return this.billing.decidedProofsWithImages();
+  }
+
+  @Post('payment-proofs/purge-decided-images')
+  @Public()
+  @UseGuards(PlatformAdminGuard)
+  purgeDecidedImages(@Req() request: { platformAdmin: { id: string } }) {
+    return this.billing.purgeDecidedImages(request.platformAdmin.id);
   }
 
   @Post('payment-proofs/:id/decide')

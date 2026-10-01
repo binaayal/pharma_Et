@@ -40,7 +40,7 @@ const envSchema = z.object({
    * S3-compatible store (Cloudflare R2 by default); `local` is a directory, and is only right
    * on a machine whose disk survives a restart — Render's does not.
    */
-  PROOF_STORAGE: z.enum(['local', 's3']).optional(),
+  PROOF_STORAGE: z.enum(['local', 's3', 'db']).optional(),
   S3_ENDPOINT: z.string().url().optional(),
   S3_BUCKET: z.string().min(1).optional(),
   S3_ACCESS_KEY_ID: z.string().min(1).optional(),
@@ -84,8 +84,8 @@ export function loadConfiguration(): AppConfig {
     // directory) loses every payment screenshot at the next deploy, and nobody notices until
     // a pharmacy disputes a payment.
     throw new Error(
-      'PROOF_STORAGE must be set in production: "s3" for object storage (R2), or "local" only ' +
-        'on a machine with a persistent disk',
+      'PROOF_STORAGE must be set in production: "s3" for object storage (R2), "db" to keep ' +
+        'screenshots in Postgres (ADR-028), or "local" only on a machine with a persistent disk',
     );
   }
   if (parsed.data.NODE_ENV === 'production' && !parsed.data.PROOF_ENCRYPTION_KEY) {

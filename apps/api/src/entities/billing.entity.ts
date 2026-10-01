@@ -120,6 +120,13 @@ export class PaymentProof {
   @Column('timestamptz', { name: 'verified_at', nullable: true })
   verifiedAt: Date | null;
 
+  /**
+   * When the platform deleted the screenshot after deciding (ADR-028). The row — amount,
+   * decision, who and when — is the billing record and stays; the image does not.
+   */
+  @Column('timestamptz', { name: 'image_deleted_at', nullable: true })
+  imageDeletedAt: Date | null;
+
   /** Required on a rejection: without it the tenant cannot fix whatever was wrong. */
   @Column('text', { name: 'rejection_reason', nullable: true })
   rejectionReason: string | null;

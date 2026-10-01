@@ -14,6 +14,35 @@ export function Payments({ data, reload, fail }: PageProps) {
   const [image, setImage] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
   const [busy, setBusy] = useState(false);
+  // ADR-028: screenshots live in the database for now, so each one is deleted once decided
+  // unless the reviewer says otherwise — the decision and the amount are the record.
+  const [deleteAfter, setDeleteAfter] = useState(true);
+  const [stored, setStored] = useState<{ count: number; bytes: number } | null>(null);
+
+  async function loadStored() {
+    try {
+      const rows = await api.decidedImages();
+      setStored({ count: rows.length, bytes: rows.reduce((sum, r) => sum + r.byteSize, 0) });
+    } catch {
+      setStored(null);
+    }
+  }
+
+  useEffect(() => {
+    void loadStored();
+  }, [data.proofs.length]);
+
+  async function purge() {
+    setBusy(true);
+    try {
+      await api.purgeDecidedImages();
+      await loadStored();
+    } catch (cause) {
+      fail(cause);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const selected = data.proofs.find((p) => p.id === selectedId) ?? data.proofs[0] ?? null;
 
@@ -46,7 +75,7 @@ export function Payments({ data, reload, fail }: PageProps) {
     }
     setBusy(true);
     try {
-      await api.decideProof(selected.id, { accept, reason });
+      await api.decideProof(selected.id, { accept, reason, deleteImage: deleteAfter });
       setSelectedId(null);
       await reload();
     } catch (cause) {
@@ -63,6 +92,14 @@ export function Payments({ data, reload, fail }: PageProps) {
           <h3>Payment verification</h3>
           <p>Manual screenshot approval — V1 (Telebirr/CBE integration deferred)</p>
         </div>
+        {stored && stored.count > 0 && (
+          <div className="sp">
+            <button className="wbtn d" disabled={busy} onClick={() => void purge()}>
+              Free space: delete {stored.count} decided screenshot{stored.count === 1 ? '' : 's'} (
+              {Math.ceil(stored.bytes / 1024)} KB)
+            </button>
+          </div>
+        )}
       </div>
       <div className="wgrid2">
         <div className="wpanel">
@@ -132,6 +169,14 @@ export function Payments({ data, reload, fail }: PageProps) {
                 <span>Submitted</span>
                 <b>{formatInstant(selected.submittedAt)}</b>
               </div>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={deleteAfter}
+                  onChange={(e) => setDeleteAfter(e.target.checked)}
+                />{' '}
+                Delete the screenshot once decided (keeps the amount and the decision)
+              </label>
               <div className="btn-pair">
                 <button className="wbtn r" disabled={busy} onClick={() => void decide(false)}>
                   Reject
