@@ -17,6 +17,12 @@ export interface HttpSecurityOptions {
    */
   trustProxy: number;
   rateLimit: boolean;
+  /**
+   * Refuse plain HTTP. On by default wherever the app is deployed; off only for CD's local
+   * verification stack (docker-compose.staging.yml), which is plain HTTP on localhost by
+   * construction — never on a host the public can reach.
+   */
+  forceHttps?: boolean;
 }
 
 /**
@@ -31,10 +37,12 @@ export function httpSecurityFromEnv(
 ): HttpSecurityOptions {
   const hops = Number(env.TRUST_PROXY ?? 0);
   const limit = (env.RATE_LIMIT ?? (nodeEnv === 'test' ? 'off' : 'on')).toLowerCase();
+  const https = (env.FORCE_HTTPS ?? 'on').toLowerCase();
   return {
     nodeEnv,
     trustProxy: Number.isInteger(hops) && hops >= 0 ? hops : 0,
     rateLimit: limit !== 'off' && limit !== 'false',
+    forceHttps: https !== 'off' && https !== 'false',
   };
 }
 
@@ -48,7 +56,7 @@ export function applyHttpSecurity(app: NestExpressApplication, options: HttpSecu
   // HTTPS only. The host's edge already terminates TLS and redirects; this is the same rule
   // said by the app, so a second host or a misconfigured proxy cannot quietly serve
   // tokens and PINs in clear text.
-  if (production) {
+  if (production && options.forceHttps !== false) {
     app.use((req: Request, res: Response, next: NextFunction) => {
       if (req.secure || req.headers['x-forwarded-proto'] === 'https') return next();
       if (req.path === '/api/health') return next(); // the platform's own plain-HTTP probe

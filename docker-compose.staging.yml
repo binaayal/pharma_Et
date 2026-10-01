@@ -34,6 +34,9 @@ services:
       db: { condition: service_healthy }
     environment: &api_env
       NODE_ENV: staging
+      # The verification stack is plain HTTP on localhost by construction; every deployed
+      # environment keeps the HTTPS rule (common/http/security.ts).
+      FORCE_HTTPS: 'off'
       DATABASE_URL: postgres://pharmaet:${POSTGRES_PASSWORD:-staging_local_password}@db:5432/pharmaet_staging
       DATABASE_APP_USER: pharmaet_app
       DATABASE_APP_PASSWORD: ${DATABASE_APP_PASSWORD:-staging_app_password}
