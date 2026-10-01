@@ -211,7 +211,9 @@ jobs:
         # would be a second, weaker key. `payment_proof` and `subscription` sit above the
         # terminal sync path, so no `change_seq`. `tenant_change_seq` is the allocator that
         # hands out `change_seq` — a counter of (tenant_id, value), and giving it a sync
-        # cursor of its own would be circular.
+        # cursor of its own would be circular. `payment_proof_blob` is byte storage standing in
+        # for an object store (ADR-028): keyed by its storage key, deleted once the payment is
+        # decided, never synced — so no surrogate id, no soft delete, no version, no cursor.
         run: |
           MISSING=$(psql "$DATABASE_URL" -tAc "
             SELECT string_agg(format('%s (missing: %s)', relname, missing), '; ')
@@ -230,7 +232,8 @@ jobs:
                   JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
                  WHERE n.nspname = 'public' AND c.relkind = 'r'
                    AND c.relname NOT IN ('event','oversell_event','applied_op','tenant',
-                                         'payment_proof','subscription','tenant_change_seq')
+                                         'payment_proof','subscription','tenant_change_seq',
+                                         'payment_proof_blob')
                    AND EXISTS (SELECT 1 FROM pg_attribute t
                                 WHERE t.attrelid = c.oid AND t.attname = 'tenant_id'
                                   AND NOT t.attisdropped)
