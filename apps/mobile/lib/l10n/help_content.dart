@@ -120,6 +120,10 @@ class HelpGuide {
               'to give. For Telebirr or bank transfers, choose Other.',
           'Tap "Complete sale". The receipt screen confirms it is saved on this phone.',
           'Tap "New sale" for the next customer.',
+          'For a customer who will pay later, choose "On credit" instead of Cash, pick the '
+              'customer (or add them), and enter anything they are paying today. When they '
+              'come to pay, open More → "Customers & credit", choose them and tap "Take a '
+              'payment".',
         ],
         tip:
             'You never need the internet to sell. Sales are saved on the phone first and '
@@ -376,6 +380,9 @@ class HelpGuide {
               'መልስ ያሳያል። ለቴሌብር ወይም ለባንክ ዝውውር «ሌላ» ይምረጡ።',
           '«ሽያጩን አጠናቅ» ይንኩ። የደረሰኝ ገጹ በዚህ ስልክ መቀመጡን ያረጋግጣል።',
           'ለሚቀጥለው ደንበኛ «አዲስ ሽያጭ» ይንኩ።',
+          'በኋላ ለሚከፍል ደንበኛ ከጥሬ ገንዘብ ይልቅ «በዱቤ» ይምረጡ፤ ደንበኛውን ይምረጡ (ወይም ይጨምሩ)፤ ዛሬ '
+              'የሚከፍሉት ካለ ያስገቡ። ለመክፈል ሲመጡ ተጨማሪ → «ደንበኞችና ዱቤ» ከፍተው ደንበኛውን መርጠው '
+              '«ክፍያ ተቀበል» ይንኩ።',
         ],
         tip: 'ለመሸጥ ኢንተርኔት በጭራሽ አያስፈልግም። ሽያጮች መጀመሪያ በስልኩ ይቀመጣሉ፤ ግንኙነቱ '
             'ሲመለስ በራሳቸው ይላካሉ።',

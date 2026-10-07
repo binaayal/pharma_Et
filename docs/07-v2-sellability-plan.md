@@ -108,7 +108,7 @@ the same gates as V1 (`06` §4, §7).
 | 3 | **FR-13 barcode scan** | **Built; needs a real phone and real boxes** — ADR-031, contract 1.6.0 |
 | 4 | **FR-14 receipts** — share first (a day's work), then Bluetooth printing | **Half built** — share, and print through the phone's print system (ADR-032). **Bluetooth thermal printing is not built**: it needs a printer in hand |
 | 5 | **FR-15 backup and restore**, and the hosting decision (§6) | **Built** — ADR-033. Hosting **decided 2026-10-07: stay on the free tiers** (§6) |
-| 6 | **FR-16 credit ledger** | |
+| 6 | **FR-16 credit ledger** | **Built** — ADR-034, contract 1.7.0 |
 | 7 | **FR-17 audit trail and daily summary on the phone** | |
 | 8 | FR-18, FR-7a, FR-8a, FR-19, FR-20 — in the order pilots ask for them | |
 

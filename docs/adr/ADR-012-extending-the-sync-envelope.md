@@ -150,8 +150,14 @@ against a server that does not exist.
 | **1.4.0** | 2026-09-26 | Adds `controlled_dispense` and `controlled_adjustment` operations (FR-4 §4a, FR-6; ADR-024). Pull response unchanged. | Additive. A 1.3.0 terminal never sends them and syncs exactly as before; the server refuses both while the A-1 switch is off. |
 | **1.5.0** | 2026-10-07 | Adds `packSize` and `packName` to a sale line, `packSize` to a goods-receipt line, and `packs` to a pulled product (FR-11, ADR-030). | Additive and optional. A 1.4.0 terminal never sends a pack and ignores `packs`; its operations apply exactly as before. A loose sale from a 1.5.0 terminal omits both fields, so it is byte-identical to a 1.4.0 one. A 1.5.0 terminal against a 1.4.0 server pulls no packs and therefore sends none. |
 | **1.6.0** | 2026-10-07 | Adds `barcodes` to a pulled product (FR-13, ADR-031). Push operations unchanged. | Additive and optional. A 1.5.0 terminal ignores it and finds products by name as before; a 1.6.0 terminal against a 1.5.0 server pulls no barcodes and simply has nothing to match a scan against. |
+| **1.7.0** | 2026-10-07 | Adds `customer` and `credit_payment` operations, the `credit` payment method, `customerId` on a sale, and `customers` on a pull (FR-16, ADR-034). | Additive. A 1.6.0 terminal sends none of these and ignores `customers`; an ordinary sale from a 1.7.0 terminal is byte-identical to a 1.6.0 one. The new rule that a sale's payments add up to its total applies **only to sales with credit**, so nothing an older terminal sends is judged by it. |
 
 **Apply-side semantics added 2026-09-23 without a version change** (§4, §5 above): a
 `cash_up` now closes its shift if still open, and the server's body limit is derived from
 the batch cap. Neither alters the envelope, so no client needs to know — which is the test
 for whether something belongs in the version log or only in this ADR.
+
+**Added 2026-10-07 without a version change** (ADR-034 §10): an operation the database
+aborts as a deadlock victim is retried in a fresh transaction, up to four times, instead of
+being acknowledged `rejected`. No client can tell the difference except by its sale not
+being parked.

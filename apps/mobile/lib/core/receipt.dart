@@ -21,7 +21,7 @@ class ReceiptLine {
 }
 
 /// How the customer paid, as the receipt says it.
-enum ReceiptTender { cash, telebirr, other }
+enum ReceiptTender { cash, telebirr, other, credit }
 
 /// A sale as the customer should see it on paper or on their phone (FR-14).
 ///
@@ -42,6 +42,8 @@ class ReceiptDoc {
     required this.tender,
     required this.receivedSantim,
     required this.changeSantim,
+    this.creditSantim = 0,
+    this.customerName,
   });
 
   /// The name over the door, as far as this device knows it: the branch's name.
@@ -60,6 +62,12 @@ class ReceiptDoc {
   /// What was handed over. Equal to the total for anything but cash.
   final int receivedSantim;
   final int changeSantim;
+
+  /// What of this sale was put on the customer's account (FR-16); zero otherwise.
+  final int creditSantim;
+
+  /// Whose account. Printed, because the slip is that customer's own record of the debt.
+  final String? customerName;
 
   /// The short sale reference from a branch name and a sale id.
   static String numberFor(String branchOrTenant, String saleId) {
@@ -85,7 +93,29 @@ class ReceiptDoc {
         ReceiptTender.cash => s.get('pay.cash'),
         ReceiptTender.telebirr => 'Telebirr',
         ReceiptTender.other => s.get('pay.other'),
+        ReceiptTender.credit => s.get('pay.credit'),
       };
+
+  /// The lines that say how the sale was settled: label and amount, in order. One list,
+  /// so the shared text and the printed page cannot settle the same sale differently.
+  List<(String, String)> settlement(Strings s) => [
+        (
+          s.get('receipt.paidBy'),
+          tender == ReceiptTender.credit && customerName != null
+              ? '${tenderName(s)} — $customerName'
+              : tenderName(s)
+        ),
+        if (tender == ReceiptTender.cash) ...[
+          (s.get('receipt.received'), formatMoney(receivedSantim)),
+          (s.get('receipt.change'), formatMoney(changeSantim)),
+        ],
+        if (tender == ReceiptTender.credit) ...[
+          (s.get('credit.paidNow'), formatMoney(receivedSantim)),
+          // What the customer still owes **for this sale** — not their whole balance,
+          // which the phone may only partly know and the slip must not misstate.
+          (s.get('receipt.onAccount'), formatMoney(creditSantim)),
+        ],
+      ];
 
   /// `2 box × 100.00` — the quantity in the unit it was sold in.
   static String quantity(ReceiptLine line) =>
@@ -108,13 +138,9 @@ class ReceiptDoc {
     }
     out
       ..writeln()
-      ..writeln('${s.get('receipt.total')}: ${formatEtb(totalSantim)}')
-      ..writeln('${s.get('receipt.paidBy')}: ${tenderName(s)}');
-    if (tender == ReceiptTender.cash) {
-      out
-        ..writeln(
-            '${s.get('receipt.received')}: ${formatMoney(receivedSantim)}')
-        ..writeln('${s.get('receipt.change')}: ${formatMoney(changeSantim)}');
+      ..writeln('${s.get('receipt.total')}: ${formatEtb(totalSantim)}');
+    for (final (label, value) in settlement(s)) {
+      out.writeln('$label: $value');
     }
     out
       ..writeln()

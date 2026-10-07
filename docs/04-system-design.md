@@ -104,9 +104,11 @@ erDiagram
 ### 5.4 Sales & cash
 | Table | Key columns | Notes |
 |---|---|---|
-| `sale` | `id`, `tenant_id`, `branch_id`, `shift_id`, `cashier_id`, `total_santim`, `sold_at` | Created locally, offline-first. |
+| `sale` | `id`, `tenant_id`, `branch_id`, `shift_id`, `cashier_id`, `total_santim`, `sold_at`, `customer_id?` | Created locally, offline-first. `customer_id` only when part of the sale is on credit. |
 | `sale_line` | `id`, `sale_id`, `product_id`, `batch_id?`, `qty`, `unit_price_santim`, `line_total_santim`, `pack_size?`, `pack_name?` | `batch_id` for standard drugs (FEFO-selected). `qty` and `unit_price_santim` are in the unit sold, so `line_total = qty × unit_price` holds exactly; `pack_size` null = base unit (FR-11). |
-| `payment` | `id`, `sale_id`, `method`, `amount_santim` | V1 `method ∈ {cash, other_recorded}`; no gateway (Vision §4). |
+| `payment` | `id`, `sale_id`, `method`, `amount_santim` | `method ∈ {cash, other_recorded, credit}`; no gateway (Vision §4). `credit` is the part of the sale not paid yet, owed by `sale.customer_id`; with credit, a sale's payments add up to its total (FR-16, ADR-034). |
+| `customer` | `id`, `tenant_id`, `name`, `phone?`, `note?`, `balance_santim` | Who owes the pharmacy money — **not** a patient record. Tenant-wide. `balance_santim` is a running figure, recomputable from the rows; positive = owes, negative = paid ahead. |
+| `credit_payment` | `id`, `tenant_id`, `branch_id`, `customer_id`, `amount_santim`, `method`, `paid_at`, `shift_id?`, `received_by` | Money received against a debt. Cash ones count toward their shift's cash-up (BR-8.2). |
 | `shift` | `id`, `tenant_id`, `branch_id`, `user_id`, `opened_at`, `closed_at?`, `opening_float_santim` | A staff member's till session. |
 | `cash_up` | `id`, `shift_id`, `expected_santim`, `counted_santim`, `variance_santim` | Z-report; variance attributed to user+shift (BR-8.2, AC-8.1). |
 

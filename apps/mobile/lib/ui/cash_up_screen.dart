@@ -113,6 +113,14 @@ class _CashUpScreenState extends State<CashUpScreen> {
                             '${context.t('cashup.cashSales')} (${expected.saleCount})',
                             formatMoney(expected.cashTakenSantim)
                           ),
+                          // Cash customers paid against their debts in this till
+                          // (FR-16). Shown as its own line so the cashier can see why
+                          // the drawer should hold more than the sales alone.
+                          if (expected.repaidCashSantim > 0)
+                            (
+                              context.t('cashup.debtsRepaid'),
+                              formatMoney(expected.repaidCashSantim)
+                            ),
                         ],
                         total: (
                           context.t('cashup.expectedInDrawer'),

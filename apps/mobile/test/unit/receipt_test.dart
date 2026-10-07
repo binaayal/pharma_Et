@@ -15,6 +15,8 @@ import 'package:pharmaet_mobile/ui/receipt_output.dart';
 /// over. So it must say exactly what the sale said: the same lines, the same integers,
 /// in whichever language the till is set to, on paper and in a message alike.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   // 14:05 in Addis Ababa on 7 October 2026.
   final soldAt = DateTime.utc(2026, 10, 7, 11, 5);
 
@@ -128,9 +130,58 @@ void main() {
     });
   });
 
-  group('printed as a page', () {
-    TestWidgetsFlutterBinding.ensureInitialized();
+  group('a sale on credit (FR-16)', () {
+    // 250.00 sold; 100.00 paid now, 150.00 on Abebe's account.
+    final onCredit = ReceiptDoc(
+      shop: 'Bole Pharmacy',
+      number: 'BOL-1A2B',
+      soldAt: soldAt,
+      cashier: 'Hana',
+      lines: receipt().lines,
+      totalSantim: 25000,
+      tender: ReceiptTender.credit,
+      receivedSantim: 10000,
+      changeSantim: 0,
+      creditSantim: 15000,
+      customerName: 'Abebe Kebede',
+    );
 
+    test('says who it is on account for, what was paid now and what is owed',
+        () {
+      final text = onCredit.toText(Strings.en);
+      expect(text, contains('Paid by: On credit — Abebe Kebede'));
+      expect(text, contains('Paid now: 100.00'));
+      expect(text, contains('On account for this sale: 150.00'));
+      // Not a cash sale: no "cash received", no change.
+      expect(text, isNot(contains('Cash received')));
+      expect(text, isNot(contains('Change given')));
+    });
+
+    test('what was paid now and what is owed add up to the total (G4)', () {
+      expect(onCredit.receivedSantim + onCredit.creditSantim,
+          onCredit.totalSantim);
+    });
+
+    test('states the debt for this sale, not a balance it may only half know',
+        () {
+      // The phone's figure for the whole account can be missing another phone's sales.
+      // The slip is the customer's record, so it says only what this sale added.
+      final text = onCredit.toText(Strings.en);
+      expect(text, isNot(contains('balance')));
+      expect(text, isNot(contains('Balance')));
+    });
+
+    test('the printed page settles the sale the same way as the shared text',
+        () async {
+      final lines = onCredit.settlement(Strings.am);
+      expect(lines.map((l) => l.$2).toList(),
+          ['በዱቤ — Abebe Kebede', '100.00', '150.00']);
+      final bytes = await ReceiptOutput.pdf(onCredit, Strings.am);
+      expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');
+    });
+  });
+
+  group('printed as a page', () {
     test('renders a real PDF from the bundled font', () async {
       final bytes = await ReceiptOutput.pdf(receipt(), Strings.en);
       expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');

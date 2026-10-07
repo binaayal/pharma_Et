@@ -86,6 +86,14 @@ class SaleRepository {
     /// in V1, with no live integration (FR-4). Only cash reaches the drawer, so only cash
     /// counts toward a cash-up (BR-8.2).
     String paymentMethod = 'cash',
+
+    /// Who owes the part put on credit (FR-16, ADR-034). Required when [creditSantim] is
+    /// more than zero.
+    String? customerId,
+
+    /// How much of the total is **not paid now** and is owed by [customerId]. The rest —
+    /// possibly nothing — is settled by [paymentMethod]. Zero for an ordinary sale.
+    int creditSantim = 0,
   }) async {
     if (lines.isEmpty) {
       throw ArgumentError('a sale must have at least one line');
@@ -93,14 +101,35 @@ class SaleRepository {
     if (paymentMethod != 'cash' && paymentMethod != 'other_recorded') {
       throw ArgumentError('unknown payment method: $paymentMethod');
     }
+    if (creditSantim < 0) {
+      throw ArgumentError('credit cannot be negative');
+    }
+    if (creditSantim > 0 && customerId == null) {
+      // A debt owed by nobody cannot be collected. The server refuses it too.
+      throw ArgumentError(
+          'a sale on credit must name the customer who owes it');
+    }
 
     final saleId = newId();
     final opId = newId();
     final soldAt = DateTime.now().toUtc();
     final total = lines.fold<int>(0, (sum, line) => sum + line.lineTotalSantim);
 
+    if (creditSantim > total) {
+      throw ArgumentError('credit cannot exceed the sale total');
+    }
+
     final linePayloads = <Map<String, dynamic>>[];
-    final paymentId = newId();
+    // What was paid now, and what is owed. Integer subtraction; the two always add back
+    // up to the total, which the server and the contract both check (G4).
+    final paidNow = total - creditSantim;
+    final payments = <({String id, String method, int amountSantim})>[
+      // An ordinary sale keeps its single payment row exactly as before, even at zero.
+      if (paidNow > 0 || creditSantim == 0)
+        (id: newId(), method: paymentMethod, amountSantim: paidNow),
+      if (creditSantim > 0)
+        (id: newId(), method: 'credit', amountSantim: creditSantim),
+    ];
 
     await _db.db.transaction((txn) async {
       await txn.insert('sale', {
@@ -111,6 +140,9 @@ class SaleRepository {
         'total_santim': total,
         'sold_at': soldAt.toIso8601String(),
         'synced': 0,
+        // Named only when something is owed: a cash sale to a known customer is still
+        // just a cash sale, and the debt book is not a purchase history (docs/01 §2.3).
+        'customer_id': creditSantim > 0 ? customerId : null,
       });
 
       for (final line in lines) {
@@ -152,12 +184,14 @@ class SaleRepository {
         }
       }
 
-      await txn.insert('payment', {
-        'id': paymentId,
-        'sale_id': saleId,
-        'method': paymentMethod,
-        'amount_santim': total,
-      });
+      for (final payment in payments) {
+        await txn.insert('payment', {
+          'id': payment.id,
+          'sale_id': saleId,
+          'method': payment.method,
+          'amount_santim': payment.amountSantim,
+        });
+      }
 
       // Enqueued inside the same transaction, so "the sale is committed" and "the sale will
       // sync" are one indivisible fact. There is no window in which a receipt exists that
@@ -174,8 +208,16 @@ class SaleRepository {
           'totalSantim': total,
           'lines': linePayloads,
           'payments': [
-            {'id': paymentId, 'method': paymentMethod, 'amountSantim': total},
+            for (final payment in payments)
+              {
+                'id': payment.id,
+                'method': payment.method,
+                'amountSantim': payment.amountSantim,
+              },
           ],
+          // Contract 1.7.0 (FR-16). Omitted without credit, so an ordinary sale is still
+          // byte-identical to what a 1.6.0 terminal sends.
+          if (creditSantim > 0) 'customerId': customerId,
         },
       );
     });

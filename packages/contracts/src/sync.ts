@@ -3,6 +3,8 @@ import {
   cashUpPayload,
   controlledAdjustmentPayload,
   controlledDispensePayload,
+  creditPaymentPayload,
+  customerPayload,
   goodsReceiptPayload,
   productBarcodes,
   productPacks,
@@ -43,6 +45,9 @@ export const entityType = z.enum([
   // 1.4.0 — the controlled-substance ledger (ADR-024), refused until A-1 is verified.
   'controlled_dispense',
   'controlled_adjustment',
+  // 1.7.0 — the customer credit ledger (FR-16, ADR-034).
+  'customer',
+  'credit_payment',
 ]);
 export type EntityType = z.infer<typeof entityType>;
 
@@ -99,6 +104,12 @@ export const operation = z.discriminatedUnion('entityType', [
     ...operationBase,
     entityType: z.literal('controlled_adjustment'),
     payload: controlledAdjustmentPayload,
+  }),
+  z.object({ ...operationBase, entityType: z.literal('customer'), payload: customerPayload }),
+  z.object({
+    ...operationBase,
+    entityType: z.literal('credit_payment'),
+    payload: creditPaymentPayload,
   }),
 ]);
 export type Operation = z.infer<typeof operation>;
@@ -215,6 +226,30 @@ export const stockBatchRef = z.object({
 });
 export type StockBatchRef = z.infer<typeof stockBatchRef>;
 
+/**
+ * A credit customer and what they owe, as the server knows it (FR-16, ADR-034).
+ *
+ * The one piece of pulled data that began on a terminal: a customer is created at the
+ * counter and pushed, then comes back here so that every other terminal — and this one,
+ * after a reinstall — knows them too.
+ *
+ * `balanceSantim` is **the server's** figure: every credit sale and repayment that has
+ * synced, across all terminals. A terminal shows this plus whatever it has taken that is
+ * still queued, the same way the cash-up keeps the terminal's and the server's figures
+ * apart rather than letting one overwrite the other (ADR-012 §3). Positive means the
+ * customer owes the pharmacy; negative means they have paid ahead.
+ */
+export const customerRef = z.object({
+  id: uuidv7,
+  name: z.string(),
+  phone: z.string().nullable(),
+  note: z.string().nullable(),
+  balanceSantim: santim,
+  changeSeq,
+  deletedAt: utcTimestamp.nullable(),
+});
+export type CustomerRef = z.infer<typeof customerRef>;
+
 export const pullResponse = z.object({
   contractVersion: z.string(),
   /** Pass this back as `cursor` on the next pull. */
@@ -225,6 +260,11 @@ export const pullResponse = z.object({
   branches: z.array(branchRef),
   users: z.array(userRef),
   stockBatches: z.array(stockBatchRef),
+  /**
+   * Credit customers changed since the cursor (FR-16). Optional because a pull response may
+   * only gain optional fields (ADR-012 §1); a 1.6.0 terminal ignores it.
+   */
+  customers: z.array(customerRef).optional(),
   /** When the server produced this page — shown to the user as data currency (BR-9.4). */
   serverTime: utcTimestamp,
 });

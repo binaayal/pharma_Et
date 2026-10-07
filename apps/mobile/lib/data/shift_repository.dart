@@ -25,10 +25,17 @@ class ExpectedCash {
     required this.cashTakenSantim,
     required this.saleCount,
     required this.unsyncedSaleCount,
+    this.repaidCashSantim = 0,
   });
 
   final int openingFloatSantim;
+
+  /// Cash from sales in this shift — the part paid in cash, never the part on credit.
   final int cashTakenSantim;
+
+  /// Cash customers handed over against what they owed, in this shift (FR-16). It went
+  /// into the same drawer, so it is expected to be there when the drawer is counted.
+  final int repaidCashSantim;
   final int saleCount;
 
   /// How many of those sales the server has not acknowledged yet.
@@ -38,7 +45,8 @@ class ExpectedCash {
   /// rather than a fault (ADR-012 §3).
   final int unsyncedSaleCount;
 
-  int get expectedSantim => openingFloatSantim + cashTakenSantim;
+  int get expectedSantim =>
+      openingFloatSantim + cashTakenSantim + repaidCashSantim;
 }
 
 /// Shift lifecycle and cash-up, offline-first (FR-8).
@@ -139,7 +147,16 @@ class ShiftRepository {
       [shiftId],
     );
 
+    // Repayments taken in this till, in cash (FR-16, ADR-034). Left out, every repayment
+    // would show as unexplained extra cash — or quietly cover a shortfall of that size.
+    final repaid = await _db.db.rawQuery(
+      "SELECT coalesce(sum(amount_santim), 0) AS cash FROM credit_payment "
+      "WHERE shift_id = ? AND method = 'cash'",
+      [shiftId],
+    );
+
     return ExpectedCash(
+      repaidCashSantim: (repaid.first['cash'] as int?) ?? 0,
       openingFloatSantim: shift.first['opening_float_santim'] as int,
       cashTakenSantim: (row.first['cash'] as int?) ?? 0,
       saleCount: (row.first['sales'] as int?) ?? 0,

@@ -228,9 +228,17 @@ class _SalesSummaryScreen extends StatelessWidget {
                       unit: 'ETB'),
                   PTile(
                       label: context.t('reports.otherTender'),
-                      value: formatBirr(
-                          summary.total.grossSantim - summary.total.cashSantim),
+                      value: formatBirr(summary.total.otherTenderSantim),
                       unit: 'ETB'),
+                  // Sold but not yet paid (FR-16). Its own tile, and only when there is
+                  // some: the total above includes it, and an owner reading "sales today"
+                  // should see how much of that is still a promise.
+                  if (summary.total.creditSantim > 0)
+                    PTile(
+                        label: context.t('reports.onCredit'),
+                        value: formatBirr(summary.total.creditSantim),
+                        unit: 'ETB',
+                        valueColor: PharmaColors.amber),
                 ],
               ),
               PSection(context.t('reports.byBranch')),

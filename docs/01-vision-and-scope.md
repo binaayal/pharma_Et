@@ -105,7 +105,7 @@ Each of these is deferred for a stated reason, not forgotten:
 ### 2.3 Non-goals (explicitly out of scope, not merely deferred)
 
 - **Prescription management integration** (doctor-to-pharmacy workflow). V1 handles dispensing-time *compliance rules* (FR-4), not e-prescription pipelines.
-- **Customer lifecycle / loyalty / refill reminders.** The product serves the *owner's operations*, not end-customer engagement. (A simple customer *credit ledger* was to be reconsidered — credit sales are common in Ethiopian retail. It has been: it is **in scope for V2** as FR-16, ADR-029. Loyalty and refill reminders are still out.)
+- **Customer lifecycle / loyalty / refill reminders.** The product serves the *owner's operations*, not end-customer engagement. (A simple customer *credit ledger* was to be reconsidered — credit sales are common in Ethiopian retail. It has been: it is **in scope for V2** as FR-16 (ADR-029), built as a debt book and nothing more — a name, a phone number, what is owed (ADR-034 §3). Loyalty and refill reminders are still out.)
 - **End-customer-facing app.** The system is used only by pharmacy owners and their staff.
 
 ---

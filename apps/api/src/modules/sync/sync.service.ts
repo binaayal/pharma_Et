@@ -7,7 +7,7 @@ import type {
   PushRequest,
   PushResponse,
 } from '@pharmaet/contracts';
-import { CONTRACT_VERSION, baseQuantity } from '@pharmaet/contracts';
+import { CONTRACT_VERSION, baseQuantity, creditPortion } from '@pharmaet/contracts';
 import type { EntityManager } from 'typeorm';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
@@ -26,10 +26,12 @@ import {
   StockAdjustment,
   StockBatch,
   UserBranch,
+  Customer,
 } from '../../entities';
 import { AuditService } from '../audit/audit.service';
 import { TelemetryService } from '../../common/observability/telemetry.service';
 import { CashUpService } from '../cashup/cash-up.service';
+import { CreditService } from '../credit/credit.service';
 import { ChangeSeqService } from '../inventory/change-seq.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -67,6 +69,7 @@ export class SyncService {
     private readonly audit: AuditService,
     private readonly telemetry: TelemetryService,
     private readonly ledger: LedgerService,
+    private readonly credit: CreditService,
   ) {}
 
   async push(scope: TenantScope, request: PushRequest): Promise<PushResponse> {
@@ -105,50 +108,63 @@ export class SyncService {
     }
 
     try {
-      return await this.db.runInScope(scope, async (em) => {
-        const already = await em
-          .getRepository(AppliedOp)
-          .findOne({ where: { tenantId: scope.tenantId, opId: operation.opId } });
-        if (already) {
-          return { opId: operation.opId, status: 'duplicate', serverVersion: null, reason: null };
-        }
+      return await this.retryingDeadlocks(() =>
+        this.db.runInScope(scope, async (em) => {
+          const already = await em
+            .getRepository(AppliedOp)
+            .findOne({ where: { tenantId: scope.tenantId, opId: operation.opId } });
+          if (already) {
+            return { opId: operation.opId, status: 'duplicate', serverVersion: null, reason: null };
+          }
 
-        switch (operation.entityType) {
-          case 'sale':
-            await this.applySale(em, scope, operation);
-            break;
-          case 'goods_receipt':
-            await this.applyGoodsReceipt(em, scope, operation);
-            break;
-          case 'shift':
-            await this.applyShift(em, scope, operation);
-            break;
-          case 'cash_up':
-            await this.applyCashUp(em, scope, operation);
-            break;
-          case 'stock_adjustment':
-            await this.applyStockAdjustment(em, scope, operation);
-            break;
-          // The regulated half (ADR-024): refused, writing nothing, until the switch is on.
-          case 'controlled_dispense':
-            await this.ledger.dispense(em, scope, operation);
-            break;
-          case 'controlled_adjustment':
-            await this.ledger.adjust(em, scope, operation);
-            break;
-        }
+          switch (operation.entityType) {
+            case 'sale':
+              await this.applySale(em, scope, operation);
+              break;
+            case 'goods_receipt':
+              await this.applyGoodsReceipt(em, scope, operation);
+              break;
+            case 'shift':
+              await this.applyShift(em, scope, operation);
+              break;
+            case 'cash_up':
+              await this.applyCashUp(em, scope, operation);
+              break;
+            case 'stock_adjustment':
+              await this.applyStockAdjustment(em, scope, operation);
+              break;
+            // The regulated half (ADR-024): refused, writing nothing, until the switch is on.
+            case 'controlled_dispense':
+              await this.ledger.dispense(em, scope, operation);
+              break;
+            case 'controlled_adjustment':
+              await this.ledger.adjust(em, scope, operation);
+              break;
+            // The customer credit ledger (FR-16, ADR-034).
+            case 'customer':
+              await this.credit.createCustomer(
+                em,
+                this.metaOf(scope, operation),
+                operation.payload,
+              );
+              break;
+            case 'credit_payment':
+              await this.credit.recordPayment(em, this.metaOf(scope, operation), operation.payload);
+              break;
+          }
 
-        await em.getRepository(AppliedOp).insert({
-          tenantId: scope.tenantId,
-          opId: operation.opId,
-          entityId: operation.entityId,
-          entityType: operation.entityType,
-          terminalId: operation.terminalId,
-          terminalSeq: operation.terminalSeq,
-        });
+          await em.getRepository(AppliedOp).insert({
+            tenantId: scope.tenantId,
+            opId: operation.opId,
+            entityId: operation.entityId,
+            entityType: operation.entityType,
+            terminalId: operation.terminalId,
+            terminalSeq: operation.terminalSeq,
+          });
 
-        return { opId: operation.opId, status: 'applied', serverVersion: 1, reason: null };
-      });
+          return { opId: operation.opId, status: 'applied', serverVersion: 1, reason: null };
+        }),
+      );
     } catch (error) {
       // A rejected operation stays a first-class result: the client parks it in a
       // "needs attention" queue. We never drop a real transaction because we could not
@@ -157,6 +173,48 @@ export class SyncService {
       this.logger.error(`op ${operation.opId} rejected: ${reason}`);
       return this.reject(operation, reason);
     }
+  }
+
+  /**
+   * Runs one operation's transaction, again if the database chose it as a deadlock victim.
+   *
+   * Two terminals of one pharmacy syncing at the same moment touch the same rows — a
+   * customer's balance, a batch's count, the tenant's change counter. Postgres resolves a
+   * lock cycle by aborting one transaction, and that abort is a fact about timing, not
+   * about the operation: the same sale applies cleanly a moment later.
+   *
+   * Without this it would come back `rejected` and sit in the terminal's attention queue —
+   * a real sale, parked for a person to puzzle over, because of when it happened to
+   * arrive. Each attempt is a whole fresh transaction, so nothing is half-applied, and the
+   * `applied_op` check inside it means a retry can never apply twice.
+   */
+  private async retryingDeadlocks<T>(run: () => Promise<T>): Promise<T> {
+    const attempts = 4;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await run();
+      } catch (error) {
+        const code =
+          (error as { driverError?: { code?: string }; code?: string }).driverError?.code ??
+          (error as { code?: string }).code;
+        // 40P01 deadlock_detected, 40001 serialization_failure: both mean "try again".
+        const transient = code === '40P01' || code === '40001';
+        if (!transient || attempt >= attempts) throw error;
+        // A short, growing, jittered pause, so the two do not simply collide again.
+        await new Promise((resolve) => setTimeout(resolve, attempt * 15 + Math.random() * 20));
+      }
+    }
+  }
+
+  private metaOf(scope: TenantScope, operation: Operation) {
+    if (!operation.branchId) throw new Error(`a ${operation.entityType} must name its branch`);
+    return {
+      entityId: operation.entityId,
+      tenantId: scope.tenantId,
+      branchId: operation.branchId,
+      actorId: operation.actorId,
+      terminalId: operation.terminalId,
+    };
   }
 
   private reject(operation: Operation, reason: string): Ack {
@@ -183,7 +241,22 @@ export class SyncService {
       .andWhere('p.is_controlled = true')
       .getCount();
     if (controlled > 0) {
-      throw new Error('a controlled substance is dispensed through the ledger, not sold as a standard line');
+      throw new Error(
+        'a controlled substance is dispensed through the ledger, not sold as a standard line',
+      );
+    }
+
+    // The part put on credit becomes what the customer owes (FR-16). In the sale's own
+    // transaction: a credit sale whose debt was recorded "afterwards" is a sale with no
+    // money and no debtor the moment anything goes wrong in between.
+    //
+    // And **before** the sale row is written. Inserting a sale that references the customer
+    // takes a shared lock on that customer; taking the balance lock after it is how two
+    // terminals selling to one organisation at once deadlock each other. Locking the
+    // customer first means they queue instead.
+    const onCredit = creditPortion(payload);
+    if (payload.customerId) {
+      await this.credit.addDebt(em, scope.tenantId, payload.customerId, onCredit);
     }
 
     await em.getRepository(Sale).insert({
@@ -195,6 +268,7 @@ export class SyncService {
       terminalId: operation.terminalId,
       totalSantim: payload.totalSantim,
       soldAt: new Date(payload.soldAt),
+      customerId: payload.customerId ?? null,
       changeSeq: 0,
       deletedAt: null,
     });
@@ -608,7 +682,15 @@ export class SyncService {
       }
       const stockBatches = await stockQuery.orderBy('s.change_seq', 'ASC').limit(limit).getMany();
 
-      const pages = [products, branches, users, stockBatches];
+      const customers = await em
+        .getRepository(Customer)
+        .createQueryBuilder('c')
+        .where('c.change_seq > :cursor', { cursor })
+        .orderBy('c.change_seq', 'ASC')
+        .limit(limit)
+        .getMany();
+
+      const pages = [products, branches, users, stockBatches, customers];
       const maxSeq = Math.max(cursor, ...pages.flatMap((rows) => rows.map((r) => r.changeSeq)));
 
       return {
@@ -654,6 +736,17 @@ export class SyncService {
           qtyOnHand: s.qtyOnHand,
           changeSeq: s.changeSeq,
           deletedAt: s.deletedAt?.toISOString() ?? null,
+        })),
+        // Tenant-wide, not per branch: an organisation that buys at Bole and pays at
+        // Piassa owes one pharmacy one sum.
+        customers: customers.map((c) => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          note: c.note,
+          balanceSantim: c.balanceSantim,
+          changeSeq: c.changeSeq,
+          deletedAt: c.deletedAt?.toISOString() ?? null,
         })),
         serverTime: new Date().toISOString(),
       };

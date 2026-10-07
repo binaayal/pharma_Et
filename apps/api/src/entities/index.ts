@@ -1,5 +1,6 @@
 import { AppUser } from './app-user.entity';
 import { Branch } from './branch.entity';
+import { CreditPayment, Customer } from './customer.entity';
 import { GoodsReceipt, GoodsReceiptLine } from './goods-receipt.entity';
 import { Product } from './product.entity';
 import { Payment, Sale, SaleLine } from './sale.entity';
@@ -15,6 +16,7 @@ import { UserBranch } from './user-branch.entity';
 export * from './app-user.entity';
 export * from './base.entity';
 export * from './branch.entity';
+export * from './customer.entity';
 export * from './goods-receipt.entity';
 export * from './product.entity';
 export * from './sale.entity';
@@ -57,4 +59,6 @@ export const ALL_ENTITIES = [
   AppliedOp,
   TenantChangeSeq,
   OversellEvent,
+  Customer,
+  CreditPayment,
 ];

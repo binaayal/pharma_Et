@@ -7,7 +7,12 @@ import {
   barcode,
   baseQuantity,
   canonicalBarcode,
+  creditPaymentPayload,
+  creditPortion,
+  customerPayload,
+  customerRef,
   productBarcodes,
+  pullResponse,
   cashUpPayload,
   goodsReceiptPayload,
   operation,
@@ -407,6 +412,159 @@ describe('contract v1.6.0 — barcodes (FR-13, ADR-031)', () => {
     for (const v of ['1.0.0', '1.4.0', '1.5.0', '1.6.0']) {
       expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
     }
-    expect(CONTRACT_VERSION).toBe('1.6.0');
+  });
+});
+
+describe('contract v1.7.0 — customer credit ledger (FR-16, ADR-034)', () => {
+  const CUSTOMER = '01930000-0000-7000-8000-00000000000c';
+  const PAY2 = '01930000-0000-7000-8000-00000000000d';
+
+  /** 45.00 sold; 20.00 paid in cash now, 25.00 owed. */
+  const partCredit = {
+    ...validSale,
+    customerId: CUSTOMER,
+    payments: [
+      { id: OP, method: 'cash' as const, amountSantim: 2000 },
+      { id: PAY2, method: 'credit' as const, amountSantim: 2500 },
+    ],
+  };
+
+  it('accepts a sale partly paid and partly on credit', () => {
+    const parsed = salePayload.parse(partCredit);
+    expect(creditPortion(parsed)).toBe(2500);
+  });
+
+  it('accepts a sale wholly on credit', () => {
+    const all = {
+      ...partCredit,
+      payments: [{ id: OP, method: 'credit' as const, amountSantim: 4500 }],
+    };
+    expect(creditPortion(salePayload.parse(all))).toBe(4500);
+  });
+
+  it('refuses credit owed by nobody — a debt needs a customer', () => {
+    const { customerId: _omit, ...anonymous } = partCredit;
+    expect(salePayload.safeParse(anonymous).success).toBe(false);
+    expect(salePayload.safeParse({ ...partCredit, customerId: null }).success).toBe(false);
+  });
+
+  it('refuses a credit sale whose payments do not add up to its total (G4)', () => {
+    const short = {
+      ...partCredit,
+      payments: [
+        { id: OP, method: 'cash' as const, amountSantim: 2000 },
+        { id: PAY2, method: 'credit' as const, amountSantim: 2400 },
+      ],
+    };
+    expect(salePayload.safeParse(short).success).toBe(false);
+  });
+
+  it('owes nothing on a sale with no credit in it', () => {
+    expect(creditPortion(salePayload.parse(validSale))).toBe(0);
+  });
+
+  it('still accepts a 1.6.0 sale unchanged — no customer, no credit (ADR-009)', () => {
+    expect(salePayload.safeParse(validSale).success).toBe(true);
+    expect(operation.safeParse(validOperation).success).toBe(true);
+    // And the rule about payments adding up is not applied to it retroactively: a 1.0.0
+    // terminal was never asked for that, and its sales must not start being refused.
+    const legacy = { ...validSale, payments: [] };
+    expect(salePayload.safeParse(legacy).success).toBe(true);
+  });
+
+  it('accepts explicit null for the customer, which is what the generated Dart sends', () => {
+    expect(salePayload.safeParse({ ...validSale, customerId: null }).success).toBe(true);
+  });
+
+  const customer = {
+    name: 'Abebe Kebede',
+    phone: '0911 23 45 67',
+    note: null,
+    createdAt: '2026-10-07T08:00:00Z',
+  };
+
+  it('carries a customer created at the counter', () => {
+    const op = {
+      ...validOperation,
+      entityId: CUSTOMER,
+      entityType: 'customer' as const,
+      payload: customer,
+    };
+    expect(operation.safeParse(op).success).toBe(true);
+  });
+
+  it('refuses a customer with no name', () => {
+    expect(customerPayload.safeParse({ ...customer, name: '   ' }).success).toBe(false);
+  });
+
+  it('asks for nothing about the person beyond who owes the money', () => {
+    // docs/01 §2.3: this is a debt book, not a patient record.
+    expect(Object.keys(customerPayload.shape).sort()).toEqual([
+      'createdAt',
+      'name',
+      'note',
+      'phone',
+    ]);
+  });
+
+  const repayment = {
+    customerId: CUSTOMER,
+    amountSantim: 2500,
+    method: 'cash' as const,
+    paidAt: '2026-10-08T09:00:00Z',
+    shiftId: null,
+    receivedBy: ACTOR,
+    note: null,
+  };
+
+  it('carries a repayment', () => {
+    const op = { ...validOperation, entityType: 'credit_payment' as const, payload: repayment };
+    expect(operation.safeParse(op).success).toBe(true);
+  });
+
+  it('refuses a repayment of nothing, of less than nothing, or of a fraction', () => {
+    for (const amountSantim of [0, -100, 12.5]) {
+      expect(creditPaymentPayload.safeParse({ ...repayment, amountSantim }).success).toBe(false);
+    }
+  });
+
+  it('refuses settling a debt with more credit', () => {
+    expect(creditPaymentPayload.safeParse({ ...repayment, method: 'credit' }).success).toBe(false);
+  });
+
+  it('pulls a customer with a balance that may be owed, settled or paid ahead', () => {
+    const ref = {
+      id: CUSTOMER,
+      name: 'Abebe',
+      phone: null,
+      note: null,
+      changeSeq: 4,
+      deletedAt: null,
+    };
+    for (const balanceSantim of [2500, 0, -2000]) {
+      expect(customerRef.safeParse({ ...ref, balanceSantim }).success).toBe(true);
+    }
+    expect(customerRef.safeParse({ ...ref, balanceSantim: 10.5 }).success).toBe(false);
+  });
+
+  it('pulls a page with no `customers` at all — what a 1.6.0 server sends', () => {
+    const page = {
+      contractVersion: '1.6.0',
+      cursor: 1,
+      hasMore: false,
+      products: [],
+      branches: [],
+      users: [],
+      stockBatches: [],
+      serverTime: '2026-10-07T08:00:00Z',
+    };
+    expect(pullResponse.safeParse(page).success).toBe(true);
+  });
+
+  it('keeps every earlier version inside the support window (ADR-009)', () => {
+    for (const v of ['1.0.0', '1.5.0', '1.6.0', '1.7.0']) {
+      expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
+    }
+    expect(CONTRACT_VERSION).toBe('1.7.0');
   });
 });

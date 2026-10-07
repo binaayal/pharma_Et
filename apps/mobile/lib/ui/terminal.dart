@@ -11,6 +11,7 @@ import '../core/permissions.dart';
 import '../data/backup.dart';
 import '../data/catalog_repository.dart';
 import '../data/controlled_repository.dart';
+import '../data/customer_repository.dart';
 import '../data/inventory_repository.dart';
 import '../data/sale_repository.dart';
 import '../data/shift_repository.dart';
@@ -32,6 +33,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     required this.inventory,
     required this.controlled,
     required this.backups,
+    required this.customers,
     required this.syncService,
     required this.api,
     required this.client,
@@ -61,6 +63,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   final InventoryRepository inventory;
   final ControlledRepository controlled;
   final BackupService backups;
+  final CustomerRepository customers;
   final SyncService syncService;
   final TenantApi api;
   final SyncClient client;
@@ -112,6 +115,14 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     }
     return true;
   }
+
+  /// Whether this person may sell on credit and take repayments (FR-16, ADR-034).
+  ///
+  /// Anyone who may sell. Whether to trust a customer is a judgment made at the counter by
+  /// whoever is standing there; the system's part is to record who made it, which every
+  /// credit sale and repayment does. No separate capability — and so no change to the
+  /// FR-2 matrix.
+  bool get canTakeCredit => can(Capability.saleCreate);
 
   /// Whether this person may back up and restore this phone (FR-15, ADR-033).
   ///
@@ -317,8 +328,16 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Commits the cart as one local transaction and pushes it without holding the counter.
-  Future<CommittedSale> commit({String method = 'cash'}) async {
+  ///
+  /// With [creditSantim], that much of the total is not paid now and is owed by
+  /// [customerId] (FR-16); the rest is settled by [method].
+  Future<CommittedSale> commit(
+      {String method = 'cash',
+      String? customerId,
+      int creditSantim = 0}) async {
     final sale = await sales.commitSale(
+      customerId: customerId,
+      creditSantim: creditSantim,
       lines: List.of(cart),
       tenantId: session.scope.tenantId,
       branchId: branchId,

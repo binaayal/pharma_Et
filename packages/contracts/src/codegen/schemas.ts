@@ -21,6 +21,7 @@ export const CONTRACT_SCHEMAS: Record<string, ZodTypeAny> = {
   BranchRef: sync.branchRef,
   UserRef: sync.userRef,
   StockBatchRef: sync.stockBatchRef,
+  CustomerRef: sync.customerRef,
 
   // Entity payloads
   SalePayload: entities.salePayload,
@@ -35,6 +36,8 @@ export const CONTRACT_SCHEMAS: Record<string, ZodTypeAny> = {
   PrescriptionPayload: entities.prescriptionPayload,
   ControlledDispensePayload: entities.controlledDispensePayload,
   ControlledAdjustmentPayload: entities.controlledAdjustmentPayload,
+  CustomerPayload: entities.customerPayload,
+  CreditPaymentPayload: entities.creditPaymentPayload,
 
   // Auth
   LoginRequest: auth.loginRequest,

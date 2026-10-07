@@ -166,6 +166,10 @@ class BackupService {
     'goods_receipt_line',
     'stock_adjustment',
     'controlled_dispense',
+    // FR-16. A customer created on the lost phone and not yet synced exists nowhere else,
+    // and neither does a repayment taken there.
+    'customer',
+    'credit_payment',
   ];
 
   /// Copied for the record — "what my shelves held on that day" — and never restored:

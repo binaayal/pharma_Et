@@ -8,6 +8,7 @@ import 'auth/offline_credentials.dart';
 import 'auth/session.dart';
 import 'contracts/contracts.dart';
 import 'core/theme.dart';
+import 'data/customer_repository.dart';
 import 'data/backup.dart';
 import 'data/catalog_repository.dart';
 import 'data/controlled_repository.dart';
@@ -208,6 +209,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       inventory: _inventory!,
       controlled: _controlled!,
       backups: BackupService(_db!),
+      customers: CustomerRepository(_db!, Outbox(_db!)),
       syncService: _syncService!,
       api: _api,
       client: _client,

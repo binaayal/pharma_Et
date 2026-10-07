@@ -6,6 +6,7 @@ import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import 'backup_screen.dart';
 import 'cash_up_screen.dart';
+import 'customers_screen.dart';
 import 'delete_account_screen.dart';
 import 'help_screen.dart';
 import 'kit.dart';
@@ -72,6 +73,16 @@ class SettingsScreen extends StatelessWidget {
           ]),
           PSection(context.t('settings.account')),
           PRows(children: [
+            if (t.canTakeCredit)
+              PRow(
+                title: context.t('credit.title'),
+                subtitle: context.t('credit.sub'),
+                avatarIcon: Icons.menu_book_outlined,
+                avatarTone: Tone.amber,
+                chevron: true,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const CustomersScreen())),
+              ),
             PRow(
               title: t.session.scope.displayName,
               subtitle:

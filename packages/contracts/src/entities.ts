@@ -165,11 +165,21 @@ export type SaleLinePayload = z.infer<typeof saleLinePayload>;
 
 export const paymentPayload = z.object({
   id: uuidv7,
-  /** V1 has no payment-gateway integration; other tenders are recorded, not settled. */
-  method: z.enum(['cash', 'other_recorded']),
+  /**
+   * V1 has no payment-gateway integration; other tenders are recorded, not settled.
+   *
+   * `credit` (contract 1.7.0, FR-16, ADR-034) is the part of a sale **not paid yet**: it
+   * is owed by the sale's `customerId`. It is a payment row so that a sale's payments still
+   * add up to its total — money received now and money promised, one list — and it never
+   * counts toward a cash-up, because it never reached the drawer.
+   */
+  method: z.enum(['cash', 'other_recorded', 'credit']),
   amountSantim: santim.nonnegative(),
 });
 export type PaymentPayload = z.infer<typeof paymentPayload>;
+
+const creditOf = (payments: ReadonlyArray<{ method: string; amountSantim: number }>): number =>
+  payments.reduce((sum, p) => (p.method === 'credit' ? sum + p.amountSantim : sum), 0);
 
 export const salePayload = z
   .object({
@@ -179,6 +189,13 @@ export const salePayload = z
     totalSantim: santim.nonnegative(),
     lines: z.array(saleLinePayload).min(1),
     payments: z.array(paymentPayload),
+    /**
+     * Who owes the `credit` part of this sale (FR-16, ADR-034). Required whenever a payment
+     * is on credit — a debt owed by nobody cannot be collected — and otherwise absent.
+     *
+     * Added in contract 1.7.0. A 1.6.0 terminal never sends it or a credit payment.
+     */
+    customerId: uuidv7.nullable().optional(),
   })
   .refine((s) => s.lines.reduce((sum, l) => sum + l.lineTotalSantim, 0) === s.totalSantim, {
     message: 'sale total must equal the sum of its line totals (G4)',
@@ -187,8 +204,79 @@ export const salePayload = z
   .refine((s) => s.lines.every((l) => l.qty * l.unitPriceSantim === l.lineTotalSantim), {
     message: 'each line total must equal qty * unit price (G4)',
     path: ['lines'],
-  });
+  })
+  .refine((s) => creditOf(s.payments) === 0 || Boolean(s.customerId), {
+    message: 'a sale on credit must name the customer who owes it (FR-16)',
+    path: ['customerId'],
+  })
+  .refine(
+    (s) =>
+      creditOf(s.payments) === 0 ||
+      s.payments.reduce((sum, p) => sum + p.amountSantim, 0) === s.totalSantim,
+    {
+      // Held only where credit is involved, so nothing a 1.6.0 terminal sends is judged by
+      // a rule it never knew. With credit it has to hold: the credit row IS the debt, and a
+      // debt that is not "the total, less what was paid" is a number nobody can explain.
+      message: 'with credit, the payments must add up to the sale total (G4)',
+      path: ['payments'],
+    },
+  );
+
 export type SalePayload = z.infer<typeof salePayload>;
+
+/** The part of a sale that was put on credit: what its customer now owes for it. */
+export function creditPortion(sale: { payments: ReadonlyArray<PaymentPayload> }): number {
+  return creditOf(sale.payments);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Customer credit ledger — ዕዳ (FR-16, ADR-034) — contract v1.7.0              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A customer who may buy on credit: a regular, a clinic, an organisation.
+ *
+ * Created **at the counter**, offline — the first time someone asks to pay later is not a
+ * moment to go and find a network. The id is minted on the terminal like every other
+ * (ADR-006), so the credit sale that follows can name it before the server has heard of
+ * either.
+ *
+ * Deliberately little. This is who owes money, not a patient record: no date of birth, no
+ * address, nothing about what they are treated for (docs/01 §2.3).
+ */
+export const customerPayload = z.object({
+  name: z.string().trim().min(1).max(120),
+  /** For asking to be paid. Free text: local numbers are written many ways. */
+  phone: z.string().trim().max(40).nullable(),
+  /** "Pays at month end", "staff of the clinic next door". Never parsed. */
+  note: z.string().trim().max(300).nullable(),
+  createdAt: utcTimestamp,
+});
+export type CustomerPayload = z.infer<typeof customerPayload>;
+
+/**
+ * Money received against what a customer owes (FR-16).
+ *
+ * Its own operation, not a sale: nothing leaves the shelf. It reduces the customer's
+ * balance, and when it is cash it went into the drawer — so it counts toward the cash-up
+ * of the shift it was taken in, exactly as a cash sale does. Leaving it out would make
+ * every repayment show up as unexplained extra cash.
+ *
+ * May exceed the balance: someone paying 500 against a debt of 480 is common, and the
+ * honest record is that they are now 20 ahead.
+ */
+export const creditPaymentPayload = z.object({
+  customerId: uuidv7,
+  amountSantim: santim.positive(),
+  /** How it was paid. Never `credit` — a debt is not settled with another debt. */
+  method: z.enum(['cash', 'other_recorded']),
+  paidAt: utcTimestamp,
+  /** The open till it was taken in, so cash reaches the right cash-up (BR-8.2). */
+  shiftId: uuidv7.nullable(),
+  receivedBy: uuidv7,
+  note: z.string().trim().max(300).nullable(),
+});
+export type CreditPaymentPayload = z.infer<typeof creditPaymentPayload>;
 
 export const goodsReceiptLinePayload = z.object({
   id: uuidv7,

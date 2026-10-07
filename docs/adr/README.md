@@ -41,5 +41,6 @@ quietly work around an accepted ADR in code.
 | [ADR-031](ADR-031-barcodes.md) | Barcodes: a product carries its barcodes, in one canonical spelling | Accepted |
 | [ADR-032](ADR-032-receipts.md) | Receipts: one description of the sale, shared as text and printed through the phone | Accepted |
 | [ADR-033](ADR-033-backup-and-restore.md) | Backup and restore: an encrypted document of the phone's rows, restored by merging | Accepted |
+| [ADR-034](ADR-034-customer-credit-ledger.md) | The customer credit ledger: a debt is a payment row, and the balance is two figures | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated
