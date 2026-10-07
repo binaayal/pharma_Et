@@ -111,6 +111,19 @@ class MedicineCatalogue {
       .where((w) => w.isNotEmpty)
       .toList();
 
+  /// The whole list, or the part of it matching [query], in the list's own (alphabetical)
+  /// order — for browsing and ticking rather than typing (FR-12). Same matching rule as
+  /// [search]: every typed word must begin some word of the name.
+  List<MedicineEntry> browse(String query) {
+    final typed = _wordsOf(query);
+    if (typed.isEmpty) return List.unmodifiable(_entries);
+    return [
+      for (var i = 0; i < _entries.length; i++)
+        if (typed.every((t) => _words[i].any((w) => w.startsWith(t))))
+          _entries[i],
+    ];
+  }
+
   /// Medicines matching what has been typed so far, best first.
   ///
   /// Every typed word must begin some word of the name, in any order — so `amox 500`
