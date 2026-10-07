@@ -9,7 +9,7 @@ quietly work around an accepted ADR in code.
 | ADR | Title | Status |
 |-----|-------|--------|
 | [ADR-001](ADR-001-platform-and-stack.md) | Platform & technology stack | Accepted |
-| [ADR-002](ADR-002-offline-single-writer-first.md) | Single-writer offline in V1; multi-writer deferred to V2 | Accepted |
+| [ADR-002](ADR-002-offline-single-writer-first.md) | Single-writer offline in V1; multi-writer deferred (to V3 — ADR-029) | Accepted |
 | [ADR-003](ADR-003-multi-tenancy-isolation.md) | Multi-tenancy isolation model | Accepted |
 | [ADR-004](ADR-004-controlled-substance-ledger.md) | Controlled-substance immutable ledger | Accepted |
 | [ADR-005](ADR-005-sync-protocol.md) | Sync protocol: hand-rolled REST behind a SyncService seam | Accepted |
@@ -36,5 +36,6 @@ quietly work around an accepted ADR in code.
 | [ADR-026](ADR-026-security-baseline.md) | The security baseline: console cookie, rate limits, encryption at rest | Accepted |
 | [ADR-027](ADR-027-hosting-on-free-tiers.md) | Hosting on Render + Neon + Cloudflare R2, starting on free tiers | Accepted |
 | [ADR-028](ADR-028-screenshots-in-postgres-until-object-storage.md) | Payment screenshots in Postgres until there is object storage | Accepted |
+| [ADR-029](ADR-029-v2-is-the-sellability-release.md) | V2 is the sellability release; multi-writer offline stays deferred | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

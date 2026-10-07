@@ -20,7 +20,7 @@ the SRS is settled.
 **For Claude Code specifically:**
 - Start any task by reading `01-vision-and-scope.md` (what and why) and the relevant ADRs (the constraints you must not violate).
 - ADRs are **binding**. If a task appears to require violating an ADR, stop and flag it — do not silently work around it.
-- When a document says a decision is "deferred to V2," do not implement it in V1 code, even opportunistically.
+- When a document says a decision is deferred, do not implement it, even opportunistically. **V2's scope is `07-v2-sellability-plan.md`** (ADR-029); what earlier documents called "deferred to V2" about multi-writer offline is now V3 and is still not to be built.
 - Treat everything marked `[ASSUMPTION]` or `[OPEN]` as unverified. Do not build load-bearing logic on it without the owner confirming.
 
 ---
@@ -36,6 +36,8 @@ the SRS is settled.
 | 04 | `04-system-design.md` | ✅ Draft | Data model, sync protocol, API contract, RBAC model |
 | 05 | `05-qa-and-test-strategy.md` | ✅ Draft | Test pyramid, coverage targets that mean something, compliance test cases |
 | 06 | `06-delivery-plan.md` | ✅ Draft | SDLC model, phases, sprint plan, definition of done |
+| 07 | `07-v2-sellability-plan.md` | ✅ Draft | V2: what makes the app replace a tool the owner uses today — requirements FR-11…FR-20 and their order |
+| — | `v2-sellability-backlog.md` | ✅ Input | The review of the shipped v1.0.0 app that `07` is derived from, kept verbatim |
 | — | `adr/` | ✅ Draft | Architecture Decision Records (binding decisions + rationale) |
 | — | `engineering/` | ✅ Draft | How to build it: repo layout, local setup, workflow, CI/CD, staging |
 | — | `compliance-sign-off.md` | ✅ Live | Dated compliance evidence; A-1 status (ADR-011) |
@@ -82,6 +84,7 @@ answer, permanently.
 | [ADR-026](adr/ADR-026-security-baseline.md) | The security baseline: console cookie, rate limits, encryption at rest | Accepted |
 | [ADR-027](adr/ADR-027-hosting-on-free-tiers.md) | Hosting on Render + Neon + Cloudflare R2, starting on free tiers | Accepted |
 | [ADR-028](adr/ADR-028-screenshots-in-postgres-until-object-storage.md) | Payment screenshots in Postgres until there is object storage | Accepted |
+| [ADR-029](adr/ADR-029-v2-is-the-sellability-release.md) | V2 is the sellability release; multi-writer offline stays deferred | Accepted |
 
 ---
 
