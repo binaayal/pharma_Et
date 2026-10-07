@@ -8,6 +8,7 @@ import '../auth/offline_window.dart';
 import '../auth/session.dart';
 import '../contracts/contracts.dart';
 import '../core/permissions.dart';
+import '../data/backup.dart';
 import '../data/catalog_repository.dart';
 import '../data/controlled_repository.dart';
 import '../data/inventory_repository.dart';
@@ -30,6 +31,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     required this.shifts,
     required this.inventory,
     required this.controlled,
+    required this.backups,
     required this.syncService,
     required this.api,
     required this.client,
@@ -58,6 +60,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   final ShiftRepository shifts;
   final InventoryRepository inventory;
   final ControlledRepository controlled;
+  final BackupService backups;
   final SyncService syncService;
   final TenantApi api;
   final SyncClient client;
@@ -108,6 +111,18 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
       return false;
     }
     return true;
+  }
+
+  /// Whether this person may back up and restore this phone (FR-15, ADR-033).
+  ///
+  /// The owner and a branch manager: a backup holds the branch's sales, which is what the
+  /// branch report already shows them. Decided on the role alone, **ignoring the offline
+  /// ceiling** that [can] applies — a phone offline for eight days is exactly the phone
+  /// whose queue most needs copying somewhere safe, and withdrawing the button then would
+  /// take the lifeboat away for being too far from shore.
+  bool get canBackUp {
+    final reach = role.reach(Capability.reportBranch);
+    return reach == Grant.branch || reach == Grant.tenant;
   }
 
   /// Branch or tenant reports — a cashier's `own` grant covers their cash-up, not these.

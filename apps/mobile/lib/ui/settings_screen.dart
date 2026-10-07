@@ -4,6 +4,7 @@ import '../core/money.dart';
 import '../core/permissions.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
+import 'backup_screen.dart';
 import 'cash_up_screen.dart';
 import 'delete_account_screen.dart';
 import 'help_screen.dart';
@@ -57,6 +58,17 @@ class SettingsScreen extends StatelessWidget {
               value: '${t.status.pending}',
               valueColor: t.status.pending > 0 ? PharmaColors.amber : null,
             ),
+            if (t.canBackUp)
+              PRow(
+                title: context.t('backup.title'),
+                subtitle: context.t('backup.sub'),
+                avatarIcon: Icons.save_alt,
+                // Amber when there is something on this phone that exists nowhere else.
+                avatarTone: t.status.pending > 0 ? Tone.amber : Tone.green,
+                chevron: true,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const BackupScreen())),
+              ),
           ]),
           PSection(context.t('settings.account')),
           PRows(children: [

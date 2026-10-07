@@ -255,6 +255,10 @@ class HelpGuide {
           'Tap the chip, or More → "Sync now", to sync immediately.',
           'If Home shows records that "need attention", the server refused them. They are '
               'kept on the phone, not lost — contact support if it does not clear.',
+          'If you have been offline for a long time, make a backup: More → "Backup & '
+              'restore" → "Back up now". Choose a passphrase, write it down, and send the '
+              'file to yourself (Telegram, email). If the phone is lost, sign in on another '
+              'phone and restore the file there.',
         ],
       ),
       HelpTopic(
@@ -500,6 +504,9 @@ class HelpGuide {
           'ወዲያውኑ ለማመሳሰል ምልክቱን ወይም ተጨማሪ → «አሁን አመሳስል» ይንኩ።',
           'መነሻ ገጹ «ትኩረት የሚሹ» መዝገቦችን ካሳየ ሰርቨሩ አልተቀበላቸውም። በስልኩ ላይ '
               'ተቀምጠዋል እንጂ አልጠፉም — ካልጠፉ ድጋፍን ያነጋግሩ።',
+          'ለረጅም ጊዜ ከመስመር ውጭ ከቆዩ ቅጂ ይያዙ፦ ተጨማሪ → «ቅጂ መያዝና መመለስ» → «አሁን ቅጂ ያዝ»። '
+              'የይለፍ ሐረግ መርጠው ጽፈው ያስቀምጡ፤ ፋይሉንም ለራስዎ ይላኩ (ቴሌግራም፣ ኢሜይል)። ስልኩ '
+              'ከጠፋ በሌላ ስልክ ገብተው ፋይሉን እዚያ ይመልሱ።',
         ],
       ),
       HelpTopic(

@@ -5,6 +5,7 @@ import 'package:http/testing.dart';
 import 'package:pharmaet_mobile/api/tenant_api.dart';
 import 'package:pharmaet_mobile/contracts/contracts.dart';
 import 'package:pharmaet_mobile/core/theme.dart';
+import 'package:pharmaet_mobile/data/backup.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/controlled_repository.dart';
 import 'package:pharmaet_mobile/data/inventory_repository.dart';
@@ -65,6 +66,8 @@ class TestTerminal {
       shifts: shifts,
       inventory: inventory,
       controlled: StubControlled(db, outbox),
+      // Few key-derivation rounds: screen tests are about the flow, not the cost of a guess.
+      backups: BackupService(db, kdfRounds: 1000),
       syncService: sync,
       api: TenantApi(
           baseUrl: 'http://stub.invalid',

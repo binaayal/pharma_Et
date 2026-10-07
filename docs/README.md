@@ -88,6 +88,7 @@ answer, permanently.
 | [ADR-030](adr/ADR-030-sell-units.md) | Sell units: a pack is recorded on the line, never multiplied into it | Accepted |
 | [ADR-031](adr/ADR-031-barcodes.md) | Barcodes: a product carries its barcodes, in one canonical spelling | Accepted |
 | [ADR-032](adr/ADR-032-receipts.md) | Receipts: one description of the sale, shared as text and printed through the phone | Accepted |
+| [ADR-033](adr/ADR-033-backup-and-restore.md) | Backup and restore: an encrypted document of the phone's rows, restored by merging | Accepted |
 
 ---
 
