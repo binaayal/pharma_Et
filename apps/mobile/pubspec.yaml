@@ -44,6 +44,10 @@ dependencies:
   # rather than fetched from Play Services on first use: the first scan must work in a
   # shop with no network.
   mobile_scanner: ^7.4.2
+  # Receipts on paper (FR-14): lays the receipt out as a PDF and hands it to the phone's
+  # own print system — any printer with a print service, or "Save as PDF".
+  printing: ^5.15.1
+  pdf: ^3.13.1
 
 dev_dependencies:
   flutter_test:
@@ -67,3 +71,7 @@ flutter:
     # The medicines list the product form suggests from (FR-12). Generated from EFDA's
     # Essential Medicines List by scripts/build-medicines-catalogue.py — do not hand-edit.
     - assets/catalogue/medicines.json
+    # The font a printed receipt is set in (FR-14). The PDF library's built-in fonts have
+    # no Ethiopic glyphs; without this an Amharic receipt prints as empty boxes. Bundled,
+    # not fetched: printing must work with no network. SIL OFL 1.1 — assets/fonts/OFL.txt.
+    - assets/fonts/NotoSansEthiopic-Regular.ttf

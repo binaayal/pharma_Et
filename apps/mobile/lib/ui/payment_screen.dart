@@ -43,6 +43,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
           name: line.product.name,
           qty: line.qty,
           packName: line.pack?.name,
+          unit: line.unitName,
+          unitPriceSantim: line.unitPriceSantim,
           lineTotalSantim: line.lineTotalSantim
         )
     ];
