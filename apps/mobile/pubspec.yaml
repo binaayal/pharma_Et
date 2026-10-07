@@ -60,3 +60,6 @@ flutter:
   # has no business in the app bundle.
   assets:
     - assets/brand/logo.png
+    # The medicines list the product form suggests from (FR-12). Generated from EFDA's
+    # Essential Medicines List by scripts/build-medicines-catalogue.py — do not hand-edit.
+    - assets/catalogue/medicines.json

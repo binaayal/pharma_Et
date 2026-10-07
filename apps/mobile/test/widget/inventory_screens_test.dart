@@ -1,10 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/inventory_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
+import 'package:pharmaet_mobile/data/medicine_catalogue.dart';
 import 'package:pharmaet_mobile/ui/kit.dart';
 import 'package:pharmaet_mobile/ui/receive_screen.dart';
 import 'package:pharmaet_mobile/ui/reconcile_screen.dart';
@@ -154,6 +158,112 @@ void main() {
       await tester.enterText(find.byType(TextField).at(2), '19.50');
       await tester.pump();
       expect(button(tester, 'Add to catalog').onPressed, isNotNull);
+    });
+  });
+
+  group('adding from the medicines list (FR-12)', () {
+    final list = MedicineCatalogue('test', const [
+      MedicineEntry(
+          name: 'Amoxicillin 500mg capsule',
+          unit: 'capsule',
+          category: 'Penicillins'),
+      MedicineEntry(name: 'Amoxicillin 250mg capsule', unit: 'capsule'),
+      MedicineEntry(name: 'Paracetamol 500mg tablet', unit: 'tablet'),
+    ]);
+
+    setUp(() => MedicineCatalogue.debugSet(list));
+    tearDown(() => MedicineCatalogue.debugSet(null));
+
+    Future<TestTerminal> openForm(WidgetTester tester,
+        {http.Client? api}) async {
+      final owner = TestTerminal.build(db, role: 'owner', api: api);
+      await pumpTerminalScreen(tester, owner.terminal, const StockScreen());
+      await tester.tap(find.byTooltip('Add product'));
+      await tester.pumpAndSettle();
+      return owner;
+    }
+
+    String field(WidgetTester tester, int i) =>
+        tester.widget<TextField>(find.byType(TextField).at(i)).controller!.text;
+
+    testWidgets('a few letters and a tap fill the name and the unit',
+        (tester) async {
+      await openForm(tester);
+      await tester.enterText(find.byType(TextField).at(0), 'amox 500');
+      await tester.pump();
+
+      expect(find.text('Amoxicillin 500mg capsule'), findsOneWidget);
+      expect(find.text('Amoxicillin 250mg capsule'), findsNothing);
+      await tester.tap(find.text('Amoxicillin 500mg capsule'));
+      await tester.pump();
+
+      expect(field(tester, 0), 'Amoxicillin 500mg capsule');
+      expect(field(tester, 1), 'capsule');
+      // The price is the owner's to set: the list has none, and the form will not save
+      // without one.
+      expect(field(tester, 2), isEmpty);
+      expect(button(tester, 'Add to catalog').onPressed, isNull);
+      // Picked: the suggestions step out of the way.
+      expect(find.textContaining('Essential Medicines List'), findsNothing);
+    });
+
+    testWidgets('a medicine that is not on the list is typed in as before',
+        (tester) async {
+      await openForm(tester);
+      await tester.enterText(
+          find.byType(TextField).at(0), 'Shop own cough mix');
+      await tester.enterText(find.byType(TextField).at(2), '45');
+      await tester.pump();
+
+      expect(find.textContaining('Essential Medicines List'), findsNothing);
+      expect(button(tester, 'Add to catalog').onPressed, isNotNull);
+    });
+
+    testWidgets('what the pharmacy already sells is not offered again',
+        (tester) async {
+      final owner = TestTerminal.build(db, role: 'owner');
+      owner.addProduct('p1', 'Paracetamol 500mg tablet');
+      await pumpTerminalScreen(tester, owner.terminal, const StockScreen());
+      await tester.tap(find.byTooltip('Add product'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(0), 'para');
+      await tester.pump();
+      expect(find.textContaining('Essential Medicines List'), findsNothing);
+    });
+
+    testWidgets('"add another" saves and clears for the next medicine',
+        (tester) async {
+      final posted = <Map<String, dynamic>>[];
+      await openForm(tester, api: MockClient((request) async {
+        if (request.method == 'POST' && request.url.path == '/products') {
+          posted.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return http.Response('{"id":"x"}', 201);
+        }
+        return http.Response('{}', 503);
+      }));
+
+      await tester.enterText(find.byType(TextField).at(0), 'amox 500');
+      await tester.pump();
+      await tester.tap(find.text('Amoxicillin 500mg capsule'));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(2), '4');
+      await tester.pump();
+      await tester.ensureVisible(find.text('Add, then add another'));
+      await tester.tap(find.text('Add, then add another'));
+      await tester.pumpAndSettle();
+
+      expect(posted.single['name'], 'Amoxicillin 500mg capsule');
+      expect(posted.single['unit'], 'capsule');
+      // 4 birr, as integer santim (G4).
+      expect(posted.single['priceSantim'], 400);
+      // Nothing from the list sets this: "controlled" is a regulatory fact, not a name.
+      expect(posted.single['isControlled'], isFalse);
+
+      // Still open, empty, and saying how far along the owner is.
+      expect(field(tester, 0), isEmpty);
+      expect(field(tester, 2), isEmpty);
+      expect(find.textContaining('1 added'), findsOneWidget);
     });
   });
 
