@@ -88,6 +88,19 @@ Telegram, their email, a memory card. It is deliberately **not** saved to a fold
 phone, because a backup on the phone it backs up is lost with it. Restore picks a file with
 the system file picker. Neither needs a storage permission.
 
+**Amended 2026-10-07, after a real phone.** The share sheet on the test handset offered
+Telegram, Gmail, OneDrive, Bluetooth and nothing else — no memory card, no folder. "A memory
+card" in the paragraph above was an assumption about what a share sheet contains, and it was
+wrong. An owner without a chat app, or without a network that day, could not keep a backup
+at all; and a backup could not be restored on the same handset to prove that restore works.
+
+So "Back up now" now asks where the file should go: **send it** (the share sheet, as
+before) or **save it as a file**, which opens the system's "save as" picker — a memory
+card, a USB stick, a cloud drive that offers itself there, or a folder on the phone. The
+original concern stands and is said on the screen: a backup saved only on the phone is lost
+with it. The choice is the owner's; the warning is ours. Still no storage permission: the
+picker grants access to the one file it creates.
+
 ### 6. Who, and when
 
 The owner and a branch manager — the people who can already read the branch's sales. Decided

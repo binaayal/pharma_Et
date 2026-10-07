@@ -35,6 +35,8 @@ void main() {
 
   tearDown(() async {
     BackupFiles.debugSave = null;
+    BackupFiles.debugSaveAsFile = null;
+    BackupFiles.debugDestination = null;
     BackupFiles.debugPick = null;
     await db.close();
     if (dir.existsSync()) dir.deleteSync(recursive: true);
@@ -190,6 +192,59 @@ void main() {
       expect(find.textContaining('somewhere that is not this phone'),
           findsNothing);
       // And "last backup" does not move: nothing was kept.
+      expect(find.text('Never'), findsOneWidget);
+    });
+
+    Future<void> throughPassphrase(WidgetTester tester) async {
+      await tester.tap(find.text('Back up now'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'long enough one');
+      await tester.enterText(find.byType(TextField).at(1), 'long enough one');
+      await tester.pump();
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('asks where the backup should go: sent, or saved as a file',
+        (tester) async {
+      // Found on a real phone: the share sheet offered only ways to send the file to
+      // somebody. No memory card, no folder — so no backup without a chat app.
+      final fake = await open(tester);
+      await throughPassphrase(tester);
+
+      expect(find.text('Send it to yourself'), findsOneWidget);
+      expect(find.text('Save it as a file'), findsOneWidget);
+      // Nothing is made until the owner has said where it goes.
+      expect(fake.createdWith, isNull);
+    });
+
+    testWidgets('saved as a file: kept, and told it must not stay only here',
+        (tester) async {
+      String? savedAs;
+      BackupFiles.debugSaveAsFile = (bytes, name) async {
+        savedAs = name;
+        return true;
+      };
+      final fake = await open(tester);
+      await throughPassphrase(tester);
+      await tester.tap(find.text('Save it as a file'));
+      await tester.pumpAndSettle();
+
+      expect(fake.createdWith, 'long enough one');
+      expect(savedAs, endsWith('.pharmaet-backup'));
+      expect(find.textContaining('lost with the phone'), findsOneWidget);
+      expect(find.text('Never'), findsNothing);
+    });
+
+    testWidgets('closing the save picker without saving is not a backup',
+        (tester) async {
+      BackupFiles.debugSaveAsFile = (_, __) async => false;
+      await open(tester);
+      await throughPassphrase(tester);
+      await tester.tap(find.text('Save it as a file'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('lost with the phone'), findsNothing);
       expect(find.text('Never'), findsOneWidget);
     });
 
