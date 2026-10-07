@@ -224,6 +224,10 @@ class HelpGuide {
         steps: [
           'In Stock, tap the add button to add a product: its name, unit (tablet, capsule, '
               'bottle…) and price.',
+          'Start typing the name — "amox 500" — and the app suggests medicines from the '
+              'Ethiopian Essential Medicines List. Tap one to fill in the name and unit, then '
+              'type your price. Use "Add, then add another" to keep going. A product that is '
+              'not on the list can still be typed in full.',
           'To change a price, open the product and tap the price. Enter the new price and '
               'tap "Save price".',
           'If you buy by the box and sell by the strip or the tablet, open the product and '
@@ -463,6 +467,10 @@ class HelpGuide {
         steps: [
           'በክምችት ውስጥ የመጨመሪያ ቁልፉን ነክተው ምርት ያክሉ፦ ስሙን፣ መለኪያውን (ኪኒን፣ ካፕሱል፣ '
               'ጠርሙስ…) እና ዋጋውን።',
+          'ስሙን መጻፍ ይጀምሩ — «amox 500» — መተግበሪያው ከኢትዮጵያ መሠረታዊ መድኃኒቶች ዝርዝር '
+              'መድኃኒቶችን ይጠቁማል። አንዱን ነክተው ስሙንና መለኪያውን ይሙሉ፤ ከዚያ ዋጋዎን ይጻፉ። '
+              'ለመቀጠል «ጨምር፣ ከዚያ ሌላ ጨምር» ይጠቀሙ። በዝርዝሩ ውስጥ የሌለ ምርት አሁንም ሙሉ '
+              'በሙሉ መጻፍ ይቻላል።',
           'ዋጋ ለመቀየር ምርቱን ከፍተው ዋጋውን ይንኩ። አዲሱን ዋጋ አስገብተው «ዋጋውን አስቀምጥ» '
               'ይንኩ።',
           'በካርቶን ገዝተው በስትሪፕ ወይም በክኒን የሚሸጡ ከሆነ ምርቱን ከፍተው «ፓኬት ጨምር» ይንኩ። '

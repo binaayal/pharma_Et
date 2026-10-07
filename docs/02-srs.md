@@ -329,6 +329,36 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-12 — Pre-loaded medicines catalogue · Priority: M · V2
+**Actors:** Owner, Branch Manager.
+**Preconditions:** `catalog.manage` (FR-2). Scope and order: `07-v2-sellability-plan.md`.
+
+**Main flow:**
+1. The app ships with a list of medicines — generic name, strength and dosage form — taken from EFDA's published Ethiopian Essential Medicines List.
+2. When adding a product (FR-3), the Owner types a few letters; the app suggests matching medicines.
+3. Picking one fills the product's name and base unit. The Owner sets the price (and any packs, FR-11) and saves.
+4. The Owner may save and continue straight to the next product.
+
+**Exception flows:**
+- E-12.1 The medicine is not on the list: the Owner types the name in full, as before.
+- E-12.2 The list cannot be read: the form works without suggestions.
+
+**Business rules:**
+- BR-12.1 The list is **a source of suggestions, not the pharmacy's catalogue.** Nothing becomes a product until the Owner adds it with a price. *(Reading recorded here: the backlog says "ship them in the app… owner stops typing". Seeding every tenant with ~1,300 priceless products was rejected — a product with no price can be rung up at zero, and a stock list of medicines the shop does not carry buries the ones it does.)*
+- BR-12.2 The list is bundled with the app and works with no network.
+- BR-12.3 The list carries **no price, no pack size and no controlled-substance flag.** Picking from it never marks a product controlled; that remains gated on A-1 (ADR-024).
+- BR-12.4 A medicine already in the pharmacy's catalogue under the same name is not suggested again.
+- BR-12.5 The list states the edition it was built from, and is regenerated from the stored source document — never edited by hand.
+
+**Acceptance criteria:**
+- AC-12.1 *Given* an Owner adding a product, *when* they type `amox 500`, *then* "Amoxicillin 500mg capsule" is offered, and picking it fills the name and the unit `capsule`.
+- AC-12.2 *Given* a picked medicine, *when* no price has been entered, *then* the product cannot be saved.
+- AC-12.3 *Given* a device with no network, *when* the Owner opens the form, *then* suggestions still appear.
+- AC-12.4 *Given* a name that is not on the list, *when* the Owner types it and a price, *then* the product is saved as typed.
+- AC-12.5 *Given* any medicine picked from the list, *when* it is saved, *then* it is created as a standard (non-controlled) product.
+
+---
+
 ## 4. Non-functional requirements
 
 ### NFR-1 — Offline capability & availability · Priority: M
@@ -397,6 +427,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-6 — event store + **general audit log** | §5.6, §6 | `apps/api/src/migrations/EventStore`, `apps/api/src/modules/audit/` | `g3-ledger-immutability.spec.ts` (13) | **Done** for the non-regulated half (Vision §2.1.1). Append-only enforced by the database — UPDATE, DELETE and TRUNCATE all refused, including for the owner role. |
 | FR-6 — controlled-substance ledger | §5.6, §6 | `api/src/modules/ledger/`, `api/src/migrations/1759400000000-ControlledLedger.ts`, `mobile/lib/ui/ledger_screen.dart` | `g5-controlled-ledger.spec.ts`, `g3-ledger-immutability.spec.ts` | **Built, switched off until A-1 (ADR-024).** AC-6.1 (database refuses edit and delete; corrections are compensating events), AC-6.2 (ordered history), BR-6.3 (CSV export marked provisional), BR-3.3 (projection rebuilds exactly from events). With the switch off every controlled operation is rejected and writes nothing. |
 | FR-11 sell units (break-bulk) — **V2** | §3, §5.2, §5.4, §5.5; ADR-030 | contract: `packages/contracts/src/entities.ts` (`productPack`, `baseQuantity`) · server: `api/src/migrations/SellUnits`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/data/{sale,inventory,catalog}_repository.dart`, `mobile/lib/ui/{sell_screen,receive_screen,catalog_sheets}.dart` | `g4-sell-units.spec.ts` (30), `g4_sell_units_test.dart` (20), `g7_schema_upgrade_test.dart`, `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-11.1 to AC-11.7 on both sides: pack sales exact to the santim, stock in base units, oversell by the box detected, a 1.4.0 terminal unchanged (ADR-009), a V1 local database upgraded in place. `itemsSold` in the sales summary counts units as rung up (ADR-030, consequences). |
+| FR-12 pre-loaded medicines catalogue — **V2** | — (bundled reference data; the existing product-create path) | source: `docs/regulatory/EFDA-GDL-067-essential-medicines-list-2024.pdf` · build: `scripts/build-medicines-catalogue.py` → `mobile/assets/catalogue/medicines.json` · app: `mobile/lib/data/medicine_catalogue.dart`, `mobile/lib/ui/catalog_sheets.dart` | `medicine_catalogue_test.dart` (18), `inventory_screens_test.dart` | **Done** — 1,315 entries from 490 generics of the 2024 list. AC-12.1 to AC-12.5 at the widget tier; the file itself is tested for size, duplicates, stray footnotes and the absence of any price or controlled flag. **Not covered:** medicines outside the Essential Medicines List (brands, the drug-shop and OTC lists) — typed by hand until those lists are added. |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

@@ -6,6 +6,7 @@ import '../contracts/contracts.dart';
 import '../core/money.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
+import '../data/medicine_catalogue.dart';
 import '../l10n/locale_store.dart';
 import 'kit.dart';
 import 'terminal.dart';
@@ -304,6 +305,39 @@ class _ProductFormState extends State<_ProductForm> {
   bool _busy = false;
   String? _error;
 
+  /// The bundled medicines list (FR-12). Empty until it loads, and empty if it cannot —
+  /// in which case this is simply the form it always was.
+  MedicineCatalogue _medicines = MedicineCatalogue.empty;
+
+  /// Set when the name was filled from the list, so the suggestions step out of the way
+  /// until the owner types in the name field again.
+  String? _picked;
+
+  /// How many products this sheet has added while staying open ("Add another").
+  int _added = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final cached = MedicineCatalogue.cached;
+    if (cached != null) {
+      _medicines = cached;
+    } else {
+      unawaited(MedicineCatalogue.load().then((m) {
+        if (mounted) setState(() => _medicines = m);
+      }));
+    }
+  }
+
+  /// Fills the form from the list: the name, and the unit one of them is counted in. The
+  /// price is left for the owner — the list has none, and a guessed price is worse than
+  /// an empty field.
+  void _pick(MedicineEntry entry) => setState(() {
+        _name.text = entry.name;
+        _unit.text = entry.unit;
+        _picked = entry.name;
+      });
+
   @override
   void dispose() {
     _name.dispose();
@@ -321,7 +355,10 @@ class _ProductFormState extends State<_ProductForm> {
       (parseBirr(_price.text) ?? 0) > 0 &&
       readPacks(_packs) != null;
 
-  Future<void> _save() async {
+  /// Saves the product. With [another], the sheet stays open and clears for the next one —
+  /// stocking a new shop is the same four taps a few hundred times, and reopening the
+  /// sheet for each would double them.
+  Future<void> _save({bool another = false}) async {
     final t = TerminalScope.read(context);
     setState(() {
       _busy = true;
@@ -337,7 +374,21 @@ class _ProductFormState extends State<_ProductForm> {
           packs: _controlled ? const [] : readPacks(_packs)!));
       // Pull it down now, so the counter can sell it before the next tick.
       unawaited(t.sync());
-      if (mounted) Navigator.pop(context, true);
+      if (!mounted) return;
+      if (!another) return Navigator.pop(context, true);
+      setState(() {
+        _added++;
+        _busy = false;
+        _picked = null;
+        _name.clear();
+        _price.clear();
+        _unit.text = 'tablet';
+        _controlled = false;
+        for (final draft in _packs) {
+          draft.dispose();
+        }
+        _packs.clear();
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -349,7 +400,23 @@ class _ProductFormState extends State<_ProductForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    final t = TerminalScope.of(context);
+    final suggestions = _picked != null && _picked == _name.text
+        ? const <MedicineEntry>[]
+        : _medicines.search(
+            _name.text,
+            // What this pharmacy already sells is not offered again.
+            exclude: {for (final p in t.products) p.name.toLowerCase()},
+          );
+    return PopScope(
+      canPop: _added == 0,
+      // Closed by the back gesture after "Add another": still report that products were
+      // added, so the stock list behind this sheet reloads.
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, true);
+      },
+      child: Padding(
         padding: EdgeInsets.fromLTRB(
             18, 20, 18, MediaQuery.of(context).viewInsets.bottom + 18),
         child: SingleChildScrollView(
@@ -361,13 +428,35 @@ class _ProductFormState extends State<_ProductForm> {
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
+              if (_added > 0)
+                PNotice.text(Tone.green, Icons.check_circle_outline,
+                    context.tf('catalog.addedCount', {'n': _added})),
               PField(
                 label: context.t('catalog.name'),
-                hint: 'e.g. Amoxicillin 500mg',
+                hint: context.t('catalog.nameHint'),
                 controller: _name,
                 autofocus: true,
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => setState(() => _picked = null),
               ),
+              if (suggestions.isNotEmpty) ...[
+                // The bundled medicines list (FR-12): three letters and a tap instead of
+                // a typed name. Only a suggestion — typing on is always allowed.
+                PRows(children: [
+                  for (final entry in suggestions)
+                    PRow(
+                      title: entry.name,
+                      subtitle: entry.category,
+                      value: entry.unit,
+                      onTap: () => _pick(entry),
+                    ),
+                ]),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 14),
+                  child: Text(context.t('catalog.fromList'),
+                      style: const TextStyle(
+                          fontSize: 11.5, color: PharmaColors.faint)),
+                ),
+              ],
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(
                   child: PField(
@@ -421,10 +510,19 @@ class _ProductFormState extends State<_ProductForm> {
                 label: context.t(_busy ? 'staff.adding' : 'catalog.add'),
                 onPressed: _busy || !_valid ? null : _save,
               ),
+              const SizedBox(height: 8),
+              PButton(
+                kind: BtnKind.plain,
+                small: true,
+                label: context.t('catalog.addAnother'),
+                onPressed: _busy || !_valid ? null : () => _save(another: true),
+              ),
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _PriceForm extends StatefulWidget {
