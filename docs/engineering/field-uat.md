@@ -257,11 +257,46 @@ local database went from schema 7 to 9 in place, signed in, till intact.
 10. **The sale-complete screen did not say a sale was wholesale**, though the paper did.
     It does now.
 
-Fixes 8–10 have not been on the phone. **Not done in any pass:** a real barcode read, a
-restore from a file, a payment by a cashier (the button is hidden; nobody signed in as one).
+**Fourth pass, same day: the medicines list, the scanner, and restore** (version 2.0.0,
+code 67, commit `1e26bc5`, installed over code 64).
+
+| What was done | Result |
+|---|---|
+| The medicines list | **Pass.** Stock's add button offered "Pick from the medicines list" first. All 1,315 medicines listed; "para" narrowed to 7; two ticked, priced at 45.00 and 60.00, and added — both in Stock a moment later. No medicine name was typed |
+| Link a barcode | **Pass, from a picture.** An EAN-13 image (6291100080014) put on the phone over USB was read by the phone's own detector and linked to Amoxicillin as 06291100080014 |
+| Sell by scanning | **Pass, from pictures.** The EAN-13 added Amoxicillin; a GS1 DataMatrix of the same medicine was recognised as the same product (count 2); a picture with no barcode said "No barcode was found in that picture" and added nothing |
+| Receive by scanning | **Pass, from a picture.** The DataMatrix filled the product, lot `LOT42A` and expiry 2027-12-31 in one read. The receipt was not saved |
+| Back up to a file | **Pass.** "Save it as a file" opened the system picker in Downloads; the file was written (1.8 kB with nothing waiting, 2.3 kB with one sale waiting), and the screen warned that a copy only on this phone is lost with it |
+| Restore, wrong passphrase | **Pass.** "That passphrase does not open this backup"; nothing changed |
+| Restore, offline, of a file holding one unsynced sale | **Pass.** With Wi-Fi and data off, one sale was rung up (saved in 86 ms, queued), backed up to a file and restored on the same phone: "Everything in that backup is already on this phone", and still exactly one sale waiting |
+| …and then back online | **Pass.** The sale uploaded once: 3 sales, ETB 1,655 |
+| Fix 8, the pack editor | **Fixed.** Two lines a pack; "900.00" and "750.00" in full |
+
+**What the scanner test does and does not show.** Decoding ran on this phone, in the
+shipped app, through the same detector and the same handling the camera feeds: EAN-13,
+DataMatrix, GS1 parsing, the catalogue match, the repeat guard. What it does not show is the
+lens — focus, glare, a curved blister pack, the shop's light. The camera opened and ran with
+permission granted in three passes and saw only black, the phone lying on it. A box held in
+front of it remains the first row of §4.5.
+
+**What this pass found:**
+
+11. **A backup could only be sent, never kept.** The share sheet held Telegram, Gmail,
+    OneDrive and Bluetooth — no memory card, no folder. "Save it as a file" was added for
+    this (ADR-033 §5, amended), and is how the restore above could be run at all.
+12. **The medicines list was invisible** until a name was being typed — the owner had not
+    seen it. It is now a screen of its own, offered first.
+13. "1 sales or receipts" on the backup screen. Reworded so the count reads right for one.
+
+**Not done in any pass:** a barcode read through the lens; a restore onto a *second* phone
+(the merge onto a fresh database is held by `g7_backup_restore_test.dart`); a session as a
+cashier — signing out would have needed the owner's password to get back in.
 
 **Left on the test account:** a pack on Amoxicillin 50mg, a Paracetamol product, a
 receipt of five boxes, one credit sale, one customer ("Test Customer") and one repayment;
 and from the third pass a wholesale price on Amoxicillin and its box, one wholesale sale,
 a supplier ("Test Wholesaler") owed 150.00, a delivery of ten Paracetamol and one payment.
+From the fourth: two Paracetamol products from the medicines list, a barcode on Amoxicillin,
+and one 5.00 sale. The two backup files and three test pictures put in the phone's own
+storage for this pass were removed afterwards.
 Nothing in this system is deleted, so they stay.

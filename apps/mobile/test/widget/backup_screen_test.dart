@@ -286,7 +286,7 @@ void main() {
       await pick(tester, fileFor(pending: 12));
 
       expect(find.textContaining('Backup of Bole'), findsOneWidget);
-      expect(find.textContaining('12 sales or receipts'), findsOneWidget);
+      expect(find.textContaining('receipts in it: 12'), findsOneWidget);
     });
 
     testWidgets('restores, and says how many came back', (tester) async {
@@ -302,8 +302,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fake.restoredWith, 'long enough one');
-      expect(
-          find.textContaining('Restored 12 sales or receipts'), findsOneWidget);
+      expect(find.textContaining('receipts restored: 12'), findsOneWidget);
     });
 
     testWidgets('a file already restored is said to be, not counted again',
