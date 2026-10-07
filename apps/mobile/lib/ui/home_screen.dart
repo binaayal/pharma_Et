@@ -152,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
           label: context.t('home.todayAll'),
           value: formatEtbShort(summary.total.grossSantim),
           delta:
-              '${summary.total.saleCount} ${context.t('home.sales')}${summary.lastSyncedAt == null ? '' : ' · ${context.t('home.asOf')} ${context.l10n.time(summary.lastSyncedAt!)}'}',
+              '${summary.total.saleCount} ${context.t(summary.total.saleCount == 1 ? 'home.sale' : 'home.sales')}${summary.lastSyncedAt == null ? '' : ' · ${context.t('home.asOf')} ${context.l10n.time(summary.lastSyncedAt!)}'}',
         ),
         tiles: [
           for (final b in summary.branches)
@@ -172,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
         value: local == null ? '—' : formatEtbShort(local.totalSantim),
         delta: local == null
             ? null
-            : '${local.count} ${context.t('home.sales')} · ${context.t('home.onThisDevice')}',
+            : '${local.count} ${context.t(local.count == 1 ? 'home.sale' : 'home.sales')} · ${context.t('home.onThisDevice')}',
       ),
       tiles: [
         PTile(

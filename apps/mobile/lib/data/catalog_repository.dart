@@ -4,6 +4,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../contracts/contracts.dart';
 import 'customer_repository.dart';
+import 'supplier_repository.dart';
 import 'local_db.dart';
 
 class LocalProduct {
@@ -432,6 +433,8 @@ class CatalogRepository {
       // transaction as the cursor: a balance and the point it is correct as of move
       // together or not at all.
       await CustomerRepository.applyPulled(txn, response.customers ?? const []);
+      // Suppliers and what the server says each is owed (FR-18), likewise.
+      await SupplierRepository.applyPulled(txn, response.suppliers ?? const []);
 
       await txn.insert(
         'meta',

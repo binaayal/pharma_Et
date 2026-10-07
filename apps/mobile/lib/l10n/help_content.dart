@@ -257,6 +257,12 @@ class HelpGuide {
               'wholesale price is sold at the normal price. The switch returns to Retail '
               'after each sale.',
           'Every price change is recorded with the old and new figure and who made it.',
+          'When you receive goods, type the supplier or tap its name. If the delivery is '
+              'not paid for yet, choose "Not paid yet" and enter anything you did pay now; '
+              'the rest goes on that supplier\'s account. Open More, then Suppliers, to see '
+              'what you owe each one. The owner or a manager records a payment there and '
+              'says where the money came from. Cash taken from the open till is shown on '
+              'that till\'s cash-up, so the drawer still balances.',
         ],
       ),
       const HelpTopic(
@@ -520,6 +526,11 @@ class HelpGuide {
               'ይታያል፦ «ጅምላ»ን ሲነኩ ሙሉ ሽያጩ በጅምላ ዋጋ ይሰላል። የጅምላ ዋጋ የሌለው ምርት በመደበኛ ዋጋው '
               'ይሸጣል። ከእያንዳንዱ ሽያጭ በኋላ መቀያየሪያው ወደ ችርቻሮ ይመለሳል።',
           'እያንዳንዱ የዋጋ ለውጥ ከቀድሞውና ከአዲሱ ዋጋ እንዲሁም ከቀየረው ሰው ጋር ይመዘገባል።',
+          'ዕቃ ሲረከቡ የአቅራቢውን ስም ይጻፉ ወይም ስሙን ይንኩ። ዕቃው ገና ካልተከፈለ «ገና አልተከፈለም»ን መርጠው '
+              'አሁን የከፈሉትን ያስገቡ፤ ቀሪው በዚያ አቅራቢ ሒሳብ ላይ ይያዛል። ለእያንዳንዱ አቅራቢ ያለብዎትን '
+              'ለማየት «ተጨማሪ» ከዚያ «አቅራቢዎች»ን ይክፈቱ። ባለቤቱ ወይም ሥራ አስኪያጁ ክፍያውን እዚያ '
+              'መዝግበው ገንዘቡ ከየት እንደመጣ ይገልጻሉ። ከተከፈተው ካዝና የወጣ ጥሬ ገንዘብ በዚያ ካዝና የገንዘብ '
+              'ቆጠራ ላይ ስለሚታይ ካዝናው አይጎድልም።',
         ],
       ),
       const HelpTopic(

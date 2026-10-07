@@ -7,6 +7,7 @@ import '../l10n/locale_store.dart';
 import 'backup_screen.dart';
 import 'cash_up_screen.dart';
 import 'customers_screen.dart';
+import 'suppliers_screen.dart';
 import 'delete_account_screen.dart';
 import 'help_screen.dart';
 import 'kit.dart';
@@ -82,6 +83,16 @@ class SettingsScreen extends StatelessWidget {
                 chevron: true,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const CustomersScreen())),
+              ),
+            if (t.canSeeSuppliers)
+              PRow(
+                title: context.t('supplier.title'),
+                subtitle: context.t('supplier.sub'),
+                avatarIcon: Icons.local_shipping_outlined,
+                avatarTone: Tone.blue,
+                chevron: true,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const SuppliersScreen())),
               ),
             PRow(
               title: t.session.scope.displayName,

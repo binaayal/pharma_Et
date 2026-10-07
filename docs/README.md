@@ -93,6 +93,7 @@ answer, permanently.
 | [ADR-035](adr/ADR-035-owner-summary-and-audit-on-the-phone.md) | The owner's evening: a daily summary they open, and the audit trail as sentences | Accepted |
 | [ADR-036](adr/ADR-036-insights-on-the-phone.md) | Reorder, profit, dead stock and returns are worked out on the phone | Accepted |
 | [ADR-037](adr/ADR-037-price-tiers.md) | Price tiers: a second price on the product, a tier on the sale | Accepted |
+| [ADR-038](adr/ADR-038-suppliers-and-payables.md) | Suppliers and what is owed to them: the credit ledger, turned round | Accepted |
 
 ---
 

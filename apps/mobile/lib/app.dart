@@ -10,6 +10,7 @@ import 'contracts/contracts.dart';
 import 'core/theme.dart';
 import 'data/insights_repository.dart';
 import 'data/customer_repository.dart';
+import 'data/supplier_repository.dart';
 import 'data/backup.dart';
 import 'data/catalog_repository.dart';
 import 'data/controlled_repository.dart';
@@ -211,6 +212,7 @@ class _PharmaEtAppState extends State<PharmaEtApp> {
       controlled: _controlled!,
       backups: BackupService(_db!),
       customers: CustomerRepository(_db!, Outbox(_db!)),
+      suppliers: SupplierRepository(_db!, Outbox(_db!)),
       insights: InsightsRepository(_db!),
       syncService: _syncService!,
       api: _api,

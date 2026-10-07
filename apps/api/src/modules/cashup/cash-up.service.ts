@@ -14,7 +14,9 @@ export interface ShiftReconciliation {
   closedAt: string | null;
   openingFloatSantim: number;
   cashTakenSantim: number;
-  /** Opening float + cash taken, recomputed from what has actually synced. */
+  /** Cash paid to suppliers out of this till (FR-18). It has left the drawer. */
+  paidOutSantim: number;
+  /** Opening float + cash taken − cash paid out, recomputed from what has actually synced. */
   serverExpectedSantim: number;
   saleCount: number;
   /** Null until the cashier has counted the drawer. */
@@ -54,7 +56,12 @@ export class CashUpService {
   async serverExpected(
     em: EntityManager,
     shiftId: string,
-  ): Promise<{ expectedSantim: number; cashTakenSantim: number; saleCount: number }> {
+  ): Promise<{
+    expectedSantim: number;
+    cashTakenSantim: number;
+    paidOutSantim: number;
+    saleCount: number;
+  }> {
     const shift = await em.getRepository(Shift).findOne({ where: { id: shiftId } });
     if (!shift) throw new Error(`unknown shift ${shiftId}`);
 
@@ -85,18 +92,35 @@ export class CashUpService {
       ),
     );
 
+    // Cash paid to suppliers **out of this till** (FR-18, ADR-038). It has left the drawer,
+    // so it is not expected to be there. Left in, every supplier paid from the drawer shows
+    // as a shortage of exactly that size — and a real shortage of that size hides behind it.
+    const paidOut = firstRow<{ cash: string }>(
+      await em.query(
+        `SELECT coalesce(sum(amount_santim), 0)::bigint AS cash
+           FROM supplier_payment
+          WHERE shift_id = $1 AND deleted_at IS NULL AND method = 'cash'`,
+        [shiftId],
+      ),
+    );
+
     const cashTakenSantim = Number(row?.cash ?? 0) + Number(repaid?.cash ?? 0);
+    const paidOutSantim = Number(paidOut?.cash ?? 0);
     return {
       cashTakenSantim,
+      paidOutSantim,
       saleCount: Number(row?.sales ?? 0),
-      expectedSantim: shift.openingFloatSantim + cashTakenSantim,
+      expectedSantim: shift.openingFloatSantim + cashTakenSantim - paidOutSantim,
     };
   }
 
   /** The Z-report for one shift (AC-8.1). */
   async reconcile(em: EntityManager, shiftId: string): Promise<ShiftReconciliation> {
     const shift = await em.getRepository(Shift).findOneOrFail({ where: { id: shiftId } });
-    const { expectedSantim, cashTakenSantim, saleCount } = await this.serverExpected(em, shiftId);
+    const { expectedSantim, cashTakenSantim, paidOutSantim, saleCount } = await this.serverExpected(
+      em,
+      shiftId,
+    );
     const cashUp = await em
       .getRepository(CashUp)
       .findOne({ where: { shiftId, deletedAt: null as never } });
@@ -117,6 +141,7 @@ export class CashUpService {
       closedAt: shift.closedAt?.toISOString() ?? null,
       openingFloatSantim: shift.openingFloatSantim,
       cashTakenSantim,
+      paidOutSantim,
       serverExpectedSantim: expectedSantim,
       saleCount,
       countedSantim: cashUp?.countedSantim ?? null,

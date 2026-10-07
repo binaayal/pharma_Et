@@ -180,6 +180,10 @@ void main() {
       // FR-16 added these two tables, and a column to `sale` above.
       'customer',
       'credit_payment',
+      // FR-18 added these two tables, and two columns to a receipt.
+      'supplier',
+      'supplier_payment',
+      'goods_receipt',
     ]) {
       expect(
         await columnsOf(upgraded, table),

@@ -5,6 +5,8 @@ import {
   controlledDispensePayload,
   creditPaymentPayload,
   customerPayload,
+  supplierPayload,
+  supplierPaymentPayload,
   goodsReceiptPayload,
   productBarcodes,
   productPacks,
@@ -48,6 +50,9 @@ export const entityType = z.enum([
   // 1.7.0 — the customer credit ledger (FR-16, ADR-034).
   'customer',
   'credit_payment',
+  // 1.9.0 — suppliers and what is owed to them (FR-18, ADR-038).
+  'supplier',
+  'supplier_payment',
 ]);
 export type EntityType = z.infer<typeof entityType>;
 
@@ -110,6 +115,12 @@ export const operation = z.discriminatedUnion('entityType', [
     ...operationBase,
     entityType: z.literal('credit_payment'),
     payload: creditPaymentPayload,
+  }),
+  z.object({ ...operationBase, entityType: z.literal('supplier'), payload: supplierPayload }),
+  z.object({
+    ...operationBase,
+    entityType: z.literal('supplier_payment'),
+    payload: supplierPaymentPayload,
   }),
 ]);
 export type Operation = z.infer<typeof operation>;
@@ -255,6 +266,25 @@ export const customerRef = z.object({
 });
 export type CustomerRef = z.infer<typeof customerRef>;
 
+/**
+ * A supplier and what the pharmacy owes them, as the server knows it (FR-18, ADR-038).
+ *
+ * Like a customer, it began on a terminal and comes back so every other terminal knows it.
+ * `balanceSantim` is the server's figure across all terminals: positive means the pharmacy
+ * owes the supplier; negative means it has paid ahead. A terminal shows this plus whatever
+ * it has recorded that is still queued (ADR-012 §3).
+ */
+export const supplierRef = z.object({
+  id: uuidv7,
+  name: z.string(),
+  phone: z.string().nullable(),
+  note: z.string().nullable(),
+  balanceSantim: santim,
+  changeSeq,
+  deletedAt: utcTimestamp.nullable(),
+});
+export type SupplierRef = z.infer<typeof supplierRef>;
+
 export const pullResponse = z.object({
   contractVersion: z.string(),
   /** Pass this back as `cursor` on the next pull. */
@@ -270,6 +300,8 @@ export const pullResponse = z.object({
    * only gain optional fields (ADR-012 §1); a 1.6.0 terminal ignores it.
    */
   customers: z.array(customerRef).optional(),
+  /** Suppliers changed since the cursor (FR-18). Optional; a 1.8.0 terminal ignores it. */
+  suppliers: z.array(supplierRef).optional(),
   /** When the server produced this page — shown to the user as data currency (BR-9.4). */
   serverTime: utcTimestamp,
 });

@@ -12,6 +12,7 @@ import '../data/backup.dart';
 import '../data/catalog_repository.dart';
 import '../data/controlled_repository.dart';
 import '../data/customer_repository.dart';
+import '../data/supplier_repository.dart';
 import '../data/insights_repository.dart';
 import '../data/inventory_repository.dart';
 import '../data/sale_repository.dart';
@@ -35,6 +36,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     required this.controlled,
     required this.backups,
     required this.customers,
+    required this.suppliers,
     required this.insights,
     required this.syncService,
     required this.api,
@@ -66,6 +68,9 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   final ControlledRepository controlled;
   final BackupService backups;
   final CustomerRepository customers;
+
+  /// Suppliers and what is owed to them (FR-18).
+  final SupplierRepository suppliers;
   final InsightsRepository insights;
   final SyncService syncService;
   final TenantApi api;
@@ -152,6 +157,15 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   /// credit sale and repayment does. No separate capability — and so no change to the
   /// FR-2 matrix.
   bool get canTakeCredit => can(Capability.saleCreate);
+
+  /// Whether this person sees suppliers and what is owed to them (FR-18, ADR-038): anyone
+  /// who may receive a delivery, since a delivery is where a debt to a supplier begins.
+  bool get canSeeSuppliers => can(Capability.goodsReceive);
+
+  /// Whether this person is offered "pay a supplier": the owner and a branch manager — the
+  /// people who already set prices. Money leaving the business is not a counter decision.
+  /// (Decided on the phone; see ADR-038 for what the server does and does not enforce.)
+  bool get canPaySuppliers => can(Capability.catalogManage);
 
   /// Whether this person may back up and restore this phone (FR-15, ADR-033).
   ///

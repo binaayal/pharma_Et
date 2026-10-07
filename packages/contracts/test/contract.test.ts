@@ -9,6 +9,10 @@ import {
   canonicalBarcode,
   creditPaymentPayload,
   creditPortion,
+  receiptCost,
+  supplierPayload,
+  supplierPaymentPayload,
+  supplierRef,
   customerPayload,
   customerRef,
   productBarcodes,
@@ -632,6 +636,140 @@ describe('contract v1.8.0 — price tiers (FR-19, ADR-037)', () => {
     for (const v of ['1.0.0', '1.6.0', '1.7.0', '1.8.0']) {
       expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
     }
-    expect(CONTRACT_VERSION).toBe('1.8.0');
+  });
+});
+
+describe('contract v1.9.0 — suppliers and what is owed to them (FR-18, ADR-038)', () => {
+  const SUPPLIER = '01930000-0000-7000-8000-0000000000e1';
+  // Five boxes at 90.00: the delivery cost 450.00.
+  const receipt = {
+    supplierName: 'EPSS',
+    receivedAt: '2026-10-07T08:00:00Z',
+    lines: [
+      {
+        id: LINE,
+        productId: PRODUCT,
+        lotNo: 'L1',
+        expiryDate: '2027-12-31',
+        qty: 5,
+        costSantim: 9_000,
+        packSize: 30,
+      },
+    ],
+  };
+
+  it('still accepts a 1.8.0 receipt unchanged — a name, no account (ADR-009)', () => {
+    const parsed = goodsReceiptPayload.parse(receipt);
+    expect(parsed.supplierId).toBeUndefined();
+    expect(parsed.owedSantim).toBeUndefined();
+  });
+
+  it('accepts explicit nulls, which is what the generated Dart sends', () => {
+    expect(
+      goodsReceiptPayload.safeParse({ ...receipt, supplierId: null, owedSantim: null }).success,
+    ).toBe(true);
+  });
+
+  it('costs a delivery by its lines, in the unit they were counted in', () => {
+    // Five boxes at the box cost — never 150 capsules at the box cost.
+    expect(receiptCost(receipt)).toBe(45_000);
+  });
+
+  it('accepts a delivery paid for, part paid, and wholly on account', () => {
+    for (const owedSantim of [0, 20_000, 45_000]) {
+      expect(
+        goodsReceiptPayload.safeParse({ ...receipt, supplierId: SUPPLIER, owedSantim }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('refuses a debt owed to nobody', () => {
+    expect(goodsReceiptPayload.safeParse({ ...receipt, owedSantim: 20_000 }).success).toBe(false);
+    expect(
+      goodsReceiptPayload.safeParse({ ...receipt, supplierId: null, owedSantim: 20_000 }).success,
+    ).toBe(false);
+  });
+
+  it('refuses owing more than the delivery cost, or a fraction of a santim (G4)', () => {
+    for (const owedSantim of [45_001, -1, 100.5]) {
+      expect(
+        goodsReceiptPayload.safeParse({ ...receipt, supplierId: SUPPLIER, owedSantim }).success,
+      ).toBe(false);
+    }
+  });
+
+  const supplier = {
+    name: 'Addis Pharma Import',
+    phone: '0911 000000',
+    note: null,
+    createdAt: '2026-10-07T08:00:00Z',
+  };
+
+  it('carries a supplier created while receiving', () => {
+    const op = { ...validOperation, entityType: 'supplier' as const, payload: supplier };
+    expect(operation.safeParse(op).success).toBe(true);
+    expect(supplierPayload.safeParse({ ...supplier, name: '  ' }).success).toBe(false);
+  });
+
+  const payment = {
+    supplierId: SUPPLIER,
+    amountSantim: 20_000,
+    method: 'cash' as const,
+    paidAt: '2026-10-07T09:00:00Z',
+    shiftId: null,
+    paidBy: ACTOR,
+    note: null,
+  };
+
+  it('carries a payment to a supplier, from a till or not', () => {
+    const op = { ...validOperation, entityType: 'supplier_payment' as const, payload: payment };
+    expect(operation.safeParse(op).success).toBe(true);
+    expect(supplierPaymentPayload.safeParse({ ...payment, shiftId: SALE }).success).toBe(true);
+    expect(supplierPaymentPayload.safeParse({ ...payment, method: 'other_recorded' }).success).toBe(
+      true,
+    );
+  });
+
+  it('refuses a payment of nothing, of less than nothing, or on credit', () => {
+    for (const amountSantim of [0, -500, 10.5]) {
+      expect(supplierPaymentPayload.safeParse({ ...payment, amountSantim }).success).toBe(false);
+    }
+    expect(supplierPaymentPayload.safeParse({ ...payment, method: 'credit' }).success).toBe(false);
+  });
+
+  it('pulls a supplier owed, settled or paid ahead', () => {
+    const ref = {
+      id: SUPPLIER,
+      name: 'EPSS',
+      phone: null,
+      note: null,
+      changeSeq: 4,
+      deletedAt: null,
+    };
+    for (const balanceSantim of [45_000, 0, -2_000]) {
+      expect(supplierRef.safeParse({ ...ref, balanceSantim }).success).toBe(true);
+    }
+    expect(supplierRef.safeParse({ ...ref, balanceSantim: 0.5 }).success).toBe(false);
+  });
+
+  it('pulls a page with no `suppliers` at all — what a 1.8.0 server sends', () => {
+    const page = {
+      contractVersion: '1.8.0',
+      cursor: 1,
+      hasMore: false,
+      products: [],
+      branches: [],
+      users: [],
+      stockBatches: [],
+      serverTime: '2026-10-07T08:00:00Z',
+    };
+    expect(pullResponse.safeParse(page).success).toBe(true);
+  });
+
+  it('keeps every earlier version inside the support window (ADR-009)', () => {
+    for (const v of ['1.0.0', '1.7.0', '1.8.0', '1.9.0']) {
+      expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
+    }
+    expect(CONTRACT_VERSION).toBe('1.9.0');
   });
 });

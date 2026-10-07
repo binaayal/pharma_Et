@@ -110,12 +110,14 @@ erDiagram
 | `customer` | `id`, `tenant_id`, `name`, `phone?`, `note?`, `balance_santim` | Who owes the pharmacy money — **not** a patient record. Tenant-wide. `balance_santim` is a running figure, recomputable from the rows; positive = owes, negative = paid ahead. |
 | `credit_payment` | `id`, `tenant_id`, `branch_id`, `customer_id`, `amount_santim`, `method`, `paid_at`, `shift_id?`, `received_by` | Money received against a debt. Cash ones count toward their shift's cash-up (BR-8.2). |
 | `shift` | `id`, `tenant_id`, `branch_id`, `user_id`, `opened_at`, `closed_at?`, `opening_float_santim` | A staff member's till session. |
-| `cash_up` | `id`, `shift_id`, `expected_santim`, `counted_santim`, `variance_santim` | Z-report; variance attributed to user+shift (BR-8.2, AC-8.1). |
+| `cash_up` | `id`, `shift_id`, `expected_santim`, `counted_santim`, `variance_santim` | Z-report; variance attributed to user+shift (BR-8.2, AC-8.1). Expected = float + cash sales + cash repaid by customers (FR-16) − cash paid to suppliers from this till (FR-18). |
 
 ### 5.5 Purchasing
 | Table | Key columns | Notes |
 |---|---|---|
-| `goods_receipt` | `id`, `tenant_id`, `branch_id`, `supplier_name`, `received_at` | Free-form supplier in V1 (FR-7 base). |
+| `goods_receipt` | `id`, `tenant_id`, `branch_id`, `supplier_name`, `supplier_id?`, `owed_santim`, `received_at` | `supplier_name` is the name as written on the day. `supplier_id` is null on receipts from before FR-18. `owed_santim` is the part not paid for on delivery (0 = paid); never more than the delivery cost, and never without a supplier (ADR-038). |
+| `supplier` | `id`, `tenant_id`, `name`, `phone?`, `note?`, `balance_santim` | Tenant-wide. `balance_santim` is a running figure, recomputable from the rows; positive = the pharmacy owes, negative = paid ahead. |
+| `supplier_payment` | `id`, `tenant_id`, `branch_id`, `supplier_id`, `amount_santim`, `method`, `paid_at`, `shift_id?`, `paid_by` | Money paid to a supplier. Cash with a `shift_id` came out of that till and is subtracted from its expected cash (BR-18.5). |
 | `goods_receipt_line` | `id`, `goods_receipt_id`, `product_id`, `lot_no`, `expiry_date`, `qty`, `cost_santim`, `pack_size?` | Standard → creates `stock_batch`; controlled → emits receipt **event**. `qty` and `cost_santim` are per unit received — per box when `pack_size` is set — and the batch is credited `qty × pack_size` (FR-11). |
 
 ### 5.6 Event store (append-only) — ADR-004

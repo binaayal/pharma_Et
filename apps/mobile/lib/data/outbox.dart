@@ -159,6 +159,11 @@ class Outbox {
               'sale': 'sale',
               'customer': 'customer',
               'credit_payment': 'credit_payment',
+              // What is owed to a supplier is counted the same way (FR-18): the server's
+              // figure plus deliveries and payments still unsynced.
+              'goods_receipt': 'goods_receipt',
+              'supplier': 'supplier',
+              'supplier_payment': 'supplier_payment',
             };
             final table = flagged[entityType];
             if (entityId != null && table != null) {

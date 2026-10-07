@@ -121,6 +121,14 @@ class _CashUpScreenState extends State<CashUpScreen> {
                               context.t('cashup.debtsRepaid'),
                               formatMoney(expected.repaidCashSantim)
                             ),
+                          // Cash handed to a supplier out of this till (FR-18). Its own
+                          // line, with a minus, so nobody has to remember it at the count
+                          // — and so the owner sees it was said, not hidden.
+                          if (expected.paidOutCashSantim > 0)
+                            (
+                              context.t('cashup.paidToSuppliers'),
+                              '−${formatMoney(expected.paidOutCashSantim)}'
+                            ),
                         ],
                         total: (
                           context.t('cashup.expectedInDrawer'),

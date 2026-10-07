@@ -131,6 +131,7 @@ These three were built and tested without a handset. Each has a part only a shop
 | **Have the owner read Today's summary each evening for a week** without being reminded, and the Activity log once | Count the evenings they actually opened it. Ask what they looked at first, and what was missing | Whether a summary nobody is nudged to open gets opened is the whole question behind "should it be pushed" (ADR-035 §3) |
 | **Set up ten products from the medicines list** | The pharmacist finds each in a few letters; note every one they could not find, and every suggestion that reads wrongly | The list was parsed from a PDF and spot-checked, not reviewed by a pharmacist |
 | **Give three products a wholesale price**, one of them on a pack, then ring up a mixed basket as Wholesale for a real clinic order | The total is what the owner would have written on paper; the pack editor's four fields are readable and typeable on the shop's phone; the switch is back on Retail for the next customer | Whether two tiers are the tiers this shop has, and whether the widened pack row fits a real 720-pixel screen and a real thumb (ADR-037) |
+| **Run the supplier book for a week** beside the invoice drawer: every delivery marked paid or not, every payment recorded, at least one paid from the till | At the end of the week the total owed matches the owner's own invoices, per supplier; the cash-up on the day a supplier was paid from the drawer balances. Note every supplier that ended up listed twice | Whether one name field keeps suppliers from being duplicated in real typing, and whether owners pay from the till as often as assumed (ADR-038) |
 
 ## 5. Recording findings
 
@@ -218,7 +219,20 @@ lost. This is the scenario `g7_schema_upgrade_test.dart` rehearses, on a real fi
    Treatment of Acute Attack"). The heading is no longer shown.
 7. Counts read wrongly for one ("1 sales"). Reworded.
 
-None of these were verified again on the phone after fixing — that needs the next signed
-build. **Left on the test account:** a pack on Amoxicillin 50mg, a Paracetamol product, a
+**Second pass, same day, on the next signed build** (version 2.0.0, code 61, commit
+`ad806ef`, installed over code 60 with the session and the open till intact):
+
+| Finding | On the phone |
+|---|---|
+| 2 — "Backup made" after a dismissed share sheet | **Fixed.** The screen says the backup was not sent anywhere, and "last backup" did not move |
+| 3 — stale Reports headline | Not exercised: no sale was rung up in this pass, so nothing went stale. Home and Reports agreed (ETB 900) on opening. Held by a test |
+| 5 — raw names in the Activity log | **Fixed.** "Pharmacy account switched back on", "Subscription changed" |
+| 4 — pack label | Not re-opened in the editor; the unit chips on the Sell screen fit on one line |
+| 7 — "1 sales" | **Not fixed by that build.** Home and Reports still read "1 sales". The first fix reworded the summary and missed these two screens; corrected with FR-18, with a test |
+| 1 — the dash on a printed credit receipt, and 6 — the medicine heading | Not re-checked on the phone; each is held by a test |
+
+Nothing from FR-7a, FR-8a, FR-18 or FR-19 has been on a phone: build 61 predates them.
+
+**Left on the test account:** a pack on Amoxicillin 50mg, a Paracetamol product, a
 receipt of five boxes, one credit sale, one customer ("Test Customer") and one repayment.
 Nothing in this system is deleted, so they stay.
