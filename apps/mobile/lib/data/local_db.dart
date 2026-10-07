@@ -49,7 +49,7 @@ class LocalDb {
   Future<void> acknowledgeQuarantine() =>
       db.delete('meta', where: 'key = ?', whereArgs: [_quarantineKey]);
 
-  static const _version = 4;
+  static const _version = 5;
 
   /// Opens the terminal's database, and **always returns one** (ADR-018).
   ///
@@ -253,6 +253,7 @@ class LocalDb {
     await _createShiftSchema(db);
     await _createInventorySchema(db);
     await _createControlledSchema(db);
+    await _addSellUnitColumns(db);
 
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
@@ -366,6 +367,25 @@ class LocalDb {
     );
   }
 
+  /// Sell units — break-bulk (FR-11, ADR-030; contract 1.5.0).
+  ///
+  /// Columns only, and each one null on every row already written — which is correct rather
+  /// than merely safe: a line rung up before packs existed *was* in the base unit, and null
+  /// means exactly that.
+  ///
+  /// One definition for both a fresh install and an upgrade, so the two cannot drift
+  /// (`g7_schema_upgrade_test.dart` compares them column by column).
+  static Future<void> _addSellUnitColumns(DatabaseExecutor db) async {
+    // The product's packs as the server sent them: a small JSON list, read whole.
+    await db.execute('ALTER TABLE product ADD COLUMN packs_json TEXT');
+    // Base units in one unit of `qty`. Null = the base unit. `qty` and `unit_price_santim`
+    // stay in the unit sold, so `line_total = qty * unit_price` is untouched (G4).
+    await db.execute('ALTER TABLE sale_line ADD COLUMN pack_size INTEGER');
+    await db.execute('ALTER TABLE sale_line ADD COLUMN pack_name TEXT');
+    await db
+        .execute('ALTER TABLE goods_receipt_line ADD COLUMN pack_size INTEGER');
+  }
+
   /// Schema upgrades run on a device holding real, unsynced sales.
   ///
   /// So they are additive only — new tables and new nullable columns. Anything that
@@ -383,6 +403,9 @@ class LocalDb {
     }
     if (from < 4) {
       await _createControlledSchema(db);
+    }
+    if (from < 5) {
+      await _addSellUnitColumns(db);
     }
   }
 

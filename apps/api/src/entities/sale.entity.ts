@@ -59,6 +59,17 @@ export class SaleLine extends SyncedEntity {
 
   @Column('bigint', { name: 'line_total_santim', transformer: bigintTransformer })
   lineTotalSantim: number;
+
+  /**
+   * Base units in one unit of `qty`, when the line was sold as a pack (FR-11, ADR-030).
+   * Null means the base unit. `qty` and `unitPriceSantim` are in the unit sold, so anything
+   * reading this row for **stock** must multiply — see `baseQuantity` in the contract.
+   */
+  @Column('integer', { name: 'pack_size', nullable: true })
+  packSize: number | null;
+
+  @Column('text', { name: 'pack_name', nullable: true })
+  packName: string | null;
 }
 
 @Entity('payment')

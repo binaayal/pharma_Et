@@ -7,7 +7,7 @@ import type {
   PushRequest,
   PushResponse,
 } from '@pharmaet/contracts';
-import { CONTRACT_VERSION } from '@pharmaet/contracts';
+import { CONTRACT_VERSION, baseQuantity } from '@pharmaet/contracts';
 import type { EntityManager } from 'typeorm';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
@@ -209,6 +209,10 @@ export class SyncService {
         qty: line.qty,
         unitPriceSantim: line.unitPriceSantim,
         lineTotalSantim: line.lineTotalSantim,
+        // Stored as sent. The line is the record of what was rung up — two boxes at the
+        // box price — and the stock effect below is derived from it, never the reverse.
+        packSize: line.packSize ?? null,
+        packName: line.packName ?? null,
         changeSeq: 0,
         deletedAt: null,
       });
@@ -235,7 +239,8 @@ export class SyncService {
         branchId,
         productId: line.productId,
         batchId: line.batchId,
-        qty: line.qty,
+        // Stock is counted in base units; the line may have been sold by the box (FR-11).
+        qty: baseQuantity(line),
         saleId: operation.entityId,
       })),
     );
@@ -295,7 +300,8 @@ export class SyncService {
           batchId: batch.id,
           lotNo: batch.lotNo,
           expiryDate: String(batch.expiryDate).slice(0, 10),
-          qty: line.qty,
+          // Base units: what left the batch, whatever unit it was rung up in.
+          qty: baseQuantity(line),
           soldBy: operation.actorId,
           // Null means nobody authorised it — which is a finding, not a gap in the record.
           authorisedBy: line.expiryOverrideBy ?? null,
@@ -334,6 +340,7 @@ export class SyncService {
         expiryDate: line.expiryDate,
         qty: line.qty,
         costSantim: line.costSantim,
+        packSize: line.packSize ?? null,
         changeSeq: 0,
         deletedAt: null,
       });
@@ -345,7 +352,7 @@ export class SyncService {
         await this.ledger.receive(em, scope, {
           branchId,
           productId: line.productId,
-          qty: line.qty,
+          qty: baseQuantity(line),
           lotNo: line.lotNo,
           expiryDate: line.expiryDate,
           goodsReceiptId: operation.entityId,
@@ -364,7 +371,8 @@ export class SyncService {
         productId: line.productId,
         lotNo: line.lotNo,
         expiryDate: line.expiryDate,
-        qty: line.qty,
+        // Five boxes of thirty arrive as 150 on the shelf (FR-11).
+        qty: baseQuantity(line),
         batchId: line.id,
       });
     }
@@ -616,6 +624,8 @@ export class SyncService {
           isControlled: p.isControlled,
           psychotropicClass: p.psychotropicClass,
           currentPriceSantim: p.currentPriceSantim,
+          // Always present from this server; a 1.4.0 terminal ignores it (ADR-012 §1).
+          packs: p.packs ?? [],
           changeSeq: p.changeSeq,
           deletedAt: p.deletedAt?.toISOString() ?? null,
         })),

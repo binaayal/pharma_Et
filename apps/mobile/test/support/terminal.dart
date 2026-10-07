@@ -78,13 +78,16 @@ class TestTerminal {
   }
 
   void addProduct(String id, String name,
-          {bool controlled = false, int price = 1500}) =>
+          {bool controlled = false,
+          int price = 1500,
+          List<ProductPack> packs = const []}) =>
       catalog.products_.add(LocalProduct(
         id: id,
         name: name,
         unit: 'tablet',
         isControlled: controlled,
         priceSantim: price,
+        packs: packs,
       ));
 }
 

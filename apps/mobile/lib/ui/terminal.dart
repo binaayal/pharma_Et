@@ -266,9 +266,26 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
         product: line.product,
         qty: qty,
         batchId: line.batchId,
+        pack: line.pack,
         expiryOverrideBy: line.expiryOverrideBy,
       );
     }
+    notifyListeners();
+  }
+
+  /// Switches a cart line between the base unit ([pack] null) and one of the product's
+  /// packs (FR-11). The count is kept: three tablets become three boxes, because the
+  /// cashier who taps "box" after tapping ＋ twice means three boxes — and the line total
+  /// on screen says so before anything is charged.
+  void setPack(int index, ProductPack? pack) {
+    final line = cart[index];
+    cart[index] = CartLine(
+      product: line.product,
+      qty: line.qty,
+      batchId: line.batchId,
+      pack: pack,
+      expiryOverrideBy: line.expiryOverrideBy,
+    );
     notifyListeners();
   }
 

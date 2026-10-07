@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pharmaet_mobile/contracts/contracts.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/ui/dispense_screen.dart';
@@ -235,6 +236,97 @@ void main() {
       final charge = tester.widget<PButton>(find.byType(PButton));
       expect(charge.onPressed, isNotNull);
       expect(charge.label, contains('ETB 5'));
+    });
+
+    // FR-11 — break-bulk. The unit is a tap on the line, never arithmetic at the counter.
+    const strip = ProductPack(name: 'strip', size: 10, priceSantim: 3600);
+    const box = ProductPack(name: 'box', size: 30, priceSantim: 10000);
+
+    testWidgets('a product with packs offers each unit, with its own price',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      t.addProduct('p5', 'Amoxicillin', price: 400, packs: const [strip, box]);
+      t.catalog.onHand_['p5'] = 500;
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      await tester.tap(find.text('Amoxicillin'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('tablet · 4.00'), findsOneWidget);
+      expect(find.text('strip · 36.00'), findsOneWidget);
+      expect(find.text('box · 100.00'), findsOneWidget);
+      // Added loose, as every line always was.
+      expect(t.terminal.cart.single.pack, isNull);
+      expect(t.terminal.cartTotal, 400);
+    });
+
+    testWidgets('tapping a pack charges the pack price and keeps the count',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      t.addProduct('p5', 'Amoxicillin', price: 400, packs: const [strip, box]);
+      t.catalog.onHand_['p5'] = 500;
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      await tester.tap(find.text('Amoxicillin'));
+      await tester.pump();
+      await tester.pump();
+      t.terminal.setQty(0, 2);
+      await tester.pump();
+
+      await tester.tap(find.text('box · 100.00'));
+      await tester.pump();
+
+      final line = t.terminal.cart.single;
+      expect(line.pack?.size, 30);
+      expect(line.qty, 2);
+      // Two boxes at the box price — not sixty tablets at the tablet price (24,000).
+      expect(t.terminal.cartTotal, 20000);
+      final charge = tester.widget<PButton>(find.byType(PButton).last);
+      expect(charge.label, contains('ETB 200'));
+
+      // And back to loose is one tap too.
+      await tester.tap(find.text('tablet · 4.00'));
+      await tester.pump();
+      expect(t.terminal.cart.single.pack, isNull);
+      expect(t.terminal.cartTotal, 800);
+    });
+
+    testWidgets('a box that outruns the shelf is flagged, in base units',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      t.addProduct('p5', 'Amoxicillin', price: 400, packs: const [box]);
+      // Ten on the shelf: one loose is fine, one box of thirty is twenty short.
+      t.catalog.onHand_['p5'] = 10;
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      await tester.tap(find.text('Amoxicillin'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.textContaining('flags it for reconciliation'), findsNothing);
+
+      await tester.tap(find.text('box · 100.00'));
+      await tester.pump();
+
+      expect(
+          find.textContaining('flags it for reconciliation'), findsOneWidget);
+      // Flagged, never blocked (BR-3.2).
+      final charge = tester.widget<PButton>(find.byType(PButton).last);
+      expect(charge.onPressed, isNotNull);
+    });
+
+    testWidgets('a product with no packs shows no unit chips at all',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      t.addProduct('p1', 'Paracetamol', price: 500);
+      t.catalog.onHand_['p1'] = 100;
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      await tester.tap(find.text('Paracetamol'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.textContaining('tablet · '), findsNothing);
     });
 
     testWidgets('an empty cart cannot be charged', (tester) async {

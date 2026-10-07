@@ -143,6 +143,7 @@ class TenantApi {
     required String unit,
     required int priceSantim,
     bool isControlled = false,
+    List<ProductPack> packs = const [],
   }) =>
       _post(
           '/products',
@@ -151,7 +152,17 @@ class TenantApi {
             'unit': unit,
             'priceSantim': priceSantim,
             'isControlled': isControlled,
+            if (packs.isNotEmpty)
+              'packs': packs.map((p) => p.toJson()).toList(),
           },
+          token: token);
+
+  /// Replaces a product's packs — strip of 10, box of 100, each with its own price
+  /// (FR-11). Recorded in the audit log with the list before and after.
+  Future<void> setPacks(
+          String token, String productId, List<ProductPack> packs) =>
+      _post('/products/$productId/packs',
+          {'packs': packs.map((p) => p.toJson()).toList()},
           token: token);
 
   /// Changes a selling price. Recorded in the audit log with the old and new figure.

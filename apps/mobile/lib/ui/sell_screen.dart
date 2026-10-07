@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/money.dart';
 import '../core/permissions.dart';
+import '../contracts/contracts.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../l10n/locale_store.dart';
@@ -143,7 +144,8 @@ class _SellScreenState extends State<SellScreen> {
         : t.products.where((p) => p.name.toLowerCase().contains(q)).toList();
     final short = [
       for (final line in t.cart)
-        if (line.qty > (t.cartOnHand[line.product.id] ?? 0)) line,
+        // Compared in base units: one box of thirty oversells a shelf holding ten.
+        if (line.baseQty > (t.cartOnHand[line.product.id] ?? 0)) line,
     ];
 
     return Scaffold(
@@ -195,7 +197,13 @@ class _SellScreenState extends State<SellScreen> {
                                           fontSize: 12.5,
                                           color: PharmaColors.muted)),
                                 ])
-                              : Text('${context.t('pos.perUnit')} ${p.unit}',
+                              : Text(
+                                  // The packs it also sells in, so the cashier knows a
+                                  // box is one tap away before adding the line.
+                                  [
+                                    '${context.t('pos.perUnit')} ${p.unit}',
+                                    for (final pack in p.packs) pack.name,
+                                  ].join(' · '),
                                   style: const TextStyle(
                                       fontSize: 12.5,
                                       color: PharmaColors.muted)),
@@ -279,6 +287,26 @@ class _SellScreenState extends State<SellScreen> {
                     color: line.expiryOverrideBy != null
                         ? PharmaColors.red
                         : PharmaColors.muted)),
+            if (line.product.packs.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              // Break-bulk (FR-11): the same medicine leaves as a tablet, a strip or a
+              // box. One line, and the unit is a tap — never arithmetic at the counter.
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                _UnitChip(
+                  label: line.product.unit,
+                  price: line.product.priceSantim,
+                  selected: line.pack == null,
+                  onTap: () => t.setPack(index, null),
+                ),
+                for (final pack in line.product.packs)
+                  _UnitChip(
+                    label: pack.name,
+                    price: pack.priceSantim,
+                    selected: _samePack(line.pack, pack),
+                    onTap: () => t.setPack(index, pack),
+                  ),
+              ]),
+            ],
           ]),
         ),
         Container(
@@ -310,6 +338,50 @@ class _SellScreenState extends State<SellScreen> {
       ]),
     );
   }
+}
+
+bool _samePack(ProductPack? a, ProductPack b) =>
+    a != null && a.size == b.size && a.name == b.name;
+
+/// One of the units a cart line can be sold in, with what one of them costs.
+class _UnitChip extends StatelessWidget {
+  const _UnitChip({
+    required this.label,
+    required this.price,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final int price;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: selected,
+        label: '$label ${formatMoney(price)}',
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected ? PharmaColors.green : Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                  color:
+                      selected ? PharmaColors.green : const Color(0xFFDDE5E1)),
+            ),
+            child: Text('$label · ${formatMoney(price)}',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : PharmaColors.ink)),
+          ),
+        ),
+      );
 }
 
 class _Step extends StatelessWidget {

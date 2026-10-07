@@ -7,12 +7,12 @@
 // needs an ADR, both-side contract tests including N-1 (ADR-009), a guardian-suite update,
 // two reviews, and an RTM entry.
 //
-// Contract version: 1.4.0
+// Contract version: 1.5.0
 
 // ignore_for_file: unnecessary_cast, lines_longer_than_80_chars, unnecessary_this
 
 /// The contract version this client speaks, sent as the `x-contract-version` header.
-const String kContractVersion = '1.4.0';
+const String kContractVersion = '1.5.0';
 
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) return true;
@@ -197,6 +197,8 @@ class SaleLinePayload {
     required this.qty,
     required this.unitPriceSantim,
     required this.lineTotalSantim,
+    this.packSize,
+    this.packName,
     this.expiryOverrideBy,
   });
 
@@ -210,6 +212,9 @@ class SaleLinePayload {
   final int unitPriceSantim;
   /// Money in santim (1 ETB = 100 santim)
   final int lineTotalSantim;
+  /// Base units in one unit of qty; absent means the base unit
+  final int? packSize;
+  final String? packName;
   /// Client-generated UUIDv7 identifier
   final String? expiryOverrideBy;
 
@@ -220,6 +225,8 @@ class SaleLinePayload {
         qty: json['qty'] as int,
         unitPriceSantim: json['unitPriceSantim'] as int,
         lineTotalSantim: json['lineTotalSantim'] as int,
+        packSize: json['packSize'] == null ? null : json['packSize'] as int,
+        packName: json['packName'] == null ? null : json['packName'] as String,
         expiryOverrideBy: json['expiryOverrideBy'] == null ? null : json['expiryOverrideBy'] as String,
       );
 
@@ -230,10 +237,12 @@ class SaleLinePayload {
         'qty': qty,
         'unitPriceSantim': unitPriceSantim,
         'lineTotalSantim': lineTotalSantim,
+        'packSize': packSize,
+        'packName': packName,
         'expiryOverrideBy': expiryOverrideBy,
       };
 
-  List<Object?> get _props => <Object?>[id, productId, batchId, qty, unitPriceSantim, lineTotalSantim, expiryOverrideBy];
+  List<Object?> get _props => <Object?>[id, productId, batchId, qty, unitPriceSantim, lineTotalSantim, packSize, packName, expiryOverrideBy];
 
   @override
   bool operator ==(Object other) =>
@@ -400,6 +409,7 @@ class GoodsReceiptLinePayload {
     required this.expiryDate,
     required this.qty,
     required this.costSantim,
+    this.packSize,
   });
 
   final String id;
@@ -410,6 +420,8 @@ class GoodsReceiptLinePayload {
   final int qty;
   /// Money in santim (1 ETB = 100 santim)
   final int costSantim;
+  /// Base units in one unit of qty; absent means the base unit
+  final int? packSize;
 
   factory GoodsReceiptLinePayload.fromJson(Map<String, dynamic> json) => GoodsReceiptLinePayload(
         id: json['id'] as String,
@@ -418,6 +430,7 @@ class GoodsReceiptLinePayload {
         expiryDate: json['expiryDate'] as String,
         qty: json['qty'] as int,
         costSantim: json['costSantim'] as int,
+        packSize: json['packSize'] == null ? null : json['packSize'] as int,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -427,9 +440,10 @@ class GoodsReceiptLinePayload {
         'expiryDate': expiryDate,
         'qty': qty,
         'costSantim': costSantim,
+        'packSize': packSize,
       };
 
-  List<Object?> get _props => <Object?>[id, productId, lotNo, expiryDate, qty, costSantim];
+  List<Object?> get _props => <Object?>[id, productId, lotNo, expiryDate, qty, costSantim, packSize];
 
   @override
   bool operator ==(Object other) =>
@@ -1285,6 +1299,7 @@ class ProductRef {
     required this.isControlled,
     this.psychotropicClass,
     required this.currentPriceSantim,
+    this.packs,
     required this.changeSeq,
     this.deletedAt,
   });
@@ -1296,6 +1311,7 @@ class ProductRef {
   final String? psychotropicClass;
   /// Money in santim (1 ETB = 100 santim)
   final int currentPriceSantim;
+  final List<ProductPack>? packs;
   final int changeSeq;
   /// UTC ISO-8601 timestamp
   final String? deletedAt;
@@ -1307,6 +1323,7 @@ class ProductRef {
         isControlled: json['isControlled'] as bool,
         psychotropicClass: json['psychotropicClass'] == null ? null : json['psychotropicClass'] as String,
         currentPriceSantim: json['currentPriceSantim'] as int,
+        packs: json['packs'] == null ? null : (json['packs'] as List<dynamic>).map((e) => ProductPack.fromJson(e as Map<String, dynamic>)).toList(),
         changeSeq: json['changeSeq'] as int,
         deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
       );
@@ -1318,11 +1335,12 @@ class ProductRef {
         'isControlled': isControlled,
         'psychotropicClass': psychotropicClass,
         'currentPriceSantim': currentPriceSantim,
+        'packs': packs?.map((e) => e.toJson()).toList(),
         'changeSeq': changeSeq,
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props => <Object?>[id, name, unit, isControlled, psychotropicClass, currentPriceSantim, changeSeq, deletedAt];
+  List<Object?> get _props => <Object?>[id, name, unit, isControlled, psychotropicClass, currentPriceSantim, packs, changeSeq, deletedAt];
 
   @override
   bool operator ==(Object other) =>
@@ -1333,6 +1351,43 @@ class ProductRef {
 
   @override
   String toString() => 'ProductRef(${toJson()})';
+}
+
+class ProductPack {
+  const ProductPack({
+    required this.name,
+    required this.size,
+    required this.priceSantim,
+  });
+
+  final String name;
+  final int size;
+  /// Money in santim (1 ETB = 100 santim)
+  final int priceSantim;
+
+  factory ProductPack.fromJson(Map<String, dynamic> json) => ProductPack(
+        name: json['name'] as String,
+        size: json['size'] as int,
+        priceSantim: json['priceSantim'] as int,
+      );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'name': name,
+        'size': size,
+        'priceSantim': priceSantim,
+      };
+
+  List<Object?> get _props => <Object?>[name, size, priceSantim];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is ProductPack && _deepEquals(_props, other._props));
+
+  @override
+  int get hashCode => _deepHash(_props);
+
+  @override
+  String toString() => 'ProductPack(${toJson()})';
 }
 
 class BranchRef {

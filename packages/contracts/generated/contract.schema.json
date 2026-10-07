@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PharmaEt sync & API contract",
   "description": "Generated from packages/contracts/src by `pnpm gen:contracts`. Do not hand-edit. This is a controlled artifact — see docs/06-delivery-plan.md §7.",
-  "contractVersion": "1.4.0",
+  "contractVersion": "1.5.0",
   "definitions": {
     "Operation": {
       "anyOf": [
@@ -479,7 +479,7 @@
       "properties": {
         "contractVersion": {
           "type": "string",
-          "default": "1.4.0"
+          "default": "1.5.0"
         },
         "terminalId": {
           "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
@@ -600,6 +600,13 @@
           "type": "integer",
           "minimum": 0,
           "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "packs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProductPack"
+          },
+          "maxItems": 4
         },
         "changeSeq": {
           "$ref": "#/definitions/PushResponse/properties/changeSeq"
@@ -850,6 +857,32 @@
           "minimum": 0,
           "description": "Money in santim (1 ETB = 100 santim)"
         },
+        "packSize": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 100000,
+              "description": "Base units in one unit of qty; absent means the base unit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Base units in one unit of qty; absent means the base unit"
+        },
+        "packName": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "expiryOverrideBy": {
           "anyOf": [
             {
@@ -869,6 +902,30 @@
         "qty",
         "unitPriceSantim",
         "lineTotalSantim"
+      ],
+      "additionalProperties": false
+    },
+    "ProductPack": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "size": {
+          "$ref": "#/definitions/SaleLinePayload/properties/packSize/anyOf/0"
+        },
+        "priceSantim": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        }
+      },
+      "required": [
+        "name",
+        "size",
+        "priceSantim"
       ],
       "additionalProperties": false
     },
@@ -950,6 +1007,17 @@
           "type": "integer",
           "minimum": 0,
           "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "packSize": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/SaleLinePayload/properties/packSize/anyOf/0"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Base units in one unit of qty; absent means the base unit"
         }
       },
       "required": [

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
 import { uuidv7 } from 'uuidv7';
-import type { Grant } from '@pharmaet/contracts';
+import type { Grant, ProductPack } from '@pharmaet/contracts';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { AppUser, Branch, Product, UserBranch, type UserRole } from '../../entities';
@@ -247,7 +247,13 @@ export class ManagementService {
 
   async createProduct(
     scope: TenantScope,
-    input: { name: string; unit: string; priceSantim: number; isControlled?: boolean },
+    input: {
+      name: string;
+      unit: string;
+      priceSantim: number;
+      isControlled?: boolean;
+      packs?: ProductPack[];
+    },
   ) {
     if (!Number.isInteger(input.priceSantim) || input.priceSantim < 0) {
       // Money is an integer count of santim, refused at the boundary (docs/04 §3, G4).
@@ -262,6 +268,8 @@ export class ManagementService {
       );
     }
 
+    const packs = input.packs ?? [];
+
     return this.db.runInScope(scope, async (em) => {
       const id = uuidv7();
       await em.getRepository(Product).insert({
@@ -272,13 +280,21 @@ export class ManagementService {
         isControlled: false,
         psychotropicClass: null,
         currentPriceSantim: input.priceSantim,
+        packs,
         changeSeq: await this.changeSeq.next(em, scope.tenantId),
         deletedAt: null,
       });
       await this.audit.record(em, scope, {
         type: 'audit.product_created',
         streamId: id,
-        payload: { name: input.name, unit: input.unit, priceSantim: input.priceSantim },
+        payload: {
+          name: input.name,
+          unit: input.unit,
+          priceSantim: input.priceSantim,
+          // Only when there are some, so a product created without packs is recorded
+          // exactly as it was before FR-11.
+          ...(packs.length > 0 ? { packs } : {}),
+        },
       });
 
       return { id, name: input.name, priceSantim: input.priceSantim };
@@ -321,6 +337,45 @@ export class ManagementService {
       });
 
       return { id: product.id, previousPriceSantim: previous, priceSantim };
+    });
+  }
+
+  /**
+   * Replaces a product's packs — strip of 10, box of 100, each with its own price (FR-11,
+   * ADR-030).
+   *
+   * The whole list is replaced, not patched: with at most four entries, "here is what the
+   * packs are now" has one meaning, where add/remove/rename calls arriving out of order do
+   * not. The audit entry keeps the list before and after, because a pack price is a price,
+   * and a box quietly made cheaper is the same finding as a tablet quietly made cheaper.
+   *
+   * Sales already rung up are unaffected. Each line recorded the pack size and price it was
+   * sold at, so changing a pack never rewrites what happened (ADR-030 §3).
+   */
+  async setPacks(scope: TenantScope, productId: string, packs: ProductPack[]) {
+    return this.db.runInScope(scope, async (em) => {
+      const repo = em.getRepository(Product);
+      const product = await repo.findOne({ where: { id: productId } });
+      if (!product) throw new NotFoundException('product not found');
+      if (product.isControlled && packs.length > 0) {
+        // A controlled dispense is one product, one quantity in base units, written to the
+        // ledger (FR-4 §4b). Counting it by the box would put a second unit into a record
+        // whose whole value is that it has exactly one.
+        throw new BadRequestException('a controlled substance is counted in its base unit only');
+      }
+
+      const previous = product.packs ?? [];
+      product.packs = packs;
+      product.changeSeq = await this.changeSeq.next(em, scope.tenantId);
+      await repo.save(product);
+
+      await this.audit.record(em, scope, {
+        type: 'audit.packs_changed',
+        streamId: product.id,
+        payload: { productName: product.name, unit: product.unit, previous, packs },
+      });
+
+      return { id: product.id, packs };
     });
   }
 }

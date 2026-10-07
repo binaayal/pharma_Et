@@ -27,7 +27,8 @@ class ReceiptScreen extends StatelessWidget {
   final String saleId;
   final int totalSantim;
   final int changeSantim;
-  final List<({String name, int qty, int lineTotalSantim})> lines;
+  final List<({String name, int qty, String? packName, int lineTotalSantim})>
+      lines;
   final Tender tender;
   final int commitMs;
 
@@ -76,7 +77,12 @@ class ReceiptScreen extends StatelessWidget {
                         fontSize: 12.5, color: PharmaColors.muted)),
                 const SizedBox(height: 16),
                 for (final line in lines)
-                  _line('${line.name} ×${line.qty}',
+                  _line(
+                      // "×2 box" when sold by the pack, so the paper says what was
+                      // handed over rather than leaving "×2" to mean two tablets.
+                      line.packName == null
+                          ? '${line.name} ×${line.qty}'
+                          : '${line.name} ×${line.qty} ${line.packName}',
                       formatMoney(line.lineTotalSantim)),
                 if (tender == Tender.cash)
                   _line(context.t('receipt.change'), formatMoney(changeSantim),

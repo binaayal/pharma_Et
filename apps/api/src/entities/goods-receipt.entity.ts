@@ -44,4 +44,8 @@ export class GoodsReceiptLine extends SyncedEntity {
 
   @Column('bigint', { name: 'cost_santim', transformer: bigintTransformer })
   costSantim: number;
+
+  /** Base units in one unit of `qty` when received by the pack (FR-11). Null = base unit. */
+  @Column('integer', { name: 'pack_size', nullable: true })
+  packSize: number | null;
 }

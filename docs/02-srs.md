@@ -293,6 +293,42 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-11 — Sell units (break-bulk) · Priority: M · V2
+**Actors:** Owner, Branch Manager (define packs); Pharmacist/Cashier (sell, receive).
+**Preconditions:** product defined (FR-3). Scope and order: `07-v2-sellability-plan.md`; design: ADR-030.
+
+**Main flow:**
+1. A product keeps one **base unit** — the smallest thing sold (tablet, capsule, bottle) — and its price.
+2. The Owner defines **packs** on the product: a name, how many base units it holds, and its own price (strip of 10, box of 100).
+3. At receipt (FR-7), a delivery is counted in a pack or the base unit; cost is per unit counted.
+4. At sale (FR-4), a line is rung up in a pack or the base unit; the cashier picks the unit, the system applies that unit's price.
+5. Stock decrements and credits in base units.
+
+**Exception flows:**
+- E-11.1 Offline: steps 3–5 work entirely against the packs the terminal last pulled.
+- E-11.2 A terminal sells in a pack the Owner has since changed or removed: the sale stands at the size and price it was rung up at.
+
+**Business rules:**
+- BR-11.1 **Stock is counted in the base unit only.** A product has one on-hand figure per batch, whatever units it is bought and sold in.
+- BR-11.2 **A pack has its own price**, set by the Owner; it is never computed from the base price, and the base price is never computed from it.
+- BR-11.3 A line's money is exact in the unit sold: `line total = quantity × that unit's price`, in integer santim (G4).
+- BR-11.4 A line moves stock by `quantity × pack size`.
+- BR-11.5 Defining or changing packs is a price change: it requires `catalog.manage` (AC-2.1) and is recorded in the audit log with the packs before and after.
+- BR-11.6 A sale by the pack is never blocked by a stock count (BR-3.2 applies in base units).
+- BR-11.7 Controlled substances are counted in the base unit only; they have no packs.
+- BR-11.8 A committed line keeps the pack size, name and price it was sold at; later changes to the product do not alter it.
+
+**Acceptance criteria:**
+- AC-11.1 *Given* a product with a box of 30 priced 100.00, *when* a Cashier sells 2 boxes, *then* the line total is exactly 200.00 and on-hand falls by 60.
+- AC-11.2 *Given* 10 on hand, *when* a Cashier sells 1 box of 30, *then* the sale completes, on-hand becomes −20, and an oversell is flagged.
+- AC-11.3 *Given* a delivery of 5 boxes of 30 at 90.00 a box, *when* it is received, *then* on-hand rises by 150 and the receipt line reads 5 at 90.00.
+- AC-11.4 *Given* a Cashier, *when* they attempt to define or change a pack, *then* the action is denied at both app and API layers.
+- AC-11.5 *Given* a terminal on the previous contract version, *when* it syncs sales and receipts, *then* they apply unchanged and move stock by their quantity.
+- AC-11.6 *Given* an offline terminal, *when* a Cashier sells by the pack, *then* the sale commits locally and syncs later with zero data loss.
+- AC-11.7 *Given* a sale by the box, *when* the Owner later changes that pack's size or price, *then* the recorded sale is unchanged.
+
+---
+
 ## 4. Non-functional requirements
 
 ### NFR-1 — Offline capability & availability · Priority: M
@@ -360,6 +396,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-4 psychotropic rules | §6.4 | `packages/contracts/src/compliance.ts` | `packages/contracts/test/compliance.test.ts` | **Provisional (ADR-024).** One file holds every number, and a parity test holds the till's copy to it — verification edits one place. |
 | FR-6 — event store + **general audit log** | §5.6, §6 | `apps/api/src/migrations/EventStore`, `apps/api/src/modules/audit/` | `g3-ledger-immutability.spec.ts` (13) | **Done** for the non-regulated half (Vision §2.1.1). Append-only enforced by the database — UPDATE, DELETE and TRUNCATE all refused, including for the owner role. |
 | FR-6 — controlled-substance ledger | §5.6, §6 | `api/src/modules/ledger/`, `api/src/migrations/1759400000000-ControlledLedger.ts`, `mobile/lib/ui/ledger_screen.dart` | `g5-controlled-ledger.spec.ts`, `g3-ledger-immutability.spec.ts` | **Built, switched off until A-1 (ADR-024).** AC-6.1 (database refuses edit and delete; corrections are compensating events), AC-6.2 (ordered history), BR-6.3 (CSV export marked provisional), BR-3.3 (projection rebuilds exactly from events). With the switch off every controlled operation is rejected and writes nothing. |
+| FR-11 sell units (break-bulk) — **V2** | §3, §5.2, §5.4, §5.5; ADR-030 | contract: `packages/contracts/src/entities.ts` (`productPack`, `baseQuantity`) · server: `api/src/migrations/SellUnits`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/data/{sale,inventory,catalog}_repository.dart`, `mobile/lib/ui/{sell_screen,receive_screen,catalog_sheets}.dart` | `g4-sell-units.spec.ts` (30), `g4_sell_units_test.dart` (20), `g7_schema_upgrade_test.dart`, `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-11.1 to AC-11.7 on both sides: pack sales exact to the santim, stock in base units, oversell by the box detected, a 1.4.0 terminal unchanged (ADR-009), a V1 local database upgraded in place. `itemsSold` in the sales summary counts units as rung up (ADR-030, consequences). |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

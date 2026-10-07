@@ -17,6 +17,8 @@ import { AppUser, DomainEvent } from '../../entities';
  */
 export const AUDIT_EVENT_TYPES = [
   'audit.price_changed',
+  // FR-11. A pack carries its own price, so changing one is a price change by another route.
+  'audit.packs_changed',
   'audit.product_created',
   'audit.user_created',
   'audit.user_deactivated',

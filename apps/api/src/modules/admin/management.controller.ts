@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CurrentGrant } from '../../common/auth/current-grant.decorator';
 import { CurrentScope } from '../../common/auth/current-scope.decorator';
 import { RequireCapability } from '../../common/auth/capability.decorator';
-import type { Grant } from '@pharmaet/contracts';
+import { productPacks, type Grant } from '@pharmaet/contracts';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { ZodValidationPipe } from '../../common/http/zod-validation.pipe';
 import { ManagementService } from './management.service';
@@ -36,7 +36,12 @@ const productInput = z.object({
   unit: z.string().min(1).max(40),
   priceSantim: z.number().int().nonnegative(),
   isControlled: z.boolean().optional(),
+  // FR-11. The same schema the pull response is validated against, so a pack list the
+  // server accepts is by construction one every terminal can read.
+  packs: productPacks.optional(),
 });
+
+const packsInput = z.object({ packs: productPacks });
 
 const priceInput = z.object({ priceSantim: z.number().int().nonnegative() });
 
@@ -132,5 +137,19 @@ export class ManagementController {
     @Body(new ZodValidationPipe(priceInput)) body: z.infer<typeof priceInput>,
   ) {
     return this.management.setPrice(scope, id, body.priceSantim);
+  }
+
+  /**
+   * Replaces a product's packs (FR-11). A pack carries a price, so this is a price change
+   * and sits behind the same capability as one (AC-2.1).
+   */
+  @Post('products/:id/packs')
+  @RequireCapability('catalog.manage')
+  setPacks(
+    @CurrentScope() scope: TenantScope,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(packsInput)) body: z.infer<typeof packsInput>,
+  ) {
+    return this.management.setPacks(scope, id, body.packs);
   }
 }

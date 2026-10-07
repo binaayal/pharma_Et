@@ -209,7 +209,11 @@ class _StockScreenState extends State<StockScreen> {
       valueColor: s.onHand < 0 ? PharmaColors.red : null,
       valueCaption: s.onHand < 0
           ? context.t('stock.negative')
-          : context.t('stock.inStock'),
+          // "3 box + 14" under the count, for a product with packs: the number the
+          // system holds, said the way the shelf is counted (FR-11).
+          : s.product.packs.isEmpty || s.onHand < s.product.packs.last.size
+              ? context.t('stock.inStock')
+              : describeQuantity(s.onHand, s.product),
       onTap: () async {
         await Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => ProductScreen(stock: s)));
@@ -269,7 +273,9 @@ class _ProductScreenState extends State<ProductScreen> {
           child: PBody(children: [
             PTiles(tiles: [
               PTile(
-                  label: context.t('product.inStock'),
+                  label: p.packs.isEmpty || onHand < p.packs.last.size
+                      ? context.t('product.inStock')
+                      : '${context.t('product.inStock')} · ${describeQuantity(onHand, p)}',
                   value: '$onHand',
                   valueColor: onHand < 0 ? PharmaColors.red : null),
               PTile(
@@ -293,7 +299,41 @@ class _ProductScreenState extends State<ProductScreen> {
                 child: PNotice.text(Tone.blue, Icons.lock_outline,
                     context.t('pos.controlledLater'),
                     margin: EdgeInsets.zero),
-              ),
+              )
+            else if (p.packs.isNotEmpty || t.can(Capability.catalogManage)) ...[
+              // Break-bulk (FR-11): what this product is sold as besides its base unit.
+              PSection(context.t('packs.title')),
+              PRows(children: [
+                PRow(
+                  title: p.unit,
+                  subtitle: context.t('packs.baseUnit'),
+                  value: formatMoney(p.priceSantim),
+                  valueCaption: 'ETB',
+                ),
+                for (final pack in p.packs)
+                  PRow(
+                    title: pack.name,
+                    subtitle: '${pack.size} ${p.unit}',
+                    value: formatMoney(pack.priceSantim),
+                    valueCaption: 'ETB',
+                  ),
+              ]),
+              if (t.can(Capability.catalogManage))
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: PButton(
+                    kind: BtnKind.plain,
+                    small: true,
+                    label:
+                        context.t(p.packs.isEmpty ? 'packs.add' : 'packs.edit'),
+                    onPressed: () async {
+                      if (await showPacksForm(context, p) && context.mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ),
+            ],
             PSection(context.t('product.batchesFefo')),
             if (batches.isEmpty)
               PNotice.text(

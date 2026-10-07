@@ -11,12 +11,29 @@ class CartLine {
     required this.product,
     required this.qty,
     required this.batchId,
+    this.pack,
     this.expiryOverrideBy,
   });
 
   final LocalProduct product;
+
+  /// How many, **in the unit being sold** — tablets, or boxes when [pack] is set.
   final int qty;
   final String? batchId;
+
+  /// The pack this line is rung up in, or null for the base unit (FR-11, ADR-030).
+  final ProductPack? pack;
+
+  /// The price of one unit of [qty]. A pack has its own price; it is never the base price
+  /// multiplied up, and the base price is never a pack price divided down.
+  int get unitPriceSantim => pack?.priceSantim ?? product.priceSantim;
+
+  /// What the line takes off the shelf, in base units — the only figure stock is ever
+  /// moved or compared by.
+  int get baseQty => qty * (pack?.size ?? 1);
+
+  /// What one unit of [qty] is called: "tablet", or "box".
+  String get unitName => pack?.name ?? product.unit;
 
   /// Who authorised dispensing from an already-expired batch (E-4.2, ADR-020). Null in the
   /// ordinary case, and null too when nobody authorised it — in which case [batchId] is null
@@ -27,7 +44,7 @@ class CartLine {
   /// `lineTotal == qty * unitPrice`, so a client that computed it any other way would have
   /// its sales rejected (guardian G4).
   int get lineTotalSantim =>
-      money.lineTotalSantim(qty: qty, unitPriceSantim: product.priceSantim);
+      money.lineTotalSantim(qty: qty, unitPriceSantim: unitPriceSantim);
 }
 
 class CommittedSale {
@@ -104,8 +121,10 @@ class SaleRepository {
           'product_id': line.product.id,
           'batch_id': line.batchId,
           'qty': line.qty,
-          'unit_price_santim': line.product.priceSantim,
+          'unit_price_santim': line.unitPriceSantim,
           'line_total_santim': line.lineTotalSantim,
+          'pack_size': line.pack?.size,
+          'pack_name': line.pack?.name,
         });
 
         linePayloads.add({
@@ -113,8 +132,12 @@ class SaleRepository {
           'productId': line.product.id,
           'batchId': line.batchId,
           'qty': line.qty,
-          'unitPriceSantim': line.product.priceSantim,
+          'unitPriceSantim': line.unitPriceSantim,
           'lineTotalSantim': line.lineTotalSantim,
+          // Contract 1.5.0 (FR-11). Omitted for a loose sale, so that is still
+          // byte-identical to what a 1.4.0 terminal sends.
+          if (line.pack != null) 'packSize': line.pack!.size,
+          if (line.pack != null) 'packName': line.pack!.name,
           // Contract 1.3.0 (E-4.2). Omitted when null so the wire form is byte-identical to
           // a 1.2.0 terminal's for every ordinary sale, which is the whole of the N-1
           // promise in practice.
@@ -123,8 +146,9 @@ class SaleRepository {
         });
 
         if (line.batchId != null) {
+          // Base units: two boxes of thirty take sixty off the batch.
           await _catalog.decrementLocal(txn,
-              batchId: line.batchId!, qty: line.qty);
+              batchId: line.batchId!, qty: line.baseQty);
         }
       }
 
@@ -177,10 +201,15 @@ class SaleRepository {
   }
 
   /// The lines of one committed sale, for the receipt (prototype screen 10).
-  Future<List<({String name, int qty, int lineTotalSantim})>> linesOf(
-      String saleId) async {
+  ///
+  /// `packName` is null for a line sold in the base unit, and the pack's name as it was at
+  /// the counter otherwise — read from the line, not the product, so a receipt reprinted
+  /// after the packs were edited still says what was actually handed over.
+  Future<List<({String name, int qty, String? packName, int lineTotalSantim})>>
+      linesOf(String saleId) async {
     final rows = await _db.db.rawQuery('''
-      SELECT p.name AS name, l.qty AS qty, l.line_total_santim AS total
+      SELECT p.name AS name, l.qty AS qty, l.pack_name AS pack_name,
+             l.line_total_santim AS total
         FROM sale_line l LEFT JOIN product p ON p.id = l.product_id
        WHERE l.sale_id = ? ORDER BY l.rowid
     ''', [saleId]);
@@ -188,6 +217,7 @@ class SaleRepository {
         .map((r) => (
               name: (r['name'] as String?) ?? '—',
               qty: r['qty'] as int,
+              packName: r['pack_name'] as String?,
               lineTotalSantim: r['total'] as int,
             ))
         .toList();

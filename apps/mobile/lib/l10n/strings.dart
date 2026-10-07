@@ -392,6 +392,21 @@ const Map<String, String> _en = {
   'catalog.priceAudited':
       'Every price change is recorded with the old and new figure and who made it.',
   'catalog.savePrice': 'Save price',
+  'packs.title': 'Sold as',
+  'packs.baseUnit': 'one at a time',
+  'packs.add': 'Add a pack',
+  'packs.edit': 'Change packs',
+  'packs.remove': 'Remove this pack',
+  'packs.name': 'Pack',
+  'packs.nameHint': 'strip, box…',
+  'packs.size': '{unit} in one',
+  'packs.save': 'Save packs',
+  'packs.help':
+      'Stock is always counted in the smallest unit. A pack is how many of them come together — a strip of 10, a box of 100 — and what that pack sells for.',
+  'packs.invalid':
+      'Each pack needs a name, how many it holds (2 or more) and a price. No two packs can share a name or a size.',
+  'receive.countedIn': 'Counted in',
+  'receive.costPer': 'Cost per {unit} (ETB)',
   'staff.deactivateTitle': 'Deactivate {name}?',
   'staff.deactivateBody':
       'They can no longer sign in. Their past sales and any still waiting to sync are kept.',
@@ -845,6 +860,21 @@ const Map<String, String> _am = {
   'catalog.newPrice': 'አዲስ ዋጋ (ብር)',
   'catalog.priceAudited': 'እያንዳንዱ የዋጋ ለውጥ ከቀድሞውና ከአዲሱ ዋጋ እንዲሁም ከለዋጩ ጋር ይመዘገባል።',
   'catalog.savePrice': 'ዋጋውን አስቀምጥ',
+  'packs.title': 'የሚሸጥበት መልክ',
+  'packs.baseUnit': 'አንድ በአንድ',
+  'packs.add': 'ፓኬት ጨምር',
+  'packs.edit': 'ፓኬቶችን ቀይር',
+  'packs.remove': 'ይህን ፓኬት አስወግድ',
+  'packs.name': 'ፓኬት',
+  'packs.nameHint': 'ስትሪፕ፣ ካርቶን…',
+  'packs.size': 'በአንዱ ውስጥ ስንት {unit}',
+  'packs.save': 'ፓኬቶችን አስቀምጥ',
+  'packs.help':
+      'ክምችት ሁልጊዜ በትንሹ መለኪያ ይቆጠራል። ፓኬት ማለት ስንቱ አብረው እንደሚመጡ ነው — የ10 ስትሪፕ፣ የ100 ካርቶን — እና ያ ፓኬት በስንት እንደሚሸጥ።',
+  'packs.invalid':
+      'እያንዳንዱ ፓኬት ስም፣ የሚይዘው ብዛት (2 ወይም ከዚያ በላይ) እና ዋጋ ያስፈልገዋል። ሁለት ፓኬቶች አንድ ስም ወይም አንድ ብዛት ሊኖራቸው አይችልም።',
+  'receive.countedIn': 'የተቆጠረበት',
+  'receive.costPer': 'የአንድ {unit} ዋጋ (ብር)',
   'staff.deactivateTitle': '{name} ይቦዘኑ?',
   'staff.deactivateBody':
       'ከእንግዲህ መግባት አይችሉም። ያለፉ ሽያጮቻቸውና ለማመሳሰል የሚጠባበቁት ይጠበቃሉ።',

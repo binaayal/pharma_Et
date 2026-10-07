@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../contracts/contracts.dart';
 import '../core/money.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
@@ -112,8 +113,13 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                       PRow(
                         title: line.product.name,
                         subtitle:
-                            '${context.t('stock.lot')} ${line.lotNo} · ${context.t('stock.exp')} ${context.l10n.calendarDate(line.expiryDate)}',
-                        value: '×${line.qty}',
+                            '${context.t('stock.lot')} ${line.lotNo} · ${context.t('stock.exp')} ${context.l10n.calendarDate(line.expiryDate)}'
+                            // What the boxes come to on the shelf, so a mistyped pack
+                            // is caught here and not at the next stock count.
+                            '${line.pack == null ? '' : ' · = ${line.baseQty} ${line.product.unit}'}',
+                        value: line.pack == null
+                            ? '×${line.qty}'
+                            : '×${line.qty} ${line.pack!.name}',
                         valueCaption:
                             '${formatMoney(line.costSantim)} ${context.t('receive.each')}',
                         trailing: IconButton(
@@ -165,6 +171,10 @@ class _LineSheet extends StatefulWidget {
 
 class _LineSheetState extends State<_LineSheet> {
   LocalProduct? _product;
+
+  /// The unit the delivery is being counted in: null for the base unit, else one of the
+  /// product's packs (FR-11). Quantity and cost are both per one of these.
+  ProductPack? _pack;
   final _lot = TextEditingController();
   final _qty = TextEditingController();
   final _cost = TextEditingController();
@@ -205,7 +215,12 @@ class _LineSheetState extends State<_LineSheet> {
                 items: widget.products
                     .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
                     .toList(),
-                onChanged: (p) => setState(() => _product = p),
+                onChanged: (p) => setState(() {
+                  _product = p;
+                  // A delivery arrives by the box. Default to the largest pack so the
+                  // common case is the one that needs no extra tap.
+                  _pack = p == null || p.packs.isEmpty ? null : p.packs.last;
+                }),
               ),
             ),
             PField(
@@ -246,11 +261,30 @@ class _LineSheetState extends State<_LineSheet> {
                         '  ·  ${context.l10n.calendarDate(_expiry!.toIso8601String())}'),
               ),
             ),
+            if (_product != null && _product!.packs.isNotEmpty)
+              PField(
+                label: context.t('receive.countedIn'),
+                child: PSegmented<int>(
+                  // Keyed by size; 1 stands for the base unit.
+                  options: [
+                    (1, _product!.unit),
+                    for (final pack in _product!.packs)
+                      (pack.size, '${pack.name} ×${pack.size}'),
+                  ],
+                  value: _pack?.size ?? 1,
+                  onChanged: (size) => setState(() => _pack = size == 1
+                      ? null
+                      : _product!.packs.firstWhere((p) => p.size == size)),
+                ),
+              ),
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Expanded(
                 child: PField(
                   label: context.t('receive.qty'),
                   controller: _qty,
+                  helper: _pack == null || (int.tryParse(_qty.text) ?? 0) <= 0
+                      ? null
+                      : '= ${int.parse(_qty.text) * _pack!.size} ${_product!.unit}',
                   keyboardType: TextInputType.number,
                   onChanged: (_) => setState(() {}),
                 ),
@@ -258,7 +292,9 @@ class _LineSheetState extends State<_LineSheet> {
               const SizedBox(width: 12),
               Expanded(
                 child: PField(
-                  label: context.t('receive.unitCost'),
+                  label: _pack == null
+                      ? context.t('receive.unitCost')
+                      : context.tf('receive.costPer', {'unit': _pack!.name}),
                   controller: _cost,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
@@ -279,6 +315,7 @@ class _LineSheetState extends State<_LineSheet> {
                           qty: int.parse(_qty.text),
                           // Integral santim from the start (G4).
                           costSantim: parseBirr(_cost.text) ?? 0,
+                          pack: _pack,
                         ),
                       ),
             ),

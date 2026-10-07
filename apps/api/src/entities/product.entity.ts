@@ -3,6 +3,19 @@ import { bigintTransformer } from '../common/transformers/numeric.transformer';
 import { SyncedEntity } from './base.entity';
 
 /**
+ * One pack as stored on the row. The same shape as the contract's `ProductPack`, declared
+ * here rather than imported: the data source compiles the entities to run migrations, and
+ * that happens in places where the contracts package has not been built yet (the rollback
+ * and coverage jobs). An entity that needs a build step to load would make "apply the
+ * migrations" depend on something other than the migrations.
+ */
+export interface StoredPack {
+  name: string;
+  size: number;
+  priceSantim: number;
+}
+
+/**
  * A catalog item.
  *
  * `isControlled` is the switch between the system's two persistence models (ADR-004):
@@ -14,7 +27,7 @@ export class Product extends SyncedEntity {
   @Column('text')
   name: string;
 
-  /** Base unit. Pack conversions are resolved at product definition, not at sale time. */
+  /** Base unit — what stock is counted in. The packs below are defined against it. */
   @Column('text')
   unit: string;
 
@@ -30,4 +43,15 @@ export class Product extends SyncedEntity {
    */
   @Column('bigint', { name: 'current_price_santim', transformer: bigintTransformer })
   currentPriceSantim: number;
+
+  /**
+   * The packs this product is also received and sold in, each with its own price (FR-11,
+   * ADR-030). Empty for a product sold only in its base unit.
+   *
+   * A list on the row rather than a table: it is read whole on every pull, written whole on
+   * every edit, and never queried by its contents. Its history is the audit log's
+   * `audit.packs_changed`, which records the list before and after.
+   */
+  @Column('jsonb', { default: () => "'[]'::jsonb" })
+  packs: StoredPack[];
 }
