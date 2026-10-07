@@ -106,49 +106,12 @@ export class DailySummaryService {
     options: { from: Date; to: Date; branchIds: string[] | null },
   ): Promise<DailySummary> {
     const { from, to, branchIds } = options;
-    const window = [from.toISOString(), to.toISOString()];
-    // One optional predicate, reused: `$3` is the branch list when there is one.
-    const branch = (column: string) => (branchIds === null ? '' : `AND ${column} = ANY($3)`);
-    const params = branchIds === null ? window : [...window, branchIds];
 
     const sales = await this.salesSummary.summarise(em, { from, to, branchIds });
-
-    // Tills that were open at any point in the window: opened before it ended, and not
-    // closed before it began. A shift opened yesterday and counted this morning belongs to
-    // today's drawer.
-    const shiftRows: Array<{ id: string }> = await em.query(
-      `SELECT s.id
-         FROM shift s
-        WHERE s.deleted_at IS NULL
-          AND s.opened_at < $2
-          AND (s.closed_at IS NULL OR s.closed_at >= $1)
-          ${branch('s.branch_id')}
-        ORDER BY s.opened_at`,
-      params,
-    );
-    const shifts: DayShift[] = [];
-    for (const { id } of shiftRows) {
-      const r = await this.cashUp.reconcile(em, id);
-      shifts.push({
-        shiftId: r.shiftId,
-        branchName: r.branchName,
-        userName: r.userName,
-        openedAt: r.openedAt,
-        closedAt: r.closedAt,
-        countedSantim: r.countedSantim,
-        expectedSantim: r.terminalExpectedSantim,
-        varianceSantim: r.varianceSantim,
-      });
-    }
+    const shifts = await this.shiftsTouching(em, from, to, branchIds);
     const counted = shifts.filter((s) => s.varianceSantim !== null);
+    const repaidSantim = await this.repaid(em, from, to, branchIds);
 
-    const [repaid] = await em.query(
-      `SELECT coalesce(sum(amount_santim), 0)::bigint AS total
-         FROM credit_payment
-        WHERE deleted_at IS NULL AND paid_at >= $1 AND paid_at < $2
-          ${branch('branch_id')}`,
-      params,
-    );
     // Tenant-wide by design (ADR-034 §4): a customer owes the pharmacy, not a branch.
     const [owed] = await em.query(
       `SELECT coalesce(sum(balance_santim) FILTER (WHERE balance_santim > 0), 0)::bigint AS total,
@@ -156,43 +119,9 @@ export class DailySummaryService {
          FROM customer WHERE deleted_at IS NULL`,
     );
 
-    const stockParams = branchIds === null ? [] : [branchIds];
-    const stockBranch = branchIds === null ? '' : 'AND b.branch_id = ANY($1)';
-    const low: Array<{ id: string; name: string; unit: string; on_hand: string }> = await em.query(
-      `SELECT p.id, p.name, p.unit, coalesce(sum(b.qty_on_hand), 0)::bigint AS on_hand
-         FROM product p
-         LEFT JOIN stock_batch b
-                ON b.product_id = p.id AND b.deleted_at IS NULL ${stockBranch}
-        WHERE p.deleted_at IS NULL AND p.is_controlled = false
-        GROUP BY p.id, p.name, p.unit
-       HAVING coalesce(sum(b.qty_on_hand), 0) <= ${LOW_STOCK_AT}
-        ORDER BY coalesce(sum(b.qty_on_hand), 0), p.name`,
-      stockParams,
-    );
-    const [batches] = await em.query(
-      `SELECT count(*) FILTER (
-                WHERE b.qty_on_hand > 0
-                  AND b.expiry_date >= CURRENT_DATE
-                  AND b.expiry_date <= CURRENT_DATE + 60)::int AS expiring,
-              count(*) FILTER (WHERE b.qty_on_hand < 0)::int   AS oversold
-         FROM stock_batch b
-        WHERE b.deleted_at IS NULL ${stockBranch}`,
-      stockParams,
-    );
-
-    const [audit] = await em.query(
-      `SELECT count(*) FILTER (WHERE event_type IN ('audit.price_changed', 'audit.packs_changed'))::int
-                AS price_changes,
-              count(*) FILTER (
-                WHERE event_type = 'audit.stock_adjusted'
-                  AND (payload->>'delta')::bigint < 0
-                  AND payload->>'reason' <> 'recount')::int AS write_offs,
-              count(*) FILTER (WHERE event_type = 'audit.expired_dispense')::int AS expired
-         FROM event
-        WHERE stream = 'audit' AND occurred_at >= $1 AND occurred_at < $2
-          ${branchIds === null ? '' : 'AND (branch_id IS NULL OR branch_id = ANY($3))'}`,
-      params,
-    );
+    const low = await this.lowStock(em, branchIds);
+    const batches = await this.batchCounts(em, branchIds);
+    const audit = await this.attention(em, from, to, branchIds);
 
     const shortage = counted
       .filter((s) => (s.varianceSantim ?? 0) < 0)
@@ -216,7 +145,7 @@ export class DailySummaryService {
       },
       shifts,
       credit: {
-        repaidSantim: Number(repaid.total),
+        repaidSantim,
         owedSantim: Number(owed.total),
         customersOwing: Number(owed.customers),
       },
@@ -238,5 +167,153 @@ export class DailySummaryService {
       },
       lastSyncedAt: sales.lastSyncedAt,
     };
+  }
+
+  // Each query below binds every value ($1, $2…). The one thing spliced into the SQL text
+  // is `branchFilter`: a constant fragment with its own placeholder, present or absent —
+  // never a value. That shape is what `test/unit/security.spec.ts` allows, and why each
+  // query has its own small method: the fragment names a different column in each.
+
+  /**
+   * Tills that were open at any point in the window: opened before it ended, and not closed
+   * before it began. A shift opened yesterday and counted this morning belongs to today's
+   * drawer.
+   */
+  private async shiftsTouching(
+    em: EntityManager,
+    from: Date,
+    to: Date,
+    branchIds: string[] | null,
+  ): Promise<DayShift[]> {
+    const params: unknown[] = [from.toISOString(), to.toISOString()];
+    let branchFilter = '';
+    if (branchIds !== null) {
+      params.push(branchIds);
+      branchFilter = 'AND s.branch_id = ANY($3::uuid[])';
+    }
+    const rows: Array<{ id: string }> = await em.query(
+      `SELECT s.id
+         FROM shift s
+        WHERE s.deleted_at IS NULL
+          AND s.opened_at < $2
+          AND (s.closed_at IS NULL OR s.closed_at >= $1)
+          ${branchFilter}
+        ORDER BY s.opened_at`,
+      params,
+    );
+
+    const shifts: DayShift[] = [];
+    for (const { id } of rows) {
+      const r = await this.cashUp.reconcile(em, id);
+      shifts.push({
+        shiftId: r.shiftId,
+        branchName: r.branchName,
+        userName: r.userName,
+        openedAt: r.openedAt,
+        closedAt: r.closedAt,
+        countedSantim: r.countedSantim,
+        expectedSantim: r.terminalExpectedSantim,
+        varianceSantim: r.varianceSantim,
+      });
+    }
+    return shifts;
+  }
+
+  private async repaid(
+    em: EntityManager,
+    from: Date,
+    to: Date,
+    branchIds: string[] | null,
+  ): Promise<number> {
+    const params: unknown[] = [from.toISOString(), to.toISOString()];
+    let branchFilter = '';
+    if (branchIds !== null) {
+      params.push(branchIds);
+      branchFilter = 'AND branch_id = ANY($3::uuid[])';
+    }
+    const [row] = await em.query(
+      `SELECT coalesce(sum(amount_santim), 0)::bigint AS total
+         FROM credit_payment
+        WHERE deleted_at IS NULL AND paid_at >= $1 AND paid_at < $2
+          ${branchFilter}`,
+      params,
+    );
+    return Number(row.total);
+  }
+
+  private async lowStock(
+    em: EntityManager,
+    branchIds: string[] | null,
+  ): Promise<Array<{ id: string; name: string; unit: string; on_hand: string }>> {
+    const params: unknown[] = [LOW_STOCK_AT];
+    let branchFilter = '';
+    if (branchIds !== null) {
+      params.push(branchIds);
+      branchFilter = 'AND b.branch_id = ANY($2::uuid[])';
+    }
+    return em.query(
+      `SELECT p.id, p.name, p.unit, coalesce(sum(b.qty_on_hand), 0)::bigint AS on_hand
+         FROM product p
+         LEFT JOIN stock_batch b
+                ON b.product_id = p.id AND b.deleted_at IS NULL ${branchFilter}
+        WHERE p.deleted_at IS NULL AND p.is_controlled = false
+        GROUP BY p.id, p.name, p.unit
+       HAVING coalesce(sum(b.qty_on_hand), 0) <= $1
+        ORDER BY coalesce(sum(b.qty_on_hand), 0), p.name`,
+      params,
+    );
+  }
+
+  private async batchCounts(
+    em: EntityManager,
+    branchIds: string[] | null,
+  ): Promise<{ expiring: number; oversold: number }> {
+    const params: unknown[] = [];
+    let branchFilter = '';
+    if (branchIds !== null) {
+      params.push(branchIds);
+      branchFilter = 'AND b.branch_id = ANY($1::uuid[])';
+    }
+    const [row] = await em.query(
+      `SELECT count(*) FILTER (
+                WHERE b.qty_on_hand > 0
+                  AND b.expiry_date >= CURRENT_DATE
+                  AND b.expiry_date <= CURRENT_DATE + 60)::int AS expiring,
+              count(*) FILTER (WHERE b.qty_on_hand < 0)::int   AS oversold
+         FROM stock_batch b
+        WHERE b.deleted_at IS NULL ${branchFilter}`,
+      params,
+    );
+    return row;
+  }
+
+  private async attention(
+    em: EntityManager,
+    from: Date,
+    to: Date,
+    branchIds: string[] | null,
+  ): Promise<{ price_changes: number; write_offs: number; expired: number }> {
+    const params: unknown[] = [from.toISOString(), to.toISOString()];
+    let branchFilter = '';
+    if (branchIds !== null) {
+      params.push(branchIds);
+      // A price change belongs to the pharmacy, not a branch, and carries no branch: a
+      // manager is still told about it.
+      branchFilter = 'AND (branch_id IS NULL OR branch_id = ANY($3::uuid[]))';
+    }
+    const [row] = await em.query(
+      `SELECT count(*) FILTER (WHERE event_type IN ('audit.price_changed', 'audit.packs_changed'))::int
+                AS price_changes,
+              count(*) FILTER (
+                WHERE event_type = 'audit.stock_adjusted'
+                  AND (payload->>'delta')::bigint < 0
+                  AND payload->>'reason' <> 'recount')::int AS write_offs,
+              count(*) FILTER (WHERE event_type = 'audit.expired_dispense')::int AS expired
+         FROM event
+        WHERE stream = 'audit' AND occurred_at >= $1 AND occurred_at < $2
+          ${branchFilter}`,
+      params,
+    );
+    return row;
   }
 }
