@@ -81,5 +81,8 @@ void main() {
     expect(summaryCalls, greaterThan(atOpen));
     expect(find.text('ETB 900'), findsOneWidget);
     expect(find.text('ETB 0'), findsNothing);
+    // One is one: the phone showed "1 sales" here after the first fix missed this line.
+    expect(find.textContaining('1 sale ·'), findsOneWidget);
+    expect(find.textContaining('1 sales'), findsNothing);
   });
 }

@@ -49,7 +49,7 @@ class LocalDb {
   Future<void> acknowledgeQuarantine() =>
       db.delete('meta', where: 'key = ?', whereArgs: [_quarantineKey]);
 
-  static const _version = 8;
+  static const _version = 9;
 
   /// Opens the terminal's database, and **always returns one** (ADR-018).
   ///
@@ -257,6 +257,7 @@ class LocalDb {
     await _addBarcodeColumn(db);
     await _createCreditSchema(db);
     await _addPriceTierColumns(db);
+    await _createSupplierSchema(db);
 
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
@@ -453,6 +454,51 @@ class LocalDb {
     await db.execute('ALTER TABLE sale ADD COLUMN price_tier TEXT');
   }
 
+  /// Suppliers and what is owed to them (FR-18, ADR-038; contract 1.9.0).
+  ///
+  /// `supplier` is, like `customer`, both authored here and mirrored back from the server;
+  /// its `balance_santim` is the **server's** figure, and what this phone has queued is
+  /// added when it is read. `supplier_payment` is authored here.
+  ///
+  /// A receipt gains which supplier it came from and what of it is not paid yet. On every
+  /// receipt already here those are null and zero — a name with no account, paid for —
+  /// which is what they were recorded as.
+  static Future<void> _createSupplierSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE supplier (
+        id              TEXT PRIMARY KEY,
+        name            TEXT NOT NULL,
+        phone           TEXT,
+        note            TEXT,
+        balance_santim  INTEGER NOT NULL DEFAULT 0,
+        change_seq      INTEGER NOT NULL DEFAULT 0,
+        deleted         INTEGER NOT NULL DEFAULT 0,
+        synced          INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE supplier_payment (
+        id             TEXT PRIMARY KEY,
+        branch_id      TEXT NOT NULL,
+        supplier_id    TEXT NOT NULL,
+        amount_santim  INTEGER NOT NULL,
+        method         TEXT NOT NULL,
+        paid_at        TEXT NOT NULL,
+        shift_id       TEXT,
+        paid_by        TEXT NOT NULL,
+        note           TEXT,
+        synced         INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX supplier_payment_supplier ON supplier_payment (supplier_id)');
+    await db.execute('ALTER TABLE goods_receipt ADD COLUMN supplier_id TEXT');
+    await db.execute(
+        'ALTER TABLE goods_receipt ADD COLUMN owed_santim INTEGER NOT NULL DEFAULT 0');
+    await db.execute(
+        'CREATE INDEX goods_receipt_supplier ON goods_receipt (supplier_id)');
+  }
+
   /// Schema upgrades run on a device holding real, unsynced sales.
   ///
   /// So they are additive only — new tables and new nullable columns. Anything that
@@ -482,6 +528,9 @@ class LocalDb {
     }
     if (from < 8) {
       await _addPriceTierColumns(db);
+    }
+    if (from < 9) {
+      await _createSupplierSchema(db);
     }
   }
 

@@ -9,7 +9,7 @@
  * Bump MINOR for additive, backward-compatible changes. Bump MAJOR only with an ADR, dual
  * support in the server, and an N-1 compatibility test — see docs/06-delivery-plan.md §7.
  */
-export const CONTRACT_VERSION = '1.8.0' as const;
+export const CONTRACT_VERSION = '1.9.0' as const;
 
 /**
  * Contract versions the server must still accept. **Never shrink this without an ADR.**
@@ -31,6 +31,8 @@ export const CONTRACT_VERSION = '1.8.0' as const;
  *         `customerId` on a sale, `customers` on a pull (FR-16, ADR-034)
  * 1.8.0 — adds `priceTier` on a sale, `wholesalePriceSantim` on a pulled product and on a
  *         pack (FR-19, ADR-037)
+ * 1.9.0 — adds supplier and supplier_payment operations, `supplierId`/`owedSantim` on a
+ *         goods receipt, `suppliers` on a pull (FR-18, ADR-038)
  */
 export const SUPPORTED_CONTRACT_VERSIONS = [
   '1.0.0',
@@ -42,6 +44,7 @@ export const SUPPORTED_CONTRACT_VERSIONS = [
   '1.6.0',
   '1.7.0',
   '1.8.0',
+  '1.9.0',
 ] as const;
 
 /** Sent by clients as `X-Contract-Version`; the server rejects anything unsupported. */

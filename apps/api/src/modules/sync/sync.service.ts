@@ -25,6 +25,7 @@ import {
   Shift,
   StockAdjustment,
   StockBatch,
+  Supplier,
   UserBranch,
   Customer,
 } from '../../entities';
@@ -32,6 +33,7 @@ import { AuditService } from '../audit/audit.service';
 import { TelemetryService } from '../../common/observability/telemetry.service';
 import { CashUpService } from '../cashup/cash-up.service';
 import { CreditService } from '../credit/credit.service';
+import { PayablesService } from '../payables/payables.service';
 import { ChangeSeqService } from '../inventory/change-seq.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { LedgerService } from '../ledger/ledger.service';
@@ -70,6 +72,7 @@ export class SyncService {
     private readonly telemetry: TelemetryService,
     private readonly ledger: LedgerService,
     private readonly credit: CreditService,
+    private readonly payables: PayablesService,
   ) {}
 
   async push(scope: TenantScope, request: PushRequest): Promise<PushResponse> {
@@ -150,6 +153,21 @@ export class SyncService {
               break;
             case 'credit_payment':
               await this.credit.recordPayment(em, this.metaOf(scope, operation), operation.payload);
+              break;
+            // Suppliers and what is owed to them (FR-18, ADR-038).
+            case 'supplier':
+              await this.payables.createSupplier(
+                em,
+                this.metaOf(scope, operation),
+                operation.payload,
+              );
+              break;
+            case 'supplier_payment':
+              await this.payables.recordPayment(
+                em,
+                this.metaOf(scope, operation),
+                operation.payload,
+              );
               break;
           }
 
@@ -397,11 +415,22 @@ export class SyncService {
     const branchId = operation.branchId;
     if (!branchId) throw new Error('a goods receipt must name its branch');
 
+    // What this delivery leaves owing (FR-18). Moved **before** the receipt row is written,
+    // for the reason a credit sale locks its customer first: the receipt's foreign key takes
+    // a shared lock on the supplier, and taking the balance lock after it is how two
+    // terminals receiving from one supplier deadlock.
+    const owed = payload.owedSantim ?? 0;
+    if (payload.supplierId) {
+      await this.payables.addOwed(em, scope.tenantId, payload.supplierId, owed);
+    }
+
     await em.getRepository(GoodsReceipt).insert({
       id: operation.entityId,
       tenantId: scope.tenantId,
       branchId,
       supplierName: payload.supplierName,
+      supplierId: payload.supplierId ?? null,
+      owedSantim: owed,
       receivedAt: new Date(payload.receivedAt),
       terminalId: operation.terminalId,
       changeSeq: 0,
@@ -694,7 +723,15 @@ export class SyncService {
         .limit(limit)
         .getMany();
 
-      const pages = [products, branches, users, stockBatches, customers];
+      const suppliers = await em
+        .getRepository(Supplier)
+        .createQueryBuilder('sup')
+        .where('sup.change_seq > :cursor', { cursor })
+        .orderBy('sup.change_seq', 'ASC')
+        .limit(limit)
+        .getMany();
+
+      const pages = [products, branches, users, stockBatches, customers, suppliers];
       const maxSeq = Math.max(cursor, ...pages.flatMap((rows) => rows.map((r) => r.changeSeq)));
 
       return {
@@ -752,6 +789,16 @@ export class SyncService {
           balanceSantim: c.balanceSantim,
           changeSeq: c.changeSeq,
           deletedAt: c.deletedAt?.toISOString() ?? null,
+        })),
+        // Tenant-wide too: a supplier delivers to every branch and is owed one sum.
+        suppliers: suppliers.map((s) => ({
+          id: s.id,
+          name: s.name,
+          phone: s.phone,
+          note: s.note,
+          balanceSantim: s.balanceSantim,
+          changeSeq: s.changeSeq,
+          deletedAt: s.deletedAt?.toISOString() ?? null,
         })),
         serverTime: new Date().toISOString(),
       };

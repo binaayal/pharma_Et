@@ -326,13 +326,100 @@ export const goodsReceiptLinePayload = z.object({
 });
 export type GoodsReceiptLinePayload = z.infer<typeof goodsReceiptLinePayload>;
 
-export const goodsReceiptPayload = z.object({
-  /** Free-form supplier in V1 (FR-7 base); a supplier entity is deferred. */
-  supplierName: z.string().min(1).max(200),
-  receivedAt: utcTimestamp,
-  lines: z.array(goodsReceiptLinePayload).min(1),
-});
+/** What a delivery cost, by its own lines: Σ qty × cost, each in the unit it was counted in. */
+const costOf = (lines: ReadonlyArray<{ qty: number; costSantim: number }>): number =>
+  lines.reduce((sum, l) => sum + l.qty * l.costSantim, 0);
+
+export const goodsReceiptPayload = z
+  .object({
+    /**
+     * The supplier's name as written at the time. Always present — it is what a 1.8.0
+     * server stores, and what the receipt goes on saying if the supplier is later renamed.
+     */
+    supplierName: z.string().min(1).max(200),
+    /**
+     * Which supplier this came from (FR-18, ADR-038). Absent on a receipt from a terminal
+     * that predates suppliers, which is then a receipt with a name and no account.
+     *
+     * Added in contract 1.9.0.
+     */
+    supplierId: uuidv7.nullable().optional(),
+    /**
+     * The part of this delivery **not paid for yet**: what the pharmacy now owes that
+     * supplier for it (FR-18). Absent or zero when it was paid on delivery, which is what
+     * every receipt before 1.9.0 is taken to be.
+     *
+     * Added in contract 1.9.0.
+     */
+    owedSantim: santim.nonnegative().nullable().optional(),
+    receivedAt: utcTimestamp,
+    lines: z.array(goodsReceiptLinePayload).min(1),
+  })
+  .refine((r) => !r.owedSantim || Boolean(r.supplierId), {
+    message: 'a delivery left owing must name the supplier it is owed to (FR-18)',
+    path: ['supplierId'],
+  })
+  .refine((r) => !r.owedSantim || r.owedSantim <= costOf(r.lines), {
+    // Held only where something is owed, so nothing a 1.8.0 terminal sends is judged by it.
+    message: 'a delivery cannot leave more owing than it cost (G4)',
+    path: ['owedSantim'],
+  });
 export type GoodsReceiptPayload = z.infer<typeof goodsReceiptPayload>;
+
+/** What a delivery cost in total, from its lines. The one place that sum lives. */
+export function receiptCost(receipt: {
+  lines: ReadonlyArray<{ qty: number; costSantim: number }>;
+}): number {
+  return costOf(receipt.lines);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Suppliers and what is owed to them (FR-18, ADR-038) — contract v1.9.0       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A supplier: a wholesaler, an importer, EPSS.
+ *
+ * Created **while receiving**, offline, the first time a delivery arrives from them — the
+ * id is minted on the terminal (ADR-006) so the receipt that follows can name it before
+ * the server has heard of either. The mirror image of a credit customer (ADR-034): there
+ * the pharmacy is owed, here it owes.
+ */
+export const supplierPayload = z.object({
+  name: z.string().trim().min(1).max(200),
+  /** For ordering and for asking about a return. Free text. */
+  phone: z.string().trim().max(40).nullable(),
+  /** "Delivers Tuesdays", "30 days to pay". Never parsed. */
+  note: z.string().trim().max(300).nullable(),
+  createdAt: utcTimestamp,
+});
+export type SupplierPayload = z.infer<typeof supplierPayload>;
+
+/**
+ * Money paid to a supplier against what is owed (FR-18).
+ *
+ * Its own operation, not a receipt: nothing arrives on the shelf. It reduces what is owed.
+ *
+ * `shiftId` is set when the money came **out of an open till**. Cash paid that way has left
+ * the drawer, so it comes off what that shift's cash-up expects to find — otherwise every
+ * supplier paid from the drawer shows as an unexplained shortage of exactly that size.
+ * Cash with no `shiftId` was the owner's own, and touches no cash-up.
+ *
+ * May exceed what is owed: paying 5,000 against 4,800 is a payment in advance, and the
+ * honest record is that the supplier now holds 200 of the pharmacy's money.
+ */
+export const supplierPaymentPayload = z.object({
+  supplierId: uuidv7,
+  amountSantim: santim.positive(),
+  method: z.enum(['cash', 'other_recorded']),
+  paidAt: utcTimestamp,
+  /** The open till the cash came out of, or null when it did not come from one. */
+  shiftId: uuidv7.nullable(),
+  paidBy: uuidv7,
+  /** A cheque number, a bank reference. Never parsed. */
+  note: z.string().trim().max(300).nullable(),
+});
+export type SupplierPaymentPayload = z.infer<typeof supplierPaymentPayload>;
 
 /* -------------------------------------------------------------------------- */
 /* Shift & cash-up (FR-8) — contract v1.1.0, ADR-012 §4                        */

@@ -112,7 +112,8 @@ the same gates as V1 (`06` §4, §7).
 | 7 | **FR-17 audit trail and daily summary on the phone** | **Built** — ADR-035. The summary is opened and shared, **not pushed** (§6, decision 5) |
 | 8 | **FR-7a reorder, FR-8a profit and dead stock, and FR-18's return list** | **Built** — ADR-036, worked out on the phone |
 | 9 | **FR-19 price tiers** | **Built** — ADR-037, contract 1.8.0 |
-| 10 | The rest of FR-18 (supplier accounts, payables, purchase orders); FR-20 CBHI export | In that order. FR-20 needs the claim form's actual fields first (§6) |
+| 10 | **FR-18 suppliers and what is owed to them** | **Built** — ADR-038, contract 1.9.0. Purchase orders as stored records are not built; the reorder list is shared as text |
+| 11 | FR-20 CBHI export | **Blocked on the owner**: needs the claim form's actual fields (§6) |
 
 **Why FR-11 is first and not merely important.** FR-12 loads a catalogue of products, FR-13
 attaches barcodes to them, FR-8a computes margin from their cost. All three are built on what

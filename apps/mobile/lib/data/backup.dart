@@ -170,6 +170,10 @@ class BackupService {
     // and neither does a repayment taken there.
     'customer',
     'credit_payment',
+    // FR-18. Likewise a supplier opened, or a supplier paid, on the lost phone. What a
+    // delivery left owing rides on `goods_receipt`, which is already above.
+    'supplier',
+    'supplier_payment',
   ];
 
   /// Copied for the record — "what my shelves held on that day" — and never restored:

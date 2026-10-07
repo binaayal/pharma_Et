@@ -561,6 +561,52 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-18 — Suppliers and what is owed to them · Priority: S · V2
+**Actors:** anyone who may receive goods (suppliers, deliveries); Owner, Branch Manager (payments).
+**Preconditions:** authenticated. Design: ADR-038. The near-expiry return list by supplier is BR-8a.5 (ADR-036).
+
+**Main flow (a delivery):**
+1. On goods receipt the user types or taps the supplier. A name not seen before opens a supplier.
+2. The user states whether the delivery is paid on delivery or not paid yet, and if not, how much was paid now.
+3. The receipt is committed: stock is credited (FR-7), and the unpaid part is added to what that supplier is owed.
+
+**Main flow (a payment):**
+1. The Owner or Branch Manager opens Suppliers: the total owed, and each supplier with what is owed, most first.
+2. They open a supplier and record a payment: the amount, and where the money came from — cash from the open till, cash not from the till, or bank/cheque/Telebirr.
+3. What is owed falls by that amount.
+
+**Exception flows:**
+- E-18.1 Offline: suppliers, deliveries and payments are recorded locally and queued (FR-9).
+- E-18.2 No till open: "cash from the open till" is not offered.
+
+**Business rules:**
+- BR-18.1 What is owed to a supplier equals what its deliveries left owing less what has been paid to it, exactly, in santim.
+- BR-18.2 A delivery cannot leave more owing than it cost, and a delivery left owing names its supplier.
+- BR-18.3 Stock from a delivery is available whether or not the delivery has been paid for.
+- BR-18.4 A supplier name is matched ignoring case and surrounding spaces; an existing supplier is reused, not duplicated.
+- BR-18.5 **Cash paid to a supplier out of an open till is subtracted from that till's expected cash, and shown on the cash-up as its own line.** Cash from elsewhere, and any other tender, affects no cash-up (BR-8.2).
+- BR-18.6 Where a till is open, the source of a payment has no default; it is chosen.
+- BR-18.7 A payment may exceed what is owed; the supplier is then shown as paid ahead. A supplier paid ahead does not reduce the total owed to others.
+- BR-18.8 The figure shown is the server's figure plus what this terminal has recorded and not yet synced, and says when part of it is unsynced.
+- BR-18.9 Recording a payment to a supplier is offered to the Owner and Branch Manager only. *(Enforced on the terminal; see ADR-038 §7.)*
+- BR-18.10 A supplier and what it is owed are visible only within its tenant.
+- BR-18.11 A receipt from a terminal that predates suppliers is a paid delivery with a supplier name and no account.
+- BR-18.12 *(Scope.)* Stored purchase orders, invoices with due dates, and expenses other than supplier payments are not part of this requirement as built.
+
+**Acceptance criteria:**
+- AC-18.1 *Given* a delivery costing 450.00 marked not paid, *when* it is committed, *then* the supplier is owed 450.00 more and the stock is on the shelf.
+- AC-18.2 *Given* the same delivery with 150.00 paid now, *then* the supplier is owed 300.00 more.
+- AC-18.3 *Given* a supplier "EPSS" exists, *when* a delivery is received from "epss", *then* it is recorded against the existing supplier.
+- AC-18.4 *Given* 450.00 owed, *when* 200.00 is paid, *then* 250.00 is owed; *when* 500.00 is paid instead, *then* the supplier is 50.00 paid ahead.
+- AC-18.5 *Given* a till with a 200.00 float and 20.00 of cash sales, *when* 50.00 is paid to a supplier from that till, *then* the cash-up expects 170.00 and lists 50.00 paid to suppliers.
+- AC-18.6 *Given* a payment by bank, or in cash not from the till, *then* no cash-up changes.
+- AC-18.7 *Given* a till is open, *when* the payment sheet is opened, *then* it cannot be recorded until a source is chosen.
+- AC-18.8 *Given* a Cashier, *when* they open a supplier, *then* they see what is owed and are not offered payment.
+- AC-18.9 *Given* a delivery and a payment recorded offline, *when* the terminal syncs and pulls, *then* the figure is unchanged and no part of it is counted twice.
+- AC-18.10 *Given* the same push is sent twice, *then* the debt, the stock and the payment are each counted once.
+- AC-18.11 *Given* two pharmacies, *when* one syncs, *then* it receives none of the other's suppliers and cannot record against them.
+- AC-18.12 *Given* a receipt with no supplier account, *when* it is synced, *then* its payload is identical to one from before suppliers existed.
+
 ### FR-19 — Retail and wholesale prices · Priority: S · V2
 **Actors:** Owner, Branch Manager (set prices); anyone who may sell (choose the tier).
 **Preconditions:** authenticated. Design: ADR-037.
@@ -711,8 +757,9 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-15 backup and restore — **V2** | ADR-033 (no schema, contract or server change) | `mobile/lib/data/backup.dart`, `mobile/lib/ui/backup_screen.dart`, `mobile/lib/ui/settings_screen.dart` | `g7_backup_restore_test.dart` (24), `backup_screen_test.dart` (16) | **Done at the data tier; the file's journey is untested.** AC-15.1 to AC-15.8: restore across two real database files, merge without loss, idempotence, order, wrong passphrase, tampering, wrong branch, plaintext scan, atomicity. **Not shown by any test:** a file actually sent through Telegram and picked back on a second phone — the share sheet and the file picker are the operating system's (`engineering/field-uat.md` §4.5). |
 | FR-16 customer credit ledger — **V2** | §5.4; ADR-034 | contract: `packages/contracts/src/entities.ts` (`customerPayload`, `creditPaymentPayload`, `creditPortion`), `packages/contracts/src/sync.ts` (`customerRef`) · server: `api/src/migrations/CreditLedger`, `api/src/modules/credit/`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/cashup/cash-up.service.ts` · till: `mobile/lib/data/customer_repository.dart`, `mobile/lib/data/sale_repository.dart`, `mobile/lib/ui/customers_screen.dart`, `mobile/lib/ui/payment_screen.dart` | `g4-credit-ledger.spec.ts` (31), `g4_credit_ledger_test.dart` (22), `credit_screens_test.dart` (16), `receipt_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-16.1 to AC-16.10 on both sides: balance equals rows after mixed, replayed and concurrent sequences; cash-up agrees on terminal and server; tenant isolation; N-1. The concurrency test found, and this change fixed, a deadlock that would have parked a legitimate sale (ADR-034 §10). **Not built:** editing or merging customers, a statement across phones, ageing of debts. |
 | FR-17 audit trail and daily summary on the phone — **V2** | ADR-035 (read-only; no schema or contract change) | server: `api/src/modules/reporting/daily-summary.service.ts`, `api/src/modules/audit/` · phone: `mobile/lib/core/owner_reports.dart`, `mobile/lib/ui/owner_screens.dart`, `mobile/lib/ui/reports_screen.dart` | `g4-daily-summary.spec.ts` (17), `owner_reports_test.dart` (25), `owner_screens_test.dart` (15) | **Built as scoped.** AC-17.1 to AC-17.8: each summary figure held to the report it restates, shortage never netted, branch and tenant scoping, every audit sentence in both languages. **Not built: unprompted delivery** (BR-17.10) — no push, SMS or bot; that needs accounts and a sender the project does not have (ADR-035 §3). |
-| FR-7a reorder suggestions · FR-8a profit, best sellers, dead stock · FR-18 return list — **V2** | ADR-036 (read-only, on the device) | `mobile/lib/data/insights_repository.dart`, `mobile/lib/ui/insights_screen.dart` | `g4_insights_test.dart` (22), `insights_screen_test.dart` (12) | **Done as scoped** — every figure held to the sales and receipts it is made from, with packs. Computed from **this terminal's** records and labelled so; no consolidated figure across terminals. **Not built:** the rest of FR-18 — a supplier entity, payables, purchase orders. |
+| FR-7a reorder suggestions · FR-8a profit, best sellers, dead stock · FR-18 return list — **V2** | ADR-036 (read-only, on the device) | `mobile/lib/data/insights_repository.dart`, `mobile/lib/ui/insights_screen.dart` | `g4_insights_test.dart` (22), `insights_screen_test.dart` (12) | **Done as scoped** — every figure held to the sales and receipts it is made from, with packs. Computed from **this terminal's** records and labelled so; no consolidated figure across terminals. The supplier entity and payables are the FR-18 row; purchase orders as records are not built. |
 | FR-19 retail and wholesale prices — **V2** | ADR-037; contract 1.8.0 (ADR-012 §4) | contract: `packages/contracts/src/entities.ts` (`priceTier`, `wholesalePriceSantim`), `packages/contracts/src/sync.ts` · server: `api/src/migrations/PriceTiers`, `api/src/modules/admin/management.service.ts`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/reporting/sales-summary.service.ts` · till: `mobile/lib/data/sale_repository.dart`, `mobile/lib/data/catalog_repository.dart`, `mobile/lib/ui/sell_screen.dart`, `mobile/lib/ui/catalog_sheets.dart`, `mobile/lib/core/receipt.dart` | `g4-price-tiers.spec.ts` (24), `g4_price_tiers_test.dart` (16), `sell_screen_test.dart`, `inventory_screens_test.dart`, `receipt_test.dart`, `owner_reports_test.dart` | **Built as scoped.** AC-19.1 to AC-19.10. The tier is a record, not a control: the server stores the price charged and does not re-price a line (ADR-037 §5). **Not built:** per-customer price lists, a capability restricting who may sell at wholesale. **Not shown by any test:** the widened pack editor on a real 720-pixel phone. |
+| FR-18 suppliers and payables — **V2** | ADR-038; contract 1.9.0 (ADR-012 §4) | contract: `packages/contracts/src/entities.ts` (`supplierPayload`, `supplierPaymentPayload`, `receiptCost`), `packages/contracts/src/sync.ts` (`supplierRef`) · server: `api/src/migrations/Suppliers`, `api/src/modules/payables/`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/cashup/cash-up.service.ts` · till: `mobile/lib/data/supplier_repository.dart`, `mobile/lib/data/inventory_repository.dart`, `mobile/lib/data/shift_repository.dart`, `mobile/lib/ui/suppliers_screen.dart`, `mobile/lib/ui/receive_screen.dart` | `g4-suppliers.spec.ts` (30), `g4_suppliers_test.dart` (22), `suppliers_screen_test.dart` (21), `g7_schema_upgrade_test.dart` | **Built as scoped.** AC-18.1 to AC-18.12. **Enforced on the terminal only:** who may record a payment (BR-18.9) — sync does not authorise by operation type. **Not built:** stored purchase orders, invoices and due dates, expenses, merging duplicate suppliers, payables in the daily summary. **Not shown by any test:** a week beside the owner's own invoices. |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

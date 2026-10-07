@@ -74,11 +74,15 @@ export function receiptOp(
     /** Received by the pack (contract 1.5.0, FR-11): `qty` and the cost are per pack. */
     packSize?: number;
     costSantim?: number;
+    /** Contract 1.9.0 (FR-18): which supplier, and what of the delivery is not paid yet. */
+    supplierId?: string;
+    owedSantim?: number;
+    terminalId?: string;
   },
 ) {
   return {
     opId: uuidv7(),
-    terminalId: TERMINAL,
+    terminalId: options.terminalId ?? TERMINAL,
     terminalSeq: options.terminalSeq,
     entityId: uuidv7(),
     opType: 'create' as const,
@@ -90,6 +94,8 @@ export function receiptOp(
     entityType: 'goods_receipt' as const,
     payload: {
       supplierName: 'Test Wholesaler',
+      ...(options.supplierId ? { supplierId: options.supplierId } : {}),
+      ...(options.owedSantim !== undefined ? { owedSantim: options.owedSantim } : {}),
       receivedAt: '2026-09-22T07:00:00.000Z',
       lines: [
         {
@@ -405,6 +411,68 @@ export function creditPaymentOp(
       paidAt: '2026-10-08T09:00:00.000Z',
       shiftId: options.shiftId ?? null,
       receivedBy: tenant.users.cashier.id,
+      note: null,
+    },
+  };
+}
+
+/** A supplier, created while receiving (contract 1.9.0, FR-18, ADR-038). */
+export function supplierOp(
+  tenant: SeededTenant,
+  options: { terminalSeq: number; supplierId?: string; name?: string; terminalId?: string },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: options.terminalId ?? TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: options.supplierId ?? uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.manager.id,
+    clientTs: '2026-10-07T08:00:00.000Z',
+    entityType: 'supplier' as const,
+    payload: {
+      name: options.name ?? 'Addis Pharma Import',
+      phone: '0911 00 00 00',
+      note: null,
+      createdAt: '2026-10-07T08:00:00.000Z',
+    },
+  };
+}
+
+/** Money paid to a supplier; `shiftId` when the cash came out of an open till. */
+export function supplierPaymentOp(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    supplierId: string;
+    amountSantim: number;
+    method?: 'cash' | 'other_recorded';
+    shiftId?: string | null;
+    terminalId?: string;
+  },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: options.terminalId ?? TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.manager.id,
+    clientTs: '2026-10-08T09:00:00.000Z',
+    entityType: 'supplier_payment' as const,
+    payload: {
+      supplierId: options.supplierId,
+      amountSantim: options.amountSantim,
+      method: options.method ?? ('cash' as const),
+      paidAt: '2026-10-08T09:00:00.000Z',
+      shiftId: options.shiftId ?? null,
+      paidBy: tenant.users.manager.id,
       note: null,
     },
   };

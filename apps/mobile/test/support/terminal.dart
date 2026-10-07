@@ -15,6 +15,7 @@ import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/data/outbox.dart';
 import 'package:pharmaet_mobile/data/sale_repository.dart';
 import 'package:pharmaet_mobile/data/shift_repository.dart';
+import 'package:pharmaet_mobile/data/supplier_repository.dart';
 import 'package:pharmaet_mobile/l10n/locale_store.dart';
 import 'package:pharmaet_mobile/l10n/strings.dart';
 import 'package:pharmaet_mobile/sync/sync_client.dart';
@@ -31,7 +32,7 @@ import 'pump.dart';
 /// T1/T2; this tier is about what ends up on screen.
 class TestTerminal {
   TestTerminal._(this.terminal, this.catalog, this.shifts, this.inventory,
-      this.sync, this.sales, this.customers, this.insights);
+      this.sync, this.sales, this.customers, this.insights, this.suppliers);
 
   final Terminal terminal;
   final StubCatalog catalog;
@@ -41,6 +42,7 @@ class TestTerminal {
   final SaleRepository sales;
   final StubCustomers customers;
   final StubInsights insights;
+  final StubSuppliers suppliers;
 
   static TestTerminal build(
     LocalDb db, {
@@ -55,6 +57,7 @@ class TestTerminal {
     final inventory = StubInventory(db, outbox, catalog);
     final customers = StubCustomers(db, outbox);
     final insights = StubInsights(db);
+    final suppliers = StubSuppliers(db, outbox);
     final client = SyncClient(baseUrl: 'http://stub.invalid');
     final sync = StubSync(
       db: db,
@@ -75,6 +78,7 @@ class TestTerminal {
       // Few key-derivation rounds: screen tests are about the flow, not the cost of a guess.
       backups: BackupService(db, kdfRounds: 1000),
       customers: customers,
+      suppliers: suppliers,
       insights: insights,
       syncService: sync,
       api: TenantApi(
@@ -85,8 +89,8 @@ class TestTerminal {
       onSignOut: () {},
       branchName: 'Bole',
     );
-    return TestTerminal._(
-        terminal, catalog, shifts, inventory, sync, sales, customers, insights);
+    return TestTerminal._(terminal, catalog, shifts, inventory, sync, sales,
+        customers, insights, suppliers);
   }
 
   void addProduct(String id, String name,
@@ -298,6 +302,111 @@ class StubShifts extends ShiftRepository {
 
 class StubInventory extends InventoryRepository {
   StubInventory(super.db, super.outbox, super.catalog);
+
+  /// Every receipt a screen committed: who from, and what it left owing.
+  final receipts = <({
+    String supplierName,
+    String? supplierId,
+    int owedSantim,
+    int lines
+  })>[];
+
+  @override
+  Future<String> commitReceipt({
+    required List<ReceiptLine> lines,
+    required String supplierName,
+    required String branchId,
+    String? supplierId,
+    int owedSantim = 0,
+  }) async {
+    receipts.add((
+      supplierName: supplierName,
+      supplierId: supplierId,
+      owedSantim: owedSantim,
+      lines: lines.length
+    ));
+    return 'receipt-${receipts.length}';
+  }
+}
+
+class StubSuppliers extends SupplierRepository {
+  StubSuppliers(super.db, super.outbox);
+
+  final all = <LocalSupplier>[];
+  final entries = <String, List<PayableEntry>>{};
+  final payments = <({
+    String supplierId,
+    int amountSantim,
+    String method,
+    String? shiftId,
+    String? note
+  })>[];
+
+  @override
+  Future<List<LocalSupplier>> suppliers() async =>
+      [...all]..sort((a, b) => b.balanceSantim.compareTo(a.balanceSantim));
+
+  @override
+  Future<LocalSupplier?> supplier(String id) async {
+    for (final s in all) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  @override
+  Future<LocalSupplier?> byName(String name) async {
+    for (final s in all) {
+      if (s.name.toLowerCase() == name.trim().toLowerCase()) return s;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<PayableEntry>> history(String supplierId,
+          {int limit = 30}) async =>
+      entries[supplierId] ?? const [];
+
+  @override
+  Future<LocalSupplier> create(
+      {required String name, String? phone, String? note}) async {
+    final created = LocalSupplier(
+        id: 'supplier-${all.length + 1}',
+        name: name.trim(),
+        phone: phone == null || phone.trim().isEmpty ? null : phone.trim(),
+        balanceSantim: 0);
+    all.add(created);
+    return created;
+  }
+
+  @override
+  Future<String> recordPayment({
+    required String supplierId,
+    required int amountSantim,
+    required String branchId,
+    required String paidBy,
+    String method = 'cash',
+    String? shiftId,
+    String? note,
+  }) async {
+    payments.add((
+      supplierId: supplierId,
+      amountSantim: amountSantim,
+      method: method,
+      shiftId: shiftId,
+      note: note
+    ));
+    final i = all.indexWhere((s) => s.id == supplierId);
+    if (i >= 0) {
+      final s = all[i];
+      all[i] = LocalSupplier(
+          id: s.id,
+          name: s.name,
+          phone: s.phone,
+          balanceSantim: s.balanceSantim - amountSantim);
+    }
+    return 'payment-${payments.length}';
+  }
 }
 
 /// Never touches the network; counts how often the terminal asked it to sync.

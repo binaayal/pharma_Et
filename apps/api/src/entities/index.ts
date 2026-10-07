@@ -9,6 +9,7 @@ import { DomainEvent } from './event.entity';
 import { CashUp, Shift } from './shift.entity';
 import { StockAdjustment } from './stock-adjustment.entity';
 import { StockBatch } from './stock-batch.entity';
+import { Supplier, SupplierPayment } from './supplier.entity';
 import { AppliedOp, OversellEvent, TenantChangeSeq } from './sync.entity';
 import { Tenant } from './tenant.entity';
 import { UserBranch } from './user-branch.entity';
@@ -25,6 +26,7 @@ export * from './event.entity';
 export * from './shift.entity';
 export * from './stock-adjustment.entity';
 export * from './stock-batch.entity';
+export * from './supplier.entity';
 export * from './sync.entity';
 export * from './tenant.entity';
 export * from './user-branch.entity';
@@ -61,4 +63,6 @@ export const ALL_ENTITIES = [
   OversellEvent,
   Customer,
   CreditPayment,
+  Supplier,
+  SupplierPayment,
 ];

@@ -2,14 +2,23 @@ import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { bigintTransformer } from '../common/transformers/numeric.transformer';
 import { SyncedEntity } from './base.entity';
 
-/** Stock in (FR-7 base). Supplier is free-form in V1; a supplier entity is deferred. */
+/** Stock in (FR-7 base), and what of it is still owed to the supplier (FR-18). */
 @Entity('goods_receipt')
 export class GoodsReceipt extends SyncedEntity {
   @Column('uuid', { name: 'branch_id' })
   branchId: string;
 
+  /** The supplier's name as written on the day. Kept even when `supplierId` is set. */
   @Column('text', { name: 'supplier_name' })
   supplierName: string;
+
+  /** Which supplier (FR-18, ADR-038). Null on a receipt from before suppliers existed. */
+  @Column('uuid', { name: 'supplier_id', nullable: true })
+  supplierId: string | null;
+
+  /** The part of this delivery not paid for when it arrived. Zero: paid on delivery. */
+  @Column('bigint', { name: 'owed_santim', default: 0, transformer: bigintTransformer })
+  owedSantim: number;
 
   @Column('timestamptz', { name: 'received_at' })
   receivedAt: Date;

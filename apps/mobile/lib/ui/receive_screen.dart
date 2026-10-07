@@ -8,6 +8,7 @@ import '../core/money.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../data/inventory_repository.dart';
+import '../data/supplier_repository.dart';
 import '../l10n/locale_store.dart';
 import 'kit.dart';
 import 'scan_screen.dart';
@@ -22,7 +23,12 @@ import 'terminal.dart';
 /// The expiry date is entered as a **Gregorian calendar date** — the box and the paperwork
 /// print Gregorian — and shown in the Ethiopian calendar beside it (BR-10.2).
 class ReceiveScreen extends StatefulWidget {
-  const ReceiveScreen({super.key});
+  const ReceiveScreen({super.key, this.debugLines = const []});
+
+  /// For tests: lines already on the receipt. Adding one by hand goes through a product
+  /// dropdown and a date picker, which is its own test and not every test's preamble.
+  @visibleForTesting
+  final List<ReceiptLine> debugLines;
 
   @override
   State<ReceiveScreen> createState() => _ReceiveScreenState();
@@ -30,8 +36,16 @@ class ReceiveScreen extends StatefulWidget {
 
 class _ReceiveScreenState extends State<ReceiveScreen> {
   final _supplier = TextEditingController();
-  final List<ReceiptLine> _lines = [];
+  final _paidNow = TextEditingController();
+  late final List<ReceiptLine> _lines = [...widget.debugLines];
   List<LocalProduct>? _products;
+
+  /// The suppliers this phone knows, offered as the name is typed (FR-18).
+  List<LocalSupplier> _suppliers = const [];
+
+  /// Whether some of this delivery is not paid for yet. Off by default: paid on delivery
+  /// is what every receipt before suppliers was, and the common case at a small shop.
+  bool _onAccount = false;
   bool _busy = false;
 
   @override
@@ -49,12 +63,16 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
               p.where((x) => !x.isControlled || t.controlledEnabled).toList());
         }
       }));
+      unawaited(t.suppliers.suppliers().then((s) {
+        if (mounted) setState(() => _suppliers = s);
+      }));
     }
   }
 
   @override
   void dispose() {
     _supplier.dispose();
+    _paidNow.dispose();
     super.dispose();
   }
 
@@ -70,10 +88,15 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   Future<void> _commit() async {
     final t = TerminalScope.read(context);
     setState(() => _busy = true);
+    // The supplier already known by this name, or a new one: the list builds itself from
+    // what is typed here, so nobody has to "set up suppliers" before a van can be unloaded.
+    final supplier = await t.suppliers.findOrCreate(_supplier.text);
     await t.inventory.commitReceipt(
       lines: List.of(_lines),
-      supplierName: _supplier.text.trim(),
+      supplierName: supplier.name,
       branchId: t.branchId,
+      supplierId: supplier.id,
+      owedSantim: _owed ?? 0,
     );
     await t.refresh();
     unawaited(t.sync());
@@ -84,6 +107,27 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
   }
 
   int get _totalCost => _lines.fold(0, (sum, l) => sum + l.costSantim * l.qty);
+
+  /// What this delivery leaves owing, or null when what was typed cannot be right: not
+  /// money, or more paid than the delivery cost.
+  int? get _owed {
+    if (!_onAccount) return 0;
+    final text = _paidNow.text.trim();
+    final paid = text.isEmpty ? 0 : parseBirr(text);
+    if (paid == null || paid > _totalCost) return null;
+    return _totalCost - paid;
+  }
+
+  /// Known suppliers matching what is being typed — but not once it names one exactly.
+  List<LocalSupplier> get _suggestions {
+    final q = _supplier.text.trim().toLowerCase();
+    if (q.isEmpty) return _suppliers.take(4).toList();
+    if (_suppliers.any((s) => s.name.toLowerCase() == q)) return const [];
+    return _suppliers
+        .where((s) => s.name.toLowerCase().contains(q))
+        .take(4)
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +149,21 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                   controller: _supplier,
                   onChanged: (_) => setState(() {}),
                 ),
+                // One tap instead of typing the name again — and the same supplier every
+                // time, rather than "EPSS", "Epss" and "E.P.S.S" each owed separately.
+                if (_suggestions.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Wrap(spacing: 8, runSpacing: 4, children: [
+                      for (final s in _suggestions)
+                        ActionChip(
+                          label: Text(s.name),
+                          onPressed: () => setState(() {
+                            _supplier.text = s.name;
+                          }),
+                        ),
+                    ]),
+                  ),
                 PSection(context.t('receive.items')),
                 if (products != null && products.isEmpty)
                   PNotice.text(Tone.amber, Icons.info_outline,
@@ -145,6 +204,36 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
                     context.t('receive.totalCost'),
                     formatMoney(_totalCost)
                   )),
+                // Paid for, or owed (FR-18). Asked only once there is something to owe.
+                if (_lines.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  PSegmented<bool>(
+                    options: [
+                      (false, context.t('receive.paid')),
+                      (true, context.t('receive.notPaid')),
+                    ],
+                    value: _onAccount,
+                    onChanged: (v) => setState(() => _onAccount = v),
+                  ),
+                  if (_onAccount) ...[
+                    PField(
+                      label: context.t('receive.paidNow'),
+                      helper: context.t('receive.paidNowHint'),
+                      controller: _paidNow,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    PSummary(
+                      margin: false,
+                      lines: const [],
+                      total: (
+                        context.t('receive.owedAfter'),
+                        _owed == null ? '—' : formatMoney(_owed!)
+                      ),
+                    ),
+                  ],
+                ],
                 const SizedBox(height: 14),
                 PNotice.text(Tone.blue, Icons.info_outline,
                     context.t('receive.batchNotice')),
@@ -153,7 +242,10 @@ class _ReceiveScreenState extends State<ReceiveScreen> {
         PFooter(
           child: PButton(
             label: context.t(_busy ? 'receive.saving' : 'receive.confirm'),
-            onPressed: _busy || _lines.isEmpty || _supplier.text.trim().isEmpty
+            onPressed: _busy ||
+                    _lines.isEmpty ||
+                    _supplier.text.trim().isEmpty ||
+                    _owed == null
                 ? null
                 : _commit,
           ),

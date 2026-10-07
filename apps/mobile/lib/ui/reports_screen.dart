@@ -130,7 +130,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   value: s == null ? '—' : formatEtbShort(s.total.grossSantim),
                   delta: s == null
                       ? null
-                      : '${s.total.saleCount} ${context.t('home.sales')} · ${context.t('reports.avg')} ${formatBirr(avg)}',
+                      : '${s.total.saleCount} ${context.t(s.total.saleCount == 1 ? 'home.sale' : 'home.sales')} · ${context.t('reports.avg')} ${formatBirr(avg)}',
                 ),
                 tiles: [
                   PTile(
@@ -259,7 +259,7 @@ class _SalesSummaryScreen extends StatelessWidget {
                   label: context.t('reports.total'),
                   value: formatEtbShort(summary.total.grossSantim),
                   delta:
-                      '${summary.total.saleCount} ${context.t('home.sales')} · ${summary.total.itemsSold} ${context.t('reports.items')}',
+                      '${summary.total.saleCount} ${context.t(summary.total.saleCount == 1 ? 'home.sale' : 'home.sales')} · ${summary.total.itemsSold} ${context.t('reports.items')}',
                 ),
                 tiles: [
                   PTile(
@@ -300,7 +300,7 @@ class _SalesSummaryScreen extends StatelessWidget {
                       avatar: b.branchName.characters.first,
                       title: b.branchName,
                       subtitle:
-                          '${b.saleCount} ${context.t('home.sales')} · ${b.itemsSold} ${context.t('reports.items')}',
+                          '${b.saleCount} ${context.t(b.saleCount == 1 ? 'home.sale' : 'home.sales')} · ${b.itemsSold} ${context.t('reports.items')}',
                       value: formatBirr(b.grossSantim),
                       valueCaption: 'ETB',
                     ),
@@ -355,7 +355,7 @@ class _CashUpsScreen extends StatelessWidget {
                             : Tone.green,
                     title: '${s.userName} · ${s.branchName}',
                     subtitle:
-                        '${context.l10n.date(s.openedAt)} ${context.l10n.time(s.openedAt)} · ${s.saleCount} ${context.t('home.sales')}'
+                        '${context.l10n.date(s.openedAt)} ${context.l10n.time(s.openedAt)} · ${s.saleCount} ${context.t(s.saleCount == 1 ? 'home.sale' : 'home.sales')}'
                         '${s.note == null ? '' : '\n“${s.note}”'}',
                     value: s.varianceSantim == null
                         ? context.t('reports.open')

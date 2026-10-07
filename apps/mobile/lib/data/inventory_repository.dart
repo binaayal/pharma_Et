@@ -75,9 +75,24 @@ class InventoryRepository {
     required List<ReceiptLine> lines,
     required String supplierName,
     required String branchId,
+
+    /// Which supplier this came from (FR-18, ADR-038), when the phone knows one.
+    String? supplierId,
+
+    /// The part of the delivery **not paid for yet**. Zero: paid on delivery.
+    int owedSantim = 0,
   }) async {
     if (lines.isEmpty) {
       throw ArgumentError('a receipt must have at least one line');
+    }
+    final cost = lines.fold<int>(0, (sum, l) => sum + l.qty * l.costSantim);
+    if (owedSantim < 0 || owedSantim > cost) {
+      // The contract refuses it too. Refused here first, so a slip of the thumb is a
+      // message on the screen and not a receipt parked in the outbox.
+      throw ArgumentError('a delivery cannot leave more owing than it cost');
+    }
+    if (owedSantim > 0 && supplierId == null) {
+      throw ArgumentError('a delivery left owing must name its supplier');
     }
 
     final receiptId = newId();
@@ -89,6 +104,8 @@ class InventoryRepository {
         'id': receiptId,
         'branch_id': branchId,
         'supplier_name': supplierName,
+        'supplier_id': supplierId,
+        'owed_santim': owedSantim,
         'received_at': receivedAt.toIso8601String(),
         'synced': 0,
       });
@@ -138,6 +155,10 @@ class InventoryRepository {
         entityId: receiptId,
         payload: {
           'supplierName': supplierName,
+          // Contract 1.9.0 (FR-18). Both omitted on a receipt with no supplier account,
+          // which is then exactly what 1.8.0 sent.
+          if (supplierId != null) 'supplierId': supplierId,
+          if (owedSantim > 0) 'owedSantim': owedSantim,
           'receivedAt': receivedAt.toIso8601String(),
           'lines': linePayloads,
         },
