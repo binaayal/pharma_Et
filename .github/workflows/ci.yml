@@ -424,8 +424,22 @@ jobs:
           # the PR ADDED. Without the rm, a PR's new test files would survive and run against
           # the old code they were written for — the job would fail for a reason that has
           # nothing to do with rollback, and its real signal would be lost in the noise.
+          #
+          # "Previous" depends on how the run started. On a pull request it is the base
+          # branch. On a push to main there is no base branch — `github.base_ref` is empty,
+          # and `origin/` is not a ref — so it is the commit main pointed at before the push,
+          # which is the release that would be redeployed in a rollback.
+          if [ -n "${{ github.base_ref }}" ]; then
+            PREVIOUS="origin/${{ github.base_ref }}"
+          else
+            PREVIOUS="${{ github.event.before }}"
+            git cat-file -e "$PREVIOUS^{commit}" 2>/dev/null \
+              || git fetch --no-tags --depth=1 origin "$PREVIOUS"
+          fi
+          echo "PREVIOUS=$PREVIOUS" >> "$GITHUB_ENV"
+
           rm -rf apps/api/src apps/api/test packages/contracts/src
-          git checkout "origin/${{ github.base_ref }}" -- \
+          git checkout "$PREVIOUS" -- \
             apps/api/src apps/api/test packages/contracts/src
 
           # Everything reverts EXCEPT the migrations directory. Keeping the new migration
@@ -440,7 +454,7 @@ jobs:
           # than on anything about the schema.
           pnpm --filter @pharmaet/contracts build
 
-          echo "### Rolled back to \`origin/${{ github.base_ref }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Rolled back to \`$PREVIOUS\`" >> "$GITHUB_STEP_SUMMARY"
           git diff --stat HEAD -- apps/api/src packages/contracts/src >> "$GITHUB_STEP_SUMMARY"
 
       - name: The previous code must pass on the new schema
