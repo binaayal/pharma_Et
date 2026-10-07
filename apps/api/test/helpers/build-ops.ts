@@ -20,6 +20,8 @@ export function saleOp(
     /** Sold as a pack (contract 1.5.0, FR-11): `qty` and the unit price are per pack. */
     packSize?: number;
     packName?: string;
+    /** The price list it was rung up on (contract 1.8.0, FR-19). Absent is retail. */
+    priceTier?: 'retail' | 'wholesale';
   },
 ) {
   const qty = options.qty ?? 1;
@@ -56,6 +58,8 @@ export function saleOp(
         },
       ],
       payments: [{ id: uuidv7(), method: 'cash' as const, amountSantim: lineTotal }],
+      // Absent, not null, for retail — byte-for-byte what a 1.7.0 terminal sends.
+      ...(options.priceTier ? { priceTier: options.priceTier } : {}),
     },
   };
 }

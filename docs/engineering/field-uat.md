@@ -130,6 +130,7 @@ These three were built and tested without a handset. Each has a part only a shop
 | **Run the debt book for a week** beside the paper one: every credit sale and every repayment in both | At the end of the week the two totals agree, per customer. Note every entry the owner made in the paper book that the app had no place for | Whether "a name and what is owed" is enough, or whether shops need a limit, a due date or a guarantor, is something only a real book shows |
 | **Have the owner read Today's summary each evening for a week** without being reminded, and the Activity log once | Count the evenings they actually opened it. Ask what they looked at first, and what was missing | Whether a summary nobody is nudged to open gets opened is the whole question behind "should it be pushed" (ADR-035 §3) |
 | **Set up ten products from the medicines list** | The pharmacist finds each in a few letters; note every one they could not find, and every suggestion that reads wrongly | The list was parsed from a PDF and spot-checked, not reviewed by a pharmacist |
+| **Give three products a wholesale price**, one of them on a pack, then ring up a mixed basket as Wholesale for a real clinic order | The total is what the owner would have written on paper; the pack editor's four fields are readable and typeable on the shop's phone; the switch is back on Retail for the next customer | Whether two tiers are the tiers this shop has, and whether the widened pack row fits a real 720-pixel screen and a real thumb (ADR-037) |
 
 ## 5. Recording findings
 
@@ -180,7 +181,7 @@ what it found.
 |---|---|
 | Device | Samsung Galaxy A10 (SM-A105F), Android 9, 720×1520 — a low-end handset of the kind §2 asks for |
 | Build | Release APK from CD, version code 60, commit `d8b92d5`, signed with the upload key |
-| Backend | Live (Render free tier), contract 1.7.0 |
+| Backend | Live (Render free tier), contract 1.7.0 (1.8.0 once FR-19 is deployed) |
 | Starting state | v1.0.0 (code 49) installed, signed in, a till open for two days |
 
 **Upgrade in place.** Installed over v1.0.0 without uninstalling. The app opened still signed

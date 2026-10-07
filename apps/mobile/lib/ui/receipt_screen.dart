@@ -26,6 +26,7 @@ class ReceiptScreen extends StatelessWidget {
     required this.commitMs,
     this.creditSantim = 0,
     this.customerName,
+    this.wholesale = false,
   });
 
   final String saleId;
@@ -46,6 +47,9 @@ class ReceiptScreen extends StatelessWidget {
   /// What of this sale went on a customer's account, and whose (FR-16).
   final int creditSantim;
   final String? customerName;
+
+  /// Whether the sale was rung up on the wholesale price list (FR-19).
+  final bool wholesale;
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +88,7 @@ class ReceiptScreen extends StatelessWidget {
       changeSantim: changeSantim,
       creditSantim: creditSantim,
       customerName: customerName,
+      wholesale: wholesale,
     );
 
     return Scaffold(

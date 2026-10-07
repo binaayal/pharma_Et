@@ -44,8 +44,31 @@ export const productPack = z.object({
   name: z.string().trim().min(1).max(40),
   size: packSize,
   priceSantim: santim.nonnegative(),
+  /**
+   * What one of these sells for to a wholesale customer — a clinic, an organisation
+   * (FR-19, ADR-037). Absent or null means the pack has no wholesale price, and a
+   * wholesale sale charges the ordinary one. Stated, never derived, like every price here.
+   *
+   * Added in contract 1.8.0.
+   */
+  wholesalePriceSantim: santim.nonnegative().nullable().optional(),
 });
 export type ProductPack = z.infer<typeof productPack>;
+
+/* -------------------------------------------------------------------------- */
+/* Price tiers (FR-19, ADR-037) — contract v1.8.0                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Which price list a sale was rung up on.
+ *
+ * `retail` is the walk-in customer and every sale before this existed. `wholesale` is the
+ * clinic or organisation that buys at the other price. The tier is a fact about the sale,
+ * recorded so that a report can say how much went out at wholesale — the prices themselves
+ * are on the lines, as they always were, and are not recomputed from the tier.
+ */
+export const priceTier = z.enum(['retail', 'wholesale']);
+export type PriceTier = z.infer<typeof priceTier>;
 
 /** A product's packs: at most a handful, no two alike in name or in size. */
 export const productPacks = z
@@ -196,6 +219,11 @@ export const salePayload = z
      * Added in contract 1.7.0. A 1.6.0 terminal never sends it or a credit payment.
      */
     customerId: uuidv7.nullable().optional(),
+    /**
+     * The price list this sale was rung up on (FR-19, ADR-037). Absent or null is `retail`
+     * — which is what every sale from a pre-1.8.0 terminal is.
+     */
+    priceTier: priceTier.nullable().optional(),
   })
   .refine((s) => s.lines.reduce((sum, l) => sum + l.lineTotalSantim, 0) === s.totalSantim, {
     message: 'sale total must equal the sum of its line totals (G4)',

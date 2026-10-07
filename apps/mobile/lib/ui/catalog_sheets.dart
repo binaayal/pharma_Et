@@ -61,19 +61,31 @@ const maxPackSize = 100000;
 
 /// One pack being typed: its name, how many base units it holds, and what it sells for.
 class PackDraft {
-  PackDraft({String name = '', String size = '', String price = ''})
+  PackDraft(
+      {String name = '',
+      String size = '',
+      String price = '',
+      String wholesale = ''})
       : name = TextEditingController(text: name),
         size = TextEditingController(text: size),
-        price = TextEditingController(text: price);
+        price = TextEditingController(text: price),
+        wholesale = TextEditingController(text: wholesale);
 
   factory PackDraft.of(ProductPack pack) => PackDraft(
       name: pack.name,
       size: '${pack.size}',
-      price: formatMoney(pack.priceSantim));
+      price: formatMoney(pack.priceSantim),
+      wholesale: pack.wholesalePriceSantim == null
+          ? ''
+          : formatMoney(pack.wholesalePriceSantim!));
 
   final TextEditingController name;
   final TextEditingController size;
   final TextEditingController price;
+
+  /// What one sells for to a wholesale customer (FR-19). Optional: empty means the pack
+  /// has one price.
+  final TextEditingController wholesale;
 
   /// A row nobody has typed in is not a mistake; it is ignored.
   bool get isBlank =>
@@ -85,6 +97,7 @@ class PackDraft {
     name.dispose();
     size.dispose();
     price.dispose();
+    wholesale.dispose();
   }
 }
 
@@ -104,7 +117,16 @@ List<ProductPack>? readPacks(List<PackDraft> drafts) {
     if (name.isEmpty || name.length > 40) return null;
     if (size == null || size < 2 || size > maxPackSize) return null;
     if (price == null) return null;
-    packs.add(ProductPack(name: name, size: size, priceSantim: price));
+    // Optional — but if something is typed, it has to be money. A wholesale price that
+    // was meant and mistyped must not be saved as "none".
+    final wholesaleText = draft.wholesale.text.trim();
+    final wholesale = wholesaleText.isEmpty ? null : parseBirr(wholesaleText);
+    if (wholesaleText.isNotEmpty && wholesale == null) return null;
+    packs.add(ProductPack(
+        name: name,
+        size: size,
+        priceSantim: price,
+        wholesalePriceSantim: wholesale));
   }
   if (packs.length > maxPacksPerProduct) return null;
   if (packs.map((p) => p.name.toLowerCase()).toSet().length != packs.length) {
@@ -168,6 +190,20 @@ class PackRows extends StatelessWidget {
                 child: PField(
                   label: context.t('catalog.price'),
                   controller: draft.price,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 5,
+                child: PField(
+                  // The price for a clinic or an organisation (FR-19). Left empty, the
+                  // pack has one price for everybody.
+                  label: context.t('tier.wholesaleShort'),
+                  hint: '—',
+                  controller: draft.wholesale,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => onChanged(),
@@ -544,13 +580,28 @@ class _PriceForm extends StatefulWidget {
 class _PriceFormState extends State<_PriceForm> {
   late final _price =
       TextEditingController(text: formatMoney(widget.product.priceSantim));
+
+  /// The price for a wholesale customer (FR-19). Empty means the product has one price.
+  late final _wholesale = TextEditingController(
+      text: widget.product.wholesalePriceSantim == null
+          ? ''
+          : formatMoney(widget.product.wholesalePriceSantim!));
   bool _busy = false;
   String? _error;
 
   @override
   void dispose() {
     _price.dispose();
+    _wholesale.dispose();
     super.dispose();
+  }
+
+  /// What the wholesale field says: (valid, price-or-null). Empty is valid and means none.
+  (bool, int?) get _wholesaleTyped {
+    final text = _wholesale.text.trim();
+    if (text.isEmpty) return (true, null);
+    final parsed = parseBirr(text);
+    return (parsed != null, parsed);
   }
 
   Future<void> _save() async {
@@ -560,8 +611,18 @@ class _PriceFormState extends State<_PriceForm> {
       _error = null;
     });
     try {
-      await t.authed((token) =>
-          t.api.setPrice(token, widget.product.id, parseBirr(_price.text)!));
+      final retail = parseBirr(_price.text)!;
+      final (_, wholesale) = _wholesaleTyped;
+      // Two writes, each sent only if it changed: each is its own entry in the audit log,
+      // and a price nobody touched should not appear there as changed.
+      if (retail != widget.product.priceSantim) {
+        await t.authed(
+            (token) => t.api.setPrice(token, widget.product.id, retail));
+      }
+      if (wholesale != widget.product.wholesalePriceSantim) {
+        await t.authed((token) =>
+            t.api.setWholesalePrice(token, widget.product.id, wholesale));
+      }
       unawaited(t.sync());
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -577,7 +638,11 @@ class _PriceFormState extends State<_PriceForm> {
   @override
   Widget build(BuildContext context) {
     final next = parseBirr(_price.text);
-    final changed = next != null && next != widget.product.priceSantim;
+    final (wholesaleOk, wholesale) = _wholesaleTyped;
+    final changed = next != null &&
+        wholesaleOk &&
+        (next != widget.product.priceSantim ||
+            wholesale != widget.product.wholesalePriceSantim);
     return Padding(
       padding: EdgeInsets.fromLTRB(
           18, 20, 18, MediaQuery.of(context).viewInsets.bottom + 18),
@@ -601,6 +666,15 @@ class _PriceFormState extends State<_PriceForm> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
           ),
+          if (!widget.product.isControlled)
+            PField(
+              label: context.t('tier.wholesalePrice'),
+              helper: context.t('tier.wholesaleHint'),
+              controller: _wholesale,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+            ),
           PNotice.text(
               Tone.blue, Icons.history, context.t('catalog.priceAudited')),
           if (_error != null)

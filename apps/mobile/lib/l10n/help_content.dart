@@ -250,6 +250,12 @@ class HelpGuide {
           'To sell by scanning, link each product to its barcode once: open the product, tap '
               '"Scan a barcode to link" and point the camera at the box. After that, tap the '
               'scan button on the Sell screen and scan boxes one after another.',
+          'If you also sell to clinics or organisations at a lower price, open the product, '
+              'tap the price and fill in "Wholesale price". A pack can have its own wholesale '
+              'price too. On the Sell screen a Retail / Wholesale switch then appears: tap '
+              'Wholesale and the whole sale is priced from that list. Anything with no '
+              'wholesale price is sold at the normal price. The switch returns to Retail '
+              'after each sale.',
           'Every price change is recorded with the old and new figure and who made it.',
         ],
       ),
@@ -509,6 +515,10 @@ class HelpGuide {
           'በስካን ለመሸጥ እያንዳንዱን ምርት አንድ ጊዜ ከባርኮዱ ጋር ያያይዙ፦ ምርቱን ከፍተው «ለማያያዝ ባርኮድ '
               'ስካን አድርግ» ይንኩና ካሜራውን ወደ ሳጥኑ ያዙሩ። ከዚያ በኋላ በሽያጭ ገጹ ላይ የስካን ቁልፉን '
               'ነክተው ሳጥኖቹን አንድ በአንድ ስካን ያድርጉ።',
+          'ለክሊኒኮች ወይም ለድርጅቶች በዝቅተኛ ዋጋ የሚሸጡ ከሆነ ምርቱን ከፍተው ዋጋውን ይንኩና «የጅምላ ዋጋ» '
+              'ይሙሉ። ፓኬትም የራሱ የጅምላ ዋጋ ሊኖረው ይችላል። ከዚያ በሽያጭ ገጹ ላይ ችርቻሮ / ጅምላ መቀያየሪያ '
+              'ይታያል፦ «ጅምላ»ን ሲነኩ ሙሉ ሽያጩ በጅምላ ዋጋ ይሰላል። የጅምላ ዋጋ የሌለው ምርት በመደበኛ ዋጋው '
+              'ይሸጣል። ከእያንዳንዱ ሽያጭ በኋላ መቀያየሪያው ወደ ችርቻሮ ይመለሳል።',
           'እያንዳንዱ የዋጋ ለውጥ ከቀድሞውና ከአዲሱ ዋጋ እንዲሁም ከቀየረው ሰው ጋር ይመዘገባል።',
         ],
       ),

@@ -176,6 +176,11 @@ export const productRef = z.object({
    * (ADR-012 §1): a 1.4.0 terminal ignores it and keeps selling in the base unit. The
    * server always sends it, empty when the product has none.
    */
+  /**
+   * The base unit's price for a wholesale customer (FR-19, ADR-037). Null or absent when
+   * the product has none; a wholesale sale then charges `currentPriceSantim`.
+   */
+  wholesalePriceSantim: santim.nonnegative().nullable().optional(),
   packs: productPacks.optional(),
   /**
    * The barcodes that identify this product at the counter (FR-13, ADR-031), in canonical

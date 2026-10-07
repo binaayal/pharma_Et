@@ -235,6 +235,7 @@ class AuditEntry {
   /// Which filter chip this entry belongs under.
   AuditKind get kind => switch (eventType) {
         'audit.price_changed' ||
+        'audit.wholesale_price_changed' ||
         'audit.packs_changed' ||
         'audit.product_created' ||
         'audit.barcodes_changed' =>
@@ -255,6 +256,12 @@ class AuditEntry {
       case 'audit.price_changed':
         return _int(payload['priceSantim']) <
             _int(payload['previousPriceSantim']);
+      case 'audit.wholesale_price_changed':
+        // Lowered, not newly set: a first wholesale price is below retail by design, and
+        // flagging every one would teach the owner to ignore the flag.
+        return payload['previousPriceSantim'] != null &&
+            payload['priceSantim'] != null &&
+            _int(payload['priceSantim']) < _int(payload['previousPriceSantim']);
       case 'audit.stock_adjusted':
         return _int(payload['delta']) < 0 && payload['reason'] != 'recount';
       case 'audit.expired_dispense':
@@ -281,6 +288,21 @@ class AuditEntry {
           'product': product(),
           'from': formatMoney(_int(p['previousPriceSantim'])),
           'to': formatMoney(_int(p['priceSantim'])),
+        });
+      case 'audit.wholesale_price_changed':
+        final from = p['previousPriceSantim'];
+        final to = p['priceSantim'];
+        if (to == null) {
+          return s.f('audit.say.wholesaleRemoved', {'product': product()});
+        }
+        if (from == null) {
+          return s.f('audit.say.wholesaleSet',
+              {'product': product(), 'to': formatMoney(_int(to))});
+        }
+        return s.f('audit.say.wholesale', {
+          'product': product(),
+          'from': formatMoney(_int(from)),
+          'to': formatMoney(_int(to)),
         });
       case 'audit.packs_changed':
         return s.f('audit.say.packs', {'product': product()});

@@ -50,6 +50,46 @@ void main() {
         changeSantim: tender == ReceiptTender.cash ? received - 25000 : 0,
       );
 
+  group('a wholesale sale (FR-19)', () {
+    ReceiptDoc wholesale(bool on) => ReceiptDoc(
+          shop: 'Bole Pharmacy',
+          number: 'BOL-1A2B',
+          soldAt: soldAt,
+          cashier: 'Hana',
+          lines: const [
+            ReceiptLine(
+                name: 'Amoxicillin 500mg capsule',
+                qty: 2,
+                unit: 'box',
+                unitPriceSantim: 8500,
+                totalSantim: 17000),
+          ],
+          totalSantim: 17000,
+          tender: ReceiptTender.cash,
+          receivedSantim: 17000,
+          changeSantim: 0,
+          wholesale: on,
+        );
+
+    test('says so beside the sale number, in the till\'s language', () {
+      expect(wholesale(true).toText(Strings.en),
+          contains('#BOL-1A2B · Wholesale'));
+      expect(wholesale(true).toText(Strings.am), contains('· ጅምላ'));
+    });
+
+    test('a retail slip says nothing about tiers', () {
+      expect(wholesale(false).toText(Strings.en), isNot(contains('Wholesale')));
+    });
+
+    test('prints, on a roll and on cut paper', () async {
+      for (final format in [PdfPageFormat.roll80, PdfPageFormat.a4]) {
+        final bytes = await ReceiptOutput.pdf(wholesale(true), Strings.am,
+            format: format);
+        expect(bytes.length, greaterThan(1000));
+      }
+    });
+  });
+
   group('the sale reference', () {
     test('is three letters of the branch and the tail of the sale id', () {
       expect(

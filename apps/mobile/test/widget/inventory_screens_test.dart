@@ -9,6 +9,7 @@ import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/inventory_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/data/medicine_catalogue.dart';
+import 'package:pharmaet_mobile/ui/catalog_sheets.dart';
 import 'package:pharmaet_mobile/ui/kit.dart';
 import 'package:pharmaet_mobile/ui/receive_screen.dart';
 import 'package:pharmaet_mobile/ui/reconcile_screen.dart';
@@ -267,6 +268,108 @@ void main() {
       expect(field(tester, 0), isEmpty);
       expect(field(tester, 2), isEmpty);
       expect(find.textContaining('1 added'), findsOneWidget);
+    });
+  });
+
+  group('the price form (FR-19: a second price for wholesale)', () {
+    Future<List<(String, Map<String, dynamic>)>> openPrice(WidgetTester tester,
+        {int? wholesale, bool controlled = false}) async {
+      final posted = <(String, Map<String, dynamic>)>[];
+      final owner = TestTerminal.build(db, role: 'owner',
+          api: MockClient((request) async {
+        if (request.method == 'POST') {
+          posted.add((
+            request.url.path,
+            jsonDecode(request.body) as Map<String, dynamic>
+          ));
+          return http.Response('{}', 201);
+        }
+        return http.Response('{}', 503);
+      }));
+      final product = LocalProduct(
+          id: 'p1',
+          name: 'Amoxicillin',
+          unit: 'capsule',
+          isControlled: controlled,
+          priceSantim: 400,
+          wholesalePriceSantim: wholesale);
+      await pumpTerminalScreen(
+          tester,
+          owner.terminal,
+          Scaffold(
+              body: Builder(
+                  builder: (context) => TextButton(
+                      onPressed: () => showPriceForm(context, product),
+                      child: const Text('open')))));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      return posted;
+    }
+
+    Future<void> save(WidgetTester tester) async {
+      await tester.tap(find.text('Save price'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('setting a wholesale price sends that, and nothing else',
+        (tester) async {
+      final posted = await openPrice(tester);
+      // Nothing changed yet: nothing to save.
+      expect(button(tester, 'Save price').onPressed, isNull);
+
+      await tester.enterText(find.byType(TextField).at(1), '3.30');
+      await tester.pump();
+      await save(tester);
+
+      // The retail price was not touched, so it is not written — and so does not appear
+      // in the activity log as a price change nobody made.
+      expect(posted.single.$1, '/products/p1/wholesale-price');
+      expect(posted.single.$2['priceSantim'], 330);
+    });
+
+    testWidgets('emptying the field removes the wholesale price',
+        (tester) async {
+      final posted = await openPrice(tester, wholesale: 330);
+      expect(
+          tester
+              .widget<TextField>(find.byType(TextField).at(1))
+              .controller!
+              .text,
+          '3.30');
+
+      await tester.enterText(find.byType(TextField).at(1), '');
+      await tester.pump();
+      await save(tester);
+
+      expect(posted.single.$1, '/products/p1/wholesale-price');
+      expect(posted.single.$2['priceSantim'], isNull);
+    });
+
+    testWidgets('changing both writes both, each as its own entry',
+        (tester) async {
+      final posted = await openPrice(tester, wholesale: 330);
+      await tester.enterText(find.byType(TextField).at(0), '4.50');
+      await tester.enterText(find.byType(TextField).at(1), '3.60');
+      await tester.pump();
+      await save(tester);
+
+      expect(posted.map((p) => p.$1),
+          ['/products/p1/price', '/products/p1/wholesale-price']);
+      expect(posted.first.$2['priceSantim'], 450);
+      expect(posted.last.$2['priceSantim'], 360);
+    });
+
+    testWidgets('a mistyped wholesale price cannot be saved', (tester) async {
+      await openPrice(tester);
+      await tester.enterText(find.byType(TextField).at(1), '3.3x');
+      await tester.pump();
+      expect(button(tester, 'Save price').onPressed, isNull);
+    });
+
+    testWidgets('a controlled substance has no wholesale price to set',
+        (tester) async {
+      await openPrice(tester, controlled: true);
+      expect(find.textContaining('Wholesale price'), findsNothing);
     });
   });
 

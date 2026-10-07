@@ -225,6 +225,34 @@ void main() {
           isFalse);
     });
 
+    test('a wholesale price change reads as one, in each of its three forms',
+        () {
+      Map<String, dynamic> p(int? from, int? to) => {
+            'productName': 'Amoxicillin',
+            'previousPriceSantim': from,
+            'priceSantim': to,
+          };
+      final set = entry('audit.wholesale_price_changed', p(null, 330));
+      final changed = entry('audit.wholesale_price_changed', p(330, 300));
+      final removed = entry('audit.wholesale_price_changed', p(300, null));
+
+      expect(set.describe(Strings.en),
+          'Wholesale price of Amoxicillin set to 3.30');
+      expect(changed.describe(Strings.en),
+          'Wholesale price of Amoxicillin changed from 3.30 to 3.00');
+      expect(removed.describe(Strings.en),
+          'Wholesale price of Amoxicillin removed');
+      expect(changed.describe(Strings.am), contains('የጅምላ ዋጋ'));
+      expect(set.kind, AuditKind.prices);
+
+      // Lowered is worth a second look. Set for the first time, raised, or removed is not.
+      expect(changed.flagged, isTrue);
+      expect(set.flagged, isFalse);
+      expect(removed.flagged, isFalse);
+      expect(
+          entry('audit.wholesale_price_changed', p(300, 330)).flagged, isFalse);
+    });
+
     test('a write-off names the medicine from this phone\'s catalogue, and why',
         () {
       final e = entry('audit.stock_adjusted', {

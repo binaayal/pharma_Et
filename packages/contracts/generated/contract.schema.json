@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PharmaEt sync & API contract",
   "description": "Generated from packages/contracts/src by `pnpm gen:contracts`. Do not hand-edit. This is a controlled artifact — see docs/06-delivery-plan.md §7.",
-  "contractVersion": "1.7.0",
+  "contractVersion": "1.8.0",
   "definitions": {
     "Operation": {
       "anyOf": [
@@ -593,7 +593,7 @@
       "properties": {
         "contractVersion": {
           "type": "string",
-          "default": "1.7.0"
+          "default": "1.8.0"
         },
         "terminalId": {
           "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
@@ -719,6 +719,19 @@
         "currentPriceSantim": {
           "type": "integer",
           "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "wholesalePriceSantim": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Money in santim (1 ETB = 100 santim)"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "description": "Money in santim (1 ETB = 100 santim)"
         },
         "packs": {
@@ -1000,6 +1013,20 @@
             }
           ],
           "description": "Client-generated UUIDv7 identifier"
+        },
+        "priceTier": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "retail",
+                "wholesale"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -1109,6 +1136,19 @@
         "priceSantim": {
           "type": "integer",
           "minimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "wholesalePriceSantim": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Money in santim (1 ETB = 100 santim)"
+            },
+            {
+              "type": "null"
+            }
+          ],
           "description": "Money in santim (1 ETB = 100 santim)"
         }
       },

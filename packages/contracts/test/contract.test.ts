@@ -12,6 +12,7 @@ import {
   customerPayload,
   customerRef,
   productBarcodes,
+  priceTier,
   pullResponse,
   cashUpPayload,
   goodsReceiptPayload,
@@ -565,6 +566,72 @@ describe('contract v1.7.0 — customer credit ledger (FR-16, ADR-034)', () => {
     for (const v of ['1.0.0', '1.5.0', '1.6.0', '1.7.0']) {
       expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
     }
-    expect(CONTRACT_VERSION).toBe('1.7.0');
+  });
+});
+
+describe('contract v1.8.0 — price tiers (FR-19, ADR-037)', () => {
+  it('accepts a sale rung up at wholesale', () => {
+    const parsed = salePayload.parse({ ...validSale, priceTier: 'wholesale' });
+    expect(parsed.priceTier).toBe('wholesale');
+  });
+
+  it('still accepts a 1.7.0 sale unchanged — no tier at all (ADR-009)', () => {
+    expect(salePayload.safeParse(validSale).success).toBe(true);
+    expect(salePayload.parse(validSale).priceTier).toBeUndefined();
+  });
+
+  it('accepts explicit null, which is what the generated Dart sends for retail', () => {
+    expect(salePayload.safeParse({ ...validSale, priceTier: null }).success).toBe(true);
+  });
+
+  it('refuses a tier that is not one of the two', () => {
+    expect(priceTier.safeParse('staff').success).toBe(false);
+    expect(salePayload.safeParse({ ...validSale, priceTier: 'vip' }).success).toBe(false);
+  });
+
+  it('does not let the tier touch the money rule: total is still qty × the price charged', () => {
+    const wrong = {
+      ...validSale,
+      priceTier: 'wholesale',
+      lines: [{ ...validSale.lines[0], lineTotalSantim: 4000 }],
+      totalSantim: 4000,
+    };
+    expect(salePayload.safeParse(wrong).success).toBe(false);
+  });
+
+  it('carries a wholesale price on a pack, and none on a pack without one', () => {
+    const box = { name: 'box', size: 30, priceSantim: 10_000 };
+    expect(productPacks.safeParse([box]).success).toBe(true);
+    expect(productPacks.safeParse([{ ...box, wholesalePriceSantim: 9_000 }]).success).toBe(true);
+    expect(productPacks.safeParse([{ ...box, wholesalePriceSantim: null }]).success).toBe(true);
+    expect(productPacks.safeParse([{ ...box, wholesalePriceSantim: 90.5 }]).success).toBe(false);
+    expect(productPacks.safeParse([{ ...box, wholesalePriceSantim: -1 }]).success).toBe(false);
+  });
+
+  const ref = {
+    id: PRODUCT,
+    name: 'Amoxicillin 500mg capsule',
+    unit: 'capsule',
+    isControlled: false,
+    psychotropicClass: null,
+    currentPriceSantim: 400,
+    changeSeq: 7,
+    deletedAt: null,
+  };
+
+  it('pulls a product with no wholesale price — what a 1.7.0 server sends', () => {
+    expect(productRef.safeParse(ref).success).toBe(true);
+  });
+
+  it('pulls a product with one, or with an explicit null', () => {
+    expect(productRef.parse({ ...ref, wholesalePriceSantim: 350 }).wholesalePriceSantim).toBe(350);
+    expect(productRef.safeParse({ ...ref, wholesalePriceSantim: null }).success).toBe(true);
+  });
+
+  it('keeps every earlier version inside the support window (ADR-009)', () => {
+    for (const v of ['1.0.0', '1.6.0', '1.7.0', '1.8.0']) {
+      expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
+    }
+    expect(CONTRACT_VERSION).toBe('1.8.0');
   });
 });

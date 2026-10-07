@@ -17,6 +17,8 @@ import { AppUser, DomainEvent } from '../../entities';
  */
 export const AUDIT_EVENT_TYPES = [
   'audit.price_changed',
+  // FR-19. The price the largest sales go out at.
+  'audit.wholesale_price_changed',
   // FR-11. A pack carries its own price, so changing one is a price change by another route.
   'audit.packs_changed',
   // FR-13. A barcode decides which product — and so which price — a scan rings up.

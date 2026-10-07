@@ -55,6 +55,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
     final credit = _tender == Tender.credit;
     final paidNow = credit ? (parseBirr(_paidNow.text) ?? 0) : 0;
     final customer = _customer;
+    // Read before committing: the till goes back to retail the moment the sale is saved.
+    final wholesale = t.wholesale;
     final lines = [
       for (final line in t.cart)
         (
@@ -83,6 +85,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         changeSantim: credit ? 0 : received - due,
         creditSantim: credit ? due - paidNow : 0,
         customerName: credit ? customer?.name : null,
+        wholesale: wholesale,
         lines: lines,
         tender: _tender,
         commitMs: elapsed,

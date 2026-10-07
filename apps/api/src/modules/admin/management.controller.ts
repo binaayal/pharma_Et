@@ -51,6 +51,7 @@ const productInput = z.object({
   // server accepts is by construction one every terminal can read.
   packs: productPacks.optional(),
   barcodes: scannedBarcodes.optional(),
+  wholesalePriceSantim: z.number().int().nonnegative().nullable().optional(),
 });
 
 const packsInput = z.object({ packs: productPacks });
@@ -58,6 +59,11 @@ const packsInput = z.object({ packs: productPacks });
 const barcodesInput = z.object({ barcodes: scannedBarcodes });
 
 const priceInput = z.object({ priceSantim: z.number().int().nonnegative() });
+
+/** Null removes the wholesale price: the product goes back to having one price. */
+const wholesalePriceInput = z.object({
+  priceSantim: z.number().int().nonnegative().nullable(),
+});
 
 /**
  * Tenant administration (FR-1, FR-2, FR-3).
@@ -151,6 +157,17 @@ export class ManagementController {
     @Body(new ZodValidationPipe(priceInput)) body: z.infer<typeof priceInput>,
   ) {
     return this.management.setPrice(scope, id, body.priceSantim);
+  }
+
+  /** Sets or removes a product's wholesale price (FR-19). A price change like any other. */
+  @Post('products/:id/wholesale-price')
+  @RequireCapability('catalog.manage')
+  setWholesalePrice(
+    @CurrentScope() scope: TenantScope,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(wholesalePriceInput)) body: z.infer<typeof wholesalePriceInput>,
+  ) {
+    return this.management.setWholesalePrice(scope, id, body.priceSantim);
   }
 
   /**

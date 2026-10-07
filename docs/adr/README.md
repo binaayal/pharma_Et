@@ -44,5 +44,6 @@ quietly work around an accepted ADR in code.
 | [ADR-034](ADR-034-customer-credit-ledger.md) | The customer credit ledger: a debt is a payment row, and the balance is two figures | Accepted |
 | [ADR-035](ADR-035-owner-summary-and-audit-on-the-phone.md) | The owner's evening: a daily summary they open, and the audit trail as sentences | Accepted |
 | [ADR-036](ADR-036-insights-on-the-phone.md) | Reorder, profit, dead stock and returns are worked out on the phone | Accepted |
+| [ADR-037](ADR-037-price-tiers.md) | Price tiers: a second price on the product, a tier on the sale | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

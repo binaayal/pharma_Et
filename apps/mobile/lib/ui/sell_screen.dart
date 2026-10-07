@@ -201,6 +201,18 @@ class _SellScreenState extends State<SellScreen> {
                     onScan: t.can(Capability.saleCreate) ? _scan : null,
                     scanTooltip: context.t('sell.scan'),
                   ),
+                  // Retail or wholesale (FR-19). Shown only where the pharmacy has set a
+                  // wholesale price on something — otherwise it is a choice between two
+                  // identical prices.
+                  if (t.hasWholesalePrices && t.can(Capability.saleCreate))
+                    PSegmented<bool>(
+                      options: [
+                        (false, context.t('tier.retail')),
+                        (true, context.t('tier.wholesale')),
+                      ],
+                      value: t.wholesale,
+                      onChanged: t.setWholesale,
+                    ),
                   if (t.shift == null && t.can(Capability.saleCreate))
                     GestureDetector(
                       onTap: () => openTill(context),
@@ -239,7 +251,9 @@ class _SellScreenState extends State<SellScreen> {
                                   style: const TextStyle(
                                       fontSize: 12.5,
                                       color: PharmaColors.muted)),
-                          value: formatMoney(p.priceSantim),
+                          value: formatMoney(
+                              (t.wholesale ? p.wholesalePriceSantim : null) ??
+                                  p.priceSantim),
                           valueCaption: 'ETB',
                           onTap: () => _add(p),
                         ),
@@ -326,14 +340,19 @@ class _SellScreenState extends State<SellScreen> {
               Wrap(spacing: 6, runSpacing: 6, children: [
                 _UnitChip(
                   label: line.product.unit,
-                  price: line.product.priceSantim,
+                  // What this unit costs on the list the sale is on.
+                  price: (t.wholesale
+                          ? line.product.wholesalePriceSantim
+                          : null) ??
+                      line.product.priceSantim,
                   selected: line.pack == null,
                   onTap: () => t.setPack(index, null),
                 ),
                 for (final pack in line.product.packs)
                   _UnitChip(
                     label: pack.name,
-                    price: pack.priceSantim,
+                    price: (t.wholesale ? pack.wholesalePriceSantim : null) ??
+                        pack.priceSantim,
                     selected: _samePack(line.pack, pack),
                     onTap: () => t.setPack(index, pack),
                   ),

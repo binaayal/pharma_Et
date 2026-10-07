@@ -310,14 +310,18 @@ class _ProductScreenState extends State<ProductScreen> {
                   title: p.unit,
                   subtitle: context.t('packs.baseUnit'),
                   value: formatMoney(p.priceSantim),
-                  valueCaption: 'ETB',
+                  valueCaption: p.wholesalePriceSantim == null
+                      ? 'ETB'
+                      : '${context.t('tier.wholesaleShort')} ${formatMoney(p.wholesalePriceSantim!)}',
                 ),
                 for (final pack in p.packs)
                   PRow(
                     title: pack.name,
                     subtitle: '${pack.size} ${p.unit}',
                     value: formatMoney(pack.priceSantim),
-                    valueCaption: 'ETB',
+                    valueCaption: pack.wholesalePriceSantim == null
+                        ? 'ETB'
+                        : '${context.t('tier.wholesaleShort')} ${formatMoney(pack.wholesalePriceSantim!)}',
                   ),
               ]),
               if (t.can(Capability.catalogManage))

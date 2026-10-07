@@ -178,6 +178,14 @@ class TenantApi {
           },
           token: token);
 
+  /// Sets a product's wholesale price, or removes it with null (FR-19). Audited like the
+  /// retail price, with the figure before and after.
+  Future<void> setWholesalePrice(
+          String token, String productId, int? priceSantim) =>
+      _post(
+          '/products/$productId/wholesale-price', {'priceSantim': priceSantim},
+          token: token);
+
   /// Replaces the barcodes that identify a product (FR-13). The server stores each in
   /// canonical form and refuses one another product already carries (409), with that
   /// product's name in the message.
@@ -330,6 +338,7 @@ class SalesFigures {
     required this.cashSantim,
     required this.itemsSold,
     this.creditSantim = 0,
+    this.wholesaleSantim = 0,
   });
   factory SalesFigures.fromJson(Map<String, dynamic> j) => SalesFigures(
         saleCount: _int(j['saleCount']),
@@ -339,6 +348,7 @@ class SalesFigures {
         // Absent from a server that predates the credit ledger, which reads as zero —
         // and on such a server it is.
         creditSantim: _int(j['creditSantim']),
+        wholesaleSantim: _int(j['wholesaleSantim']),
       );
   final int saleCount;
   final int grossSantim;
@@ -347,6 +357,10 @@ class SalesFigures {
 
   /// Sold on credit: revenue, not yet money (FR-16).
   final int creditSantim;
+
+  /// The part of gross that went out on the wholesale price list (FR-19). A way of
+  /// reading the total, not a tender: it overlaps cash, other tender and credit.
+  final int wholesaleSantim;
 
   /// Telebirr, bank transfer and the like — what was paid, but not in cash. Credit is
   /// taken out: a debt shown as "other tender" would read as money that came in.
