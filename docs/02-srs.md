@@ -561,6 +561,40 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-7a — Reorder suggestions · Priority: S · V2
+**Actors:** Owner, Branch Manager. **Design:** ADR-036.
+
+**Business rules:**
+- BR-7a.1 A product is suggested for reorder when it has sold in the last 30 days and stock on hand covers fewer than 14 days at that rate, including when it has run out.
+- BR-7a.2 **A product with no sales in the period is never suggested**, whatever its stock.
+- BR-7a.3 The suggested quantity brings stock to 30 days of sales, rounded up to whole packs where the product defines one (FR-11).
+- BR-7a.4 Suggestions are ordered most urgent first, and can be shared as a list.
+- BR-7a.5 Works with no network, from the terminal's own records, and states that it does.
+
+**Acceptance criteria:**
+- AC-7a.1 *Given* a product with 10 on hand that sold 290 in 30 days and has a box of 30, *when* suggestions are shown, *then* it is suggested at 10 boxes.
+- AC-7a.2 *Given* a product with 2 on hand and no sales in 30 days, *then* it is not suggested.
+
+### FR-8a — Profit, best-seller and dead-stock reports · Priority: S · V2
+**Actors:** Owner, Branch Manager. **Design:** ADR-036.
+
+**Business rules:**
+- BR-8a.1 Best sellers are the products sold in the last 30 days, ordered by revenue.
+- BR-8a.2 Profit is revenue less the cost of what was sold, where cost is the average the terminal has received the product at. It is computed in integer santim, divided once (G4), and **presented as an estimate**.
+- BR-8a.3 **A product with no known cost has no profit figure** and is excluded from the profit total; the report states how many were excluded.
+- BR-8a.4 Dead stock is a product with stock on hand and no sale for 60 days, that has also been on the terminal's books for 60 days.
+- BR-8a.5 Near-expiry stock (within 60 days, or already expired) is listed by the supplier named on its goods receipt, with a value at cost, and each supplier's list can be shared (FR-18, part).
+- BR-8a.6 Works with no network, from the terminal's own records, and states that it does.
+- BR-8a.7 Controlled substances are excluded from all of these.
+
+**Acceptance criteria:**
+- AC-8a.1 *Given* 300 capsules received for 900.00 and 65 sold for 220.00, *then* cost of sales is 195.00 and profit 25.00.
+- AC-8a.2 *Given* a product sold but never received on the terminal, *then* it shows "cost not known" and the profit total does not include its revenue.
+- AC-8a.3 *Given* stock received 7 days ago and not yet sold, *then* it is not dead stock.
+- AC-8a.4 *Given* two batches near expiry from two suppliers, *then* each appears under its own supplier with its value at cost.
+
+---
+
 ## 4. Non-functional requirements
 
 ### NFR-1 — Offline capability & availability · Priority: M
@@ -635,6 +669,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-15 backup and restore — **V2** | ADR-033 (no schema, contract or server change) | `mobile/lib/data/backup.dart`, `mobile/lib/ui/backup_screen.dart`, `mobile/lib/ui/settings_screen.dart` | `g7_backup_restore_test.dart` (24), `backup_screen_test.dart` (16) | **Done at the data tier; the file's journey is untested.** AC-15.1 to AC-15.8: restore across two real database files, merge without loss, idempotence, order, wrong passphrase, tampering, wrong branch, plaintext scan, atomicity. **Not shown by any test:** a file actually sent through Telegram and picked back on a second phone — the share sheet and the file picker are the operating system's (`engineering/field-uat.md` §4.5). |
 | FR-16 customer credit ledger — **V2** | §5.4; ADR-034 | contract: `packages/contracts/src/entities.ts` (`customerPayload`, `creditPaymentPayload`, `creditPortion`), `packages/contracts/src/sync.ts` (`customerRef`) · server: `api/src/migrations/CreditLedger`, `api/src/modules/credit/`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/cashup/cash-up.service.ts` · till: `mobile/lib/data/customer_repository.dart`, `mobile/lib/data/sale_repository.dart`, `mobile/lib/ui/customers_screen.dart`, `mobile/lib/ui/payment_screen.dart` | `g4-credit-ledger.spec.ts` (31), `g4_credit_ledger_test.dart` (22), `credit_screens_test.dart` (16), `receipt_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-16.1 to AC-16.10 on both sides: balance equals rows after mixed, replayed and concurrent sequences; cash-up agrees on terminal and server; tenant isolation; N-1. The concurrency test found, and this change fixed, a deadlock that would have parked a legitimate sale (ADR-034 §10). **Not built:** editing or merging customers, a statement across phones, ageing of debts. |
 | FR-17 audit trail and daily summary on the phone — **V2** | ADR-035 (read-only; no schema or contract change) | server: `api/src/modules/reporting/daily-summary.service.ts`, `api/src/modules/audit/` · phone: `mobile/lib/core/owner_reports.dart`, `mobile/lib/ui/owner_screens.dart`, `mobile/lib/ui/reports_screen.dart` | `g4-daily-summary.spec.ts` (17), `owner_reports_test.dart` (25), `owner_screens_test.dart` (15) | **Built as scoped.** AC-17.1 to AC-17.8: each summary figure held to the report it restates, shortage never netted, branch and tenant scoping, every audit sentence in both languages. **Not built: unprompted delivery** (BR-17.10) — no push, SMS or bot; that needs accounts and a sender the project does not have (ADR-035 §3). |
+| FR-7a reorder suggestions · FR-8a profit, best sellers, dead stock · FR-18 return list — **V2** | ADR-036 (read-only, on the device) | `mobile/lib/data/insights_repository.dart`, `mobile/lib/ui/insights_screen.dart` | `g4_insights_test.dart` (22), `insights_screen_test.dart` (12) | **Done as scoped** — every figure held to the sales and receipts it is made from, with packs. Computed from **this terminal's** records and labelled so; no consolidated figure across terminals. **Not built:** the rest of FR-18 — a supplier entity, payables, purchase orders. |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

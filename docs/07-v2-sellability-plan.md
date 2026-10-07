@@ -110,7 +110,8 @@ the same gates as V1 (`06` §4, §7).
 | 5 | **FR-15 backup and restore**, and the hosting decision (§6) | **Built** — ADR-033. Hosting **decided 2026-10-07: stay on the free tiers** (§6) |
 | 6 | **FR-16 credit ledger** | **Built** — ADR-034, contract 1.7.0 |
 | 7 | **FR-17 audit trail and daily summary on the phone** | **Built** — ADR-035. The summary is opened and shared, **not pushed** (§6, decision 5) |
-| 8 | FR-18, FR-7a, FR-8a, FR-19, FR-20 — in the order pilots ask for them | |
+| 8 | **FR-7a reorder, FR-8a profit and dead stock, and FR-18's return list** | **Built** — ADR-036, worked out on the phone |
+| 9 | FR-19 price tiers; the rest of FR-18 (supplier accounts, payables, purchase orders); FR-20 CBHI export | In that order. FR-20 needs the claim form's actual fields first (§6) |
 
 **Why FR-11 is first and not merely important.** FR-12 loads a catalogue of products, FR-13
 attaches barcodes to them, FR-8a computes margin from their cost. All three are built on what
@@ -157,6 +158,11 @@ Engineering can settle everything else from the documents. These it cannot:
    too slow to open, not a date.
 2. **Pricing tiers** (single-shop vs multi-branch). A billing change, not a code change yet.
 3. **Regulatory readings** for track-and-trace and e-invoicing, as with A-1.
+6. **What a CBHI claim needs on it (FR-20).** Tagging a sale as insured and exporting a
+   summary is simple to build and easy to build wrong: the fields are whatever the scheme's
+   claim form asks for, and that form is not in this repository. Supplying it — or one
+   filled-in example — turns FR-20 from a guess into an afternoon. It also decides how much
+   about the patient the app would hold, which `01` §2.3 has so far kept at nothing.
 5. **Whether the daily summary should arrive by itself.** FR-17 gives the owner a summary
    they open and can share. Having it *arrive* each evening needs one of: Firebase push (a
    Google project and credentials — your account to create), SMS (a gateway and a cost per
