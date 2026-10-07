@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../core/theme.dart';
@@ -139,6 +140,31 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
+  /// Reads a barcode out of a picture already on the phone (FR-13).
+  ///
+  /// The same detector, the same handling, a still image instead of the camera: for a
+  /// box photographed earlier, a label a supplier sent — and it is how the scanner was
+  /// proved on a real handset when there was no box to hold in front of it.
+  Future<void> _fromPicture() async {
+    final nothing = context.t('scan.noneInPicture');
+    try {
+      final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (picked == null || !mounted) return;
+      final capture = await _controller.analyzeImage(picked.path);
+      if (!mounted) return;
+      if (capture == null || capture.barcodes.isEmpty) {
+        setState(() => _feedback = ScanFeedback(nothing, ok: false));
+        return;
+      }
+      // A second picture of the same code is a deliberate second read, not the camera
+      // seeing one box thirty times a second.
+      _lastCode = null;
+      await _detected(capture);
+    } catch (_) {
+      if (mounted) setState(() => _feedback = ScanFeedback(nothing, ok: false));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final feedback = _feedback;
@@ -150,6 +176,11 @@ class _ScanScreenState extends State<ScanScreen> {
           title: widget.title,
           onBack: () => Navigator.of(context).pop(),
           trailing: [
+            PIconButton(
+              icon: Icons.image_outlined,
+              tooltip: context.t('scan.fromPicture'),
+              onTap: () => unawaited(_fromPicture()),
+            ),
             PIconButton(
               icon: Icons.flashlight_on_outlined,
               tooltip: context.t('scan.torch'),

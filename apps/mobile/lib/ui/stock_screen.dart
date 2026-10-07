@@ -11,6 +11,7 @@ import '../data/inventory_repository.dart';
 import '../l10n/locale_store.dart';
 import 'catalog_sheets.dart';
 import 'kit.dart';
+import 'medicines_screen.dart';
 import 'receive_screen.dart';
 import 'reconcile_screen.dart';
 import 'scan_screen.dart';
@@ -91,7 +92,11 @@ class _StockScreenState extends State<StockScreen> {
               icon: Icons.add,
               tooltip: context.t('catalog.addTitle'),
               onTap: () async {
-                if (await showProductForm(context)) await _load();
+                // The ready-made list first, typing second (FR-12).
+                if (await showAddProductChooser(context,
+                    typeOne: showProductForm)) {
+                  await _load();
+                }
               },
             ),
           if (t.can(Capability.goodsReceive))
@@ -155,6 +160,26 @@ class _StockScreenState extends State<StockScreen> {
                       context
                           .t(all.isEmpty ? 'count.empty' : 'stock.nothingHere'))
                 else
+                  const SizedBox.shrink(),
+                // A shop with nothing in it yet: the ready-made list is the way in, and
+                // it is put where the owner is looking rather than behind the "+".
+                if (_rows != null &&
+                    t.products.isEmpty &&
+                    t.can(Capability.catalogManage)) ...[
+                  PNotice.text(Tone.blue, Icons.playlist_add_check,
+                      context.t('medicines.startHere')),
+                  PButton(
+                    icon: Icons.playlist_add_check,
+                    label: context.t('medicines.pick'),
+                    onPressed: () async {
+                      final added = await Navigator.of(context).push(
+                          MaterialPageRoute<bool>(
+                              builder: (_) => const MedicinesScreen()));
+                      if (added == true) await _load();
+                    },
+                  ),
+                ],
+                if (rows.isNotEmpty)
                   PRows(children: [
                     for (final s in rows) _row(context, s),
                   ]),

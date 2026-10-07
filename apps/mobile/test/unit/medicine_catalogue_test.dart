@@ -183,6 +183,25 @@ void main() {
       expect(catalogue.search('amox', limit: 2).length, 2);
     });
 
+    test('browsing with nothing typed is the whole list, in its own order', () {
+      final all = catalogue.browse('');
+      expect(all.length, catalogue.length);
+      expect(all.first.name, catalogue.browse('  ').first.name);
+    });
+
+    test('browsing narrows by the same rule as the suggestions, without a cap',
+        () {
+      final amox = catalogue.browse('amox');
+      expect(amox, isNotEmpty);
+      expect(amox.every((m) => m.name.toLowerCase().contains('amox')), isTrue);
+      // More than the six a suggestion list stops at, if the list has them.
+      expect(amox.length,
+          greaterThanOrEqualTo(catalogue.search('amox', limit: 6).length));
+      expect(catalogue.browse('500 amox').length,
+          catalogue.browse('amox 500').length);
+      expect(catalogue.browse('xyzolam'), isEmpty);
+    });
+
     test('an unreadable file degrades to no suggestions, not an error', () {
       expect(() => MedicineCatalogue.parse('not json'), throwsFormatException);
       expect(MedicineCatalogue.empty.search('amox'), isEmpty);

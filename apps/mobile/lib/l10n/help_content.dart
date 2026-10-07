@@ -234,6 +234,10 @@ class HelpGuide {
         title: 'Products and prices',
         summary: 'Add a product to your catalogue or change its price.',
         steps: [
+          'The quickest way to stock your shop: in Stock, tap the add button and choose '
+              '"Pick from the medicines list". Tick every medicine you sell — search if '
+              'the list is long — then tap "Set prices", type your price beside each one '
+              'and tap "Add to my shop". You never type a medicine name.',
           'In Stock, tap the add button to add a product: its name, unit (tablet, capsule, '
               'bottle…) and price.',
           'Start typing the name — "amox 500" — and the app suggests medicines from the '
@@ -505,6 +509,10 @@ class HelpGuide {
         title: 'ምርቶችና ዋጋዎች',
         summary: 'ምርት ወደ ካታሎግዎ ያክሉ ወይም ዋጋውን ይቀይሩ።',
         steps: [
+          'ሱቅዎን ለመሙላት ፈጣኑ መንገድ፦ በክምችት ገጽ የመጨመሪያ ቁልፉን ነክተው «ከመድኃኒት ዝርዝሩ ይምረጡ»ን ይምረጡ። '
+              'የሚሸጡትን እያንዳንዱን መድኃኒት ምልክት ያድርጉ — ዝርዝሩ ረጅም ከሆነ ይፈልጉ — ከዚያ «ዋጋ ያስገቡ»ን '
+              'ነክተው ከእያንዳንዱ አጠገብ ዋጋዎን ጽፈው «ወደ ሱቄ ጨምር»ን ይንኩ። የመድኃኒት ስም መጻፍ '
+              'አያስፈልግዎትም።',
           'በክምችት ውስጥ የመጨመሪያ ቁልፉን ነክተው ምርት ያክሉ፦ ስሙን፣ መለኪያውን (ኪኒን፣ ካፕሱል፣ '
               'ጠርሙስ…) እና ዋጋውን።',
           'ስሙን መጻፍ ይጀምሩ — «amox 500» — መተግበሪያው ከኢትዮጵያ መሠረታዊ መድኃኒቶች ዝርዝር '

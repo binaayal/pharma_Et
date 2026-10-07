@@ -151,6 +151,8 @@ void main() {
       await pumpTerminalScreen(tester, owner.terminal, const StockScreen());
       await tester.tap(find.byTooltip('Add product'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Type a product yourself'));
+      await tester.pumpAndSettle();
 
       expect(button(tester, 'Add to catalog').onPressed, isNull);
       await tester.enterText(find.byType(TextField).at(0), 'Metformin 850mg');
@@ -181,6 +183,8 @@ void main() {
       final owner = TestTerminal.build(db, role: 'owner', api: api);
       await pumpTerminalScreen(tester, owner.terminal, const StockScreen());
       await tester.tap(find.byTooltip('Add product'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Type a product yourself'));
       await tester.pumpAndSettle();
       return owner;
     }
@@ -230,6 +234,8 @@ void main() {
       owner.addProduct('p1', 'Paracetamol 500mg tablet');
       await pumpTerminalScreen(tester, owner.terminal, const StockScreen());
       await tester.tap(find.byTooltip('Add product'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Type a product yourself'));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField).at(0), 'para');
