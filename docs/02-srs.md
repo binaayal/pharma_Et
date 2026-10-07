@@ -476,6 +476,7 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 - BR-15.8 A restore either completes or leaves the terminal exactly as it was.
 - BR-15.9 Backup and restore remain available past the offline ceiling (BR-2.3).
 - BR-15.10 Backup and restore need no network.
+- BR-15.11 A backup can be sent through the share sheet **or saved as a file** to a place the user picks (a memory card, a folder). Saving it as a file states that a copy kept only on the same phone is lost with it. Closing either without sending or saving is not a backup.
 
 **Acceptance criteria:**
 - AC-15.1 *Given* a terminal with five unsynced sales, *when* it is backed up and the file restored on a fresh terminal, *then* the five are queued there in the same order and sync exactly once.

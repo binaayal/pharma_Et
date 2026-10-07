@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -15,9 +16,48 @@ import 'terminal.dart';
 
 /// Where a backup file goes to and comes from. Both ends belong to the operating system —
 /// its share sheet and its file picker — so tests replace them.
+/// Where a new backup is put.
+enum BackupDestination {
+  /// The share sheet: Telegram, email, a cloud drive.
+  send,
+
+  /// The system's "save as" picker: a memory card, a USB stick, a folder on this phone.
+  file,
+}
+
 abstract final class BackupFiles {
   static Future<bool> Function(Uint8List bytes, String name)? debugSave;
   static Future<Uint8List?> Function()? debugPick;
+
+  /// For tests: answers "send it or save it?" without the sheet.
+  static BackupDestination? debugDestination;
+
+  /// For tests: stands in for the system's "save as" picker. Returns whether it saved.
+  static Future<bool> Function(Uint8List bytes, String name)? debugSaveAsFile;
+
+  /// Writes the file wherever the owner points the system's "save as" picker.
+  ///
+  /// Added after a real phone showed a share sheet with nothing on it but ways to send the
+  /// file to somebody: no memory card, no folder. An owner without Telegram, or without a
+  /// network that day, had no way to keep a backup at all. Returns false if the picker
+  /// was closed without saving.
+  static Future<bool> saveAsFile(Uint8List bytes, String name) async {
+    final override = debugSaveAsFile;
+    if (override != null) return override(bytes, name);
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/$name');
+    await file.writeAsBytes(bytes, flush: true);
+    try {
+      final saved = await FlutterFileDialog.saveFile(
+          params:
+              SaveFileDialogParams(sourceFilePath: file.path, fileName: name));
+      return saved != null;
+    } finally {
+      // The copy in temporary files has done its job either way, and a backup must not
+      // be left lying in the one place nobody will look for it.
+      if (file.existsSync()) file.deleteSync();
+    }
+  }
 
   /// Hands the file to the share sheet, so the owner puts it where *they* keep things:
   /// their own Telegram, their email, a memory card. Deliberately not a folder on this
@@ -95,7 +135,13 @@ class _BackupScreenState extends State<BackupScreen> {
     final t = TerminalScope.read(context);
     final passphrase = await _askPassphrase(context, confirm: true);
     if (passphrase == null || !mounted) return;
-    final done = context.t('backup.made');
+    final to = BackupFiles.debugDestination ??
+        (BackupFiles.debugSave != null
+            ? BackupDestination.send
+            : await _askDestination(context));
+    if (to == null || !mounted) return;
+    final done = context
+        .t(to == BackupDestination.file ? 'backup.savedFile' : 'backup.made');
     final notSent = context.t('backup.notSent');
     final failed = context.t('backup.failed');
     setState(() => _busy = true);
@@ -114,7 +160,9 @@ class _BackupScreenState extends State<BackupScreen> {
       final name = 'pharmaet-${t.session.tenantCode}'
           '-${now.year}${two(now.month)}${two(now.day)}'
           '-${two(now.hour)}${two(now.minute)}.pharmaet-backup';
-      final kept = await BackupFiles.save(bytes, name);
+      final kept = to == BackupDestination.file
+          ? await BackupFiles.saveAsFile(bytes, name)
+          : await BackupFiles.save(bytes, name);
       if (!mounted) return;
       if (!kept) {
         // Found on a real phone: closing the share sheet still said "Backup made". A file
@@ -128,6 +176,43 @@ class _BackupScreenState extends State<BackupScreen> {
       if (mounted) _say(failed, tone: Tone.red);
     }
   }
+
+  /// Send it, or save it as a file. Asked every time: where a backup goes is the whole
+  /// point of making one.
+  Future<BackupDestination?> _askDestination(BuildContext context) =>
+      showModalBottomSheet<BackupDestination>(
+        context: context,
+        builder: (sheet) => Padding(
+          padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(sheet.t('backup.where'),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 14),
+              PRows(children: [
+                PRow(
+                  avatarIcon: Icons.ios_share,
+                  title: sheet.t('backup.send'),
+                  subtitle: sheet.t('backup.sendSub'),
+                  chevron: true,
+                  onTap: () => Navigator.pop(sheet, BackupDestination.send),
+                ),
+                PRow(
+                  avatarIcon: Icons.sd_card_outlined,
+                  avatarTone: Tone.blue,
+                  title: sheet.t('backup.saveFile'),
+                  subtitle: sheet.t('backup.saveFileSub'),
+                  chevron: true,
+                  onTap: () => Navigator.pop(sheet, BackupDestination.file),
+                ),
+              ]),
+            ],
+          ),
+        ),
+      );
 
   Future<void> _restore() async {
     final t = TerminalScope.read(context);

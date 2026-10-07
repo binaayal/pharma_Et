@@ -798,6 +798,13 @@ const Map<String, String> _en = {
   'backup.now': 'Back up now',
   'backup.working': 'Working…',
   'backup.restore': 'Restore from a backup file',
+  'backup.where': 'Where should the backup go?',
+  'backup.send': 'Send it to yourself',
+  'backup.sendSub': 'Telegram, email or a cloud drive',
+  'backup.saveFile': 'Save it as a file',
+  'backup.saveFileSub': 'A memory card, a USB stick, or a folder on this phone',
+  'backup.savedFile':
+      'Backup saved. If it is only on this phone it is lost with the phone — copy it to a memory card or send it to yourself.',
   'backup.made': 'Backup made. Keep the file somewhere that is not this phone.',
   'backup.notSent':
       'The backup was not sent anywhere, so it protects nothing yet. Tap "Back up now" again and choose where to keep it.',
@@ -1572,6 +1579,13 @@ const Map<String, String> _am = {
   'backup.now': 'አሁን ቅጂ ያዝ',
   'backup.working': 'በመሥራት ላይ…',
   'backup.restore': 'ከቅጂ ፋይል መልስ',
+  'backup.where': 'ቅጂው የት ይቀመጥ?',
+  'backup.send': 'ለራስዎ ይላኩት',
+  'backup.sendSub': 'በቴሌግራም፣ በኢሜይል ወይም በክላውድ',
+  'backup.saveFile': 'እንደ ፋይል ያስቀምጡት',
+  'backup.saveFileSub': 'በሜሞሪ ካርድ፣ በፍላሽ ወይም በዚህ ስልክ ላይ ባለ ፎልደር',
+  'backup.savedFile':
+      'ቅጂው ተቀምጧል። በዚህ ስልክ ላይ ብቻ ከሆነ ከስልኩ ጋር ይጠፋል — ወደ ሜሞሪ ካርድ ይቅዱት ወይም ለራስዎ ይላኩት።',
   'backup.made': 'ቅጂው ተይዟል። ፋይሉን ከዚህ ስልክ ውጭ በሆነ ቦታ ያስቀምጡ።',
   'backup.notSent':
       'ቅጂው የትም አልተላከም፤ ስለዚህ እስካሁን ምንም አይጠብቅም። «አሁን ቅጂ ያዝ»ን እንደገና ነክተው የሚያስቀምጡበትን ይምረጡ።',
