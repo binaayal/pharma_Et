@@ -282,6 +282,18 @@ def parse(lines: list[str]) -> list[dict]:
 
 
 def catalogue(entries: list[dict]) -> dict:
+    # The list repeats a medicine under each use: paracetamol sits under pain, under fever,
+    # and under "for treatment of acute attack" (of migraine). The heading is shown beneath
+    # a suggestion to tell near-twins apart, and found on a real phone it did the opposite:
+    # "Paracetamol 500mg tablet — For Treatment of Acute Attack". A medicine listed under
+    # more than one heading gets none, rather than whichever came first.
+    headings: dict[str, set[str]] = {}
+    for e in entries:
+        if len(e["name"]) > 80 or ":" in e["name"]:
+            continue
+        display = " ".join(p for p in (e["name"], e["strength"], e["form"].lower()) if p)
+        headings.setdefault(display.lower(), set()).add(e["group"] or e["category"])
+
     seen: set[tuple] = set()
     items = []
     for e in entries:
@@ -303,7 +315,9 @@ def catalogue(entries: list[dict]) -> dict:
                 "f": e["form"],
                 "s": e["strength"],
                 "u": e["unit"],
-                "c": e["group"] or e["category"],
+                "c": (e["group"] or e["category"])
+                if len(headings.get(display.lower(), ())) == 1
+                else "",
             }
         )
     items.sort(key=lambda i: i["n"].lower())

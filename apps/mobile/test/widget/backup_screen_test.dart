@@ -150,6 +150,7 @@ void main() {
       BackupFiles.debugSave = (bytes, name) async {
         saved = bytes;
         savedAs = name;
+        return true;
       };
       final fake = await open(tester);
 
@@ -169,9 +170,35 @@ void main() {
           findsOneWidget);
     });
 
+    testWidgets(
+        'closing the share sheet without choosing does not count as a backup',
+        (tester) async {
+      // Found on a real phone: dismissing the share sheet still said "Backup made". The
+      // file had gone nowhere.
+      BackupFiles.debugSave = (_, __) async => false;
+      await open(tester);
+
+      await tester.tap(find.text('Back up now'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'long enough one');
+      await tester.enterText(find.byType(TextField).at(1), 'long enough one');
+      await tester.pump();
+      await tester.tap(find.byType(FilledButton));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('was not sent anywhere'), findsOneWidget);
+      expect(find.textContaining('somewhere that is not this phone'),
+          findsNothing);
+      // And "last backup" does not move: nothing was kept.
+      expect(find.text('Never'), findsOneWidget);
+    });
+
     testWidgets('cancelling the passphrase makes no file', (tester) async {
       var saves = 0;
-      BackupFiles.debugSave = (_, __) async => saves++;
+      BackupFiles.debugSave = (_, __) async {
+        saves++;
+        return true;
+      };
       final fake = await open(tester);
 
       await tester.tap(find.text('Back up now'));

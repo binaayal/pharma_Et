@@ -31,7 +31,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   SalesSummary? _summary;
   List<ShiftReport> _shifts = const [];
   bool _offline = false;
-  bool _loaded = false;
+  bool _loading = false;
+
+  /// The terminal revision these figures were loaded at.
+  int _seen = -1;
 
   (DateTime, DateTime) _window() {
     final now = DateTime.now();
@@ -47,8 +50,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_loaded) {
-      _loaded = true;
+    // Reload whenever the terminal's data moves — a sale, a sync — as Home does. Found on a
+    // real phone: this tab is kept alive behind the others, loaded once, and went on
+    // showing "ETB 0 · 0 sales" after a sale had synced, until someone thought to pull
+    // down on it.
+    final revision = TerminalScope.of(context).revision;
+    if (revision != _seen && !_loading) {
+      _seen = revision;
       unawaited(_load());
     }
   }
@@ -56,6 +64,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _load() async {
     final t = TerminalScope.read(context);
     final (from, to) = _window();
+    _loading = true;
     try {
       final summary = await t
           .authed((token) => t.api.salesSummary(token, from: from, to: to));
@@ -70,6 +79,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       });
     } catch (_) {
       if (mounted) setState(() => _offline = true);
+    } finally {
+      _loading = false;
     }
   }
 

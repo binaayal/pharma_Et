@@ -3,7 +3,7 @@ description: >
   PharmaEt counter app — offline-first POS, dispensing and stock for Ethiopian pharmacies.
   Android is the primary build and test target (ADR-001).
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+1
 
 environment:
   # Dart 3 for sealed classes and exhaustive switches — the generated contract union relies

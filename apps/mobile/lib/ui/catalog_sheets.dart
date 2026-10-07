@@ -152,7 +152,11 @@ class PackRows extends StatelessWidget {
               Expanded(
                 flex: 4,
                 child: PField(
-                  label: context.tf('packs.size', {'unit': unit}),
+                  // One short word. "TABLET IN ONE" wrapped onto two lines on a real
+                  // 720-pixel phone and pushed this field out of line with its
+                  // neighbours; the unit now sits inside the field as its hint.
+                  label: context.t('packs.size'),
+                  hint: '10 $unit',
                   controller: draft.size,
                   keyboardType: TextInputType.number,
                   onChanged: (_) => onChanged(),
@@ -445,7 +449,11 @@ class _ProductFormState extends State<_ProductForm> {
                   for (final entry in suggestions)
                     PRow(
                       title: entry.name,
-                      subtitle: entry.category,
+                      // No heading underneath. The list files a medicine under the use
+                      // it happened to be listed for — on a real phone that read
+                      // "Paracetamol 500mg tablet · For Treatment of Acute Attack",
+                      // which is true of migraine and misleading at a counter. The name
+                      // already carries strength and form.
                       value: entry.unit,
                       onTap: () => _pick(entry),
                     ),

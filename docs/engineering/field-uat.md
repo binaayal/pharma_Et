@@ -168,3 +168,56 @@ is about a business being run better — not about a passing test suite.
 
 **Not yet run.** No pharmacy has been engaged. `../06` §11's field-UAT line stays unticked
 until §6 above is signed, and this document is the definition of what signing it means.
+
+### 7.1 Bench run on a real handset — 2026-10-07 (not the pilot)
+
+A first functional pass of the V2 features on a phone, driven over USB. **It is not field
+UAT:** no pharmacy, no customers, no outage, one person's test account. It is recorded here
+because it is the first time any of FR-11 to FR-17 ran outside a test runner, and because of
+what it found.
+
+| | |
+|---|---|
+| Device | Samsung Galaxy A10 (SM-A105F), Android 9, 720×1520 — a low-end handset of the kind §2 asks for |
+| Build | Release APK from CD, version code 60, commit `d8b92d5`, signed with the upload key |
+| Backend | Live (Render free tier), contract 1.7.0 |
+| Starting state | v1.0.0 (code 49) installed, signed in, a till open for two days |
+
+**Upgrade in place.** Installed over v1.0.0 without uninstalling. The app opened still signed
+in, the open till was intact, and the local database went from schema 4 to 7 with nothing
+lost. This is the scenario `g7_schema_upgrade_test.dart` rehearses, on a real file.
+
+| §4.5 row | Result |
+|---|---|
+| Packs: define, receive by the box, sell by the box | **Pass.** Box of 10 at 900.00 defined; five boxes received as 50 tablets; one box sold at 900.00, not ten tablets at 100.00 |
+| Medicines list | **Pass.** "para 500" offered *Paracetamol 500mg tablet*; "Add, then add another" kept the sheet open |
+| Scan a barcode | **Not tested.** The scanner opens and the camera runs (frames arrive and change), with permission granted. Nobody held a box in front of it. Still open |
+| Credit sale and repayment | **Pass.** 900.00 sold with 400.00 paid; customer owed 500.00 after the round trip to the server (counted once); 200.00 repaid, 300.00 owed |
+| Cash-up with a repayment | **Pass.** Float 200 + cash sales 400 + debts repaid 200 = 800 expected. Not counted: the till was left open |
+| Today's summary and Activity log | **Pass**, against live data: 900 sold, 400 cash, 500 credit, 300 owed, 200 repaid, two tills open |
+| Receipt: print | **Defect found.** The system print dialog showed the slip correctly on A4 except one character — see below |
+| Receipt: share | Share sheet opened with Telegram, Messages and Gmail. Nothing was sent |
+| Backup | Backup made in about 7.5 s (key derivation on this processor). Share sheet opened; nothing was sent. **Defect found** — see below. Restore: the file picker opens; no file was restored |
+
+**What it found that no test had:**
+
+1. **A missing character on the printed credit receipt.** "On credit — Test Customer" printed
+   with an empty box for the dash: neither font the page is set in has it. Now brackets, and
+   a test holds every word the app prints to the characters those fonts have.
+2. **"Backup made" after the share sheet was closed without sending the file.** The file had
+   gone nowhere. The screen now says so, and "last backup" does not move.
+3. **The Reports headline stayed at "ETB 0 · 0 sales" after a sale had synced.** The tab is
+   kept alive and loaded once. It now reloads when the terminal's data moves, as Home does.
+   (This one predates V2.)
+4. **A label in the pack editor wrapped** on a 720-pixel screen and pushed its field out of
+   line. Shortened.
+5. **The platform's own actions read as raw names** in the Activity log ("tenant
+   reactivated"). They have sentences now.
+6. **A medicine suggestion carried a misleading heading** ("Paracetamol 500mg tablet · For
+   Treatment of Acute Attack"). The heading is no longer shown.
+7. Counts read wrongly for one ("1 sales"). Reworded.
+
+None of these were verified again on the phone after fixing — that needs the next signed
+build. **Left on the test account:** a pack on Amoxicillin 50mg, a Paracetamol product, a
+receipt of five boxes, one credit sale, one customer ("Test Customer") and one repayment.
+Nothing in this system is deleted, so they stay.
