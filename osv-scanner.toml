@@ -12,3 +12,24 @@ PharmaEt has no SSE endpoint (no @Sse anywhere; asserted by apps/api/test/unit/s
 so the vulnerable code is never reached. The fix ships only in NestJS 11 — a major upgrade
 scheduled on its own rather than on launch day.
 """
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2027-01-31
+reason = """
+braces <= 3.0.3: stack exhaustion on a deeply nested brace pattern. No patched version exists.
+It reaches this repository only through development tooling — @nestjs/cli (chokidar's file
+watcher) and jest (micromatch) — and never through a production dependency (`pnpm audit
+--prod` does not list it). The patterns it expands are this repository's own glob settings,
+not input from a pharmacy or the network. Mirrored in package.json `pnpm.auditConfig`, which
+is what `pnpm audit` reads. Look again when a fixed braces ships.
+"""
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c"
+ignoreUntil = 2027-01-31
+reason = """
+sprintf-js <= 1.1.3. No patched version exists. Present only under jest's coverage
+instrumentation (babel-plugin-istanbul > js-yaml 3 > argparse 1), which runs in tests and is
+not in the API image, the dashboard bundle or the phone app.
+"""
