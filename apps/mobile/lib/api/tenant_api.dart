@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../contracts/contracts.dart';
+import '../core/owner_reports.dart';
 
 /// The online-only surface of the app: reports, branches and staff, the subscription and
 /// its payment proofs, and the anonymous "request an account".
@@ -68,6 +69,26 @@ class TenantApi {
         '&to=${to.toUtc().toIso8601String()}',
         token) as Map<String, dynamic>;
     return SalesSummary.fromJson(json);
+  }
+
+  /// The end-of-day summary for one local day (FR-17). [from] and [to] are the day's
+  /// midnights where the phone is, sent as instants, so "today" means the shop's today
+  /// and not the server's.
+  Future<DailySummary> dailySummary(String token,
+      {required DateTime from, required DateTime to}) async {
+    final json = await _get(
+        '/reports/daily-summary?from=${from.toUtc().toIso8601String()}'
+        '&to=${to.toUtc().toIso8601String()}',
+        token) as Map<String, dynamic>;
+    return DailySummary.fromJson(json);
+  }
+
+  /// The audit trail, newest first (FR-17). Owner only; the server refuses anyone else.
+  Future<List<AuditEntry>> auditTrail(String token, {int limit = 200}) async {
+    final rows = await _get('/audit?limit=$limit', token) as List<dynamic>;
+    return rows
+        .map((r) => AuditEntry.fromJson(r as Map<String, dynamic>))
+        .toList();
   }
 
   Future<List<ShiftReport>> cashUps(String token) async {

@@ -4,6 +4,7 @@ import type { TenantScope } from '../../common/db/tenant-scope';
 import { Branch, OversellEvent, Sale } from '../../entities';
 import { resolveBranchFilter } from '../../common/auth/branch-scope';
 import { CashUpService, type ShiftReconciliation } from '../cashup/cash-up.service';
+import { DailySummaryService, type DailySummary } from './daily-summary.service';
 import { SalesSummaryService, type SalesSummary } from './sales-summary.service';
 import { StockReportService, type StockReport } from './stock-report.service';
 
@@ -32,6 +33,7 @@ export class ReportingService {
     private readonly cashUp: CashUpService,
     private readonly salesSummary: SalesSummaryService,
     private readonly stockReport: StockReportService,
+    private readonly daily: DailySummaryService,
   ) {}
 
   /**
@@ -47,6 +49,20 @@ export class ReportingService {
     const branchIds = resolveBranchFilter(scope, options.branchId);
     return this.db.runInScope(scope, (em) =>
       this.salesSummary.summarise(em, { from: options.from, to: options.to, branchIds }),
+    );
+  }
+
+  /**
+   * The end-of-day summary (FR-17). Scoped exactly as the sales summary is: an owner sees
+   * every branch, a branch manager their own.
+   */
+  async dailySummaryReport(
+    scope: TenantScope,
+    options: { from: Date; to: Date; branchId?: string },
+  ): Promise<DailySummary> {
+    const branchIds = resolveBranchFilter(scope, options.branchId);
+    return this.db.runInScope(scope, (em) =>
+      this.daily.summarise(em, { from: options.from, to: options.to, branchIds }),
     );
   }
 

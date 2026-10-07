@@ -155,6 +155,7 @@ const ROUTES: Record<string, RouteSpec> = {
   'GET /api/reports/cash-up/:shiftId': { cls: 'tenant', why: 'a shift the caller must own' },
   'GET /api/reports/cash-up': { cls: 'tenant', why: 'one pharmacy’s cash-ups' },
   'GET /api/reports/sales-summary': { cls: 'tenant', why: 'one pharmacy’s totals' },
+  'GET /api/reports/daily-summary': { cls: 'tenant', why: 'one pharmacy’s day' },
   'GET /api/reports/stock': { cls: 'tenant', why: 'one pharmacy’s shelves' },
 };
 

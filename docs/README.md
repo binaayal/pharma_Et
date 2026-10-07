@@ -90,6 +90,7 @@ answer, permanently.
 | [ADR-032](adr/ADR-032-receipts.md) | Receipts: one description of the sale, shared as text and printed through the phone | Accepted |
 | [ADR-033](adr/ADR-033-backup-and-restore.md) | Backup and restore: an encrypted document of the phone's rows, restored by merging | Accepted |
 | [ADR-034](adr/ADR-034-customer-credit-ledger.md) | The customer credit ledger: a debt is a payment row, and the balance is two figures | Accepted |
+| [ADR-035](adr/ADR-035-owner-summary-and-audit-on-the-phone.md) | The owner's evening: a daily summary they open, and the audit trail as sentences | Accepted |
 
 ---
 

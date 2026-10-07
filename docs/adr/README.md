@@ -42,5 +42,6 @@ quietly work around an accepted ADR in code.
 | [ADR-032](ADR-032-receipts.md) | Receipts: one description of the sale, shared as text and printed through the phone | Accepted |
 | [ADR-033](ADR-033-backup-and-restore.md) | Backup and restore: an encrypted document of the phone's rows, restored by merging | Accepted |
 | [ADR-034](ADR-034-customer-credit-ledger.md) | The customer credit ledger: a debt is a payment row, and the balance is two figures | Accepted |
+| [ADR-035](ADR-035-owner-summary-and-audit-on-the-phone.md) | The owner's evening: a daily summary they open, and the audit trail as sentences | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated
