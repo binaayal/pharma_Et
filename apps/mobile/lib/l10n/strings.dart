@@ -792,7 +792,7 @@ const Map<String, String> _en = {
   'backup.last': 'Last backup',
   'backup.never': 'Never',
   'backup.whyNow':
-      '{n} sales or receipts have not reached the server yet. If this phone is lost before they sync, a backup is the only other copy.',
+      'Sales and receipts not yet on the server: {n}. If this phone is lost before they sync, a backup is the only other copy.',
   'backup.whyLater':
       'Everything on this phone has reached the server. A backup now is a copy for your own records.',
   'backup.now': 'Back up now',
@@ -820,9 +820,9 @@ const Map<String, String> _en = {
   'backup.passAgain': 'The same passphrase again',
   'backup.passRule': 'At least 8 characters.',
   'backup.about':
-      'Backup of {branch}, made {date}. It holds {n} sales or receipts that had not synced.',
+      'Backup of {branch}, made {date}. Unsynced sales and receipts in it: {n}.',
   'backup.restored':
-      'Restored {n} sales or receipts. They will upload on the next sync.',
+      'Sales and receipts restored: {n}. They will upload on the next sync.',
   'backup.restoredNothing':
       'Everything in that backup is already on this phone.',
   'backup.problem.notABackup':
