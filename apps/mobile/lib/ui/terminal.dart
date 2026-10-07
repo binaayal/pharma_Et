@@ -12,6 +12,7 @@ import '../data/backup.dart';
 import '../data/catalog_repository.dart';
 import '../data/controlled_repository.dart';
 import '../data/customer_repository.dart';
+import '../data/insights_repository.dart';
 import '../data/inventory_repository.dart';
 import '../data/sale_repository.dart';
 import '../data/shift_repository.dart';
@@ -34,6 +35,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     required this.controlled,
     required this.backups,
     required this.customers,
+    required this.insights,
     required this.syncService,
     required this.api,
     required this.client,
@@ -64,6 +66,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   final ControlledRepository controlled;
   final BackupService backups;
   final CustomerRepository customers;
+  final InsightsRepository insights;
   final SyncService syncService;
   final TenantApi api;
   final SyncClient client;

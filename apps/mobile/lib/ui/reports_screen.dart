@@ -6,6 +6,7 @@ import '../api/tenant_api.dart';
 import '../core/money.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
+import 'insights_screen.dart';
 import 'kit.dart';
 import 'owner_screens.dart';
 import 'ledger_screen.dart';
@@ -175,6 +176,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 subtitle: context.t('day.sub'),
                 chevron: true,
                 onTap: () => _push(context, const DailySummaryScreen()),
+              ),
+              PRow(
+                avatarIcon: Icons.insights_outlined,
+                avatarTone: Tone.green,
+                title: context.t('insights.title'),
+                subtitle: context.t('insights.sub'),
+                chevron: true,
+                onTap: () => _push(context, const InsightsScreen()),
               ),
               if (canReadAudit(t))
                 PRow(

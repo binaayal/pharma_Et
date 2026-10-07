@@ -200,6 +200,9 @@ class HelpGuide {
           '"Today\'s summary" puts the whole day on one screen: sales, whether each till '
               'balanced, what customers owe and what is running low. Tap "Share this '
               'summary" to send it to yourself.',
+          '"Where the money is" works without internet: what to buy before it runs out, '
+              'what earned most in 30 days, what has not sold in 60 days, and what is close '
+              'to expiry and could go back to its supplier. Each list can be shared.',
           'Owners also have the "Activity log": who changed a price, wrote off stock or '
               'added staff. Nobody can edit or delete it.',
           'Reports need an internet connection. Figures include every phone that has '
@@ -460,6 +463,8 @@ class HelpGuide {
           'የገንዘብ ቆጠራና ልዩነት እያንዳንዱን ፈረቃና ማንኛውንም ጉድለት ያሳያል።',
           '«የዛሬ ማጠቃለያ» ሙሉውን ቀን በአንድ ገጽ ያሳያል፦ ሽያጭ፣ እያንዳንዱ ካሻ መመጣጠኑን፣ የደንበኞች '
               'ዕዳ እና እያለቀ ያለ ክምችት። ለራስዎ ለመላክ «ይህን ማጠቃለያ አጋራ» ይንኩ።',
+          '«ገንዘቡ የት እንዳለ» ያለ ኢንተርኔት ይሠራል፦ ከማለቁ በፊት የሚገዛ፣ በ30 ቀናት ብዙ ያተረፈ፣ በ60 ቀናት '
+              'ያልተሸጠ፣ እና ጊዜው ሊያልፍ የተቃረበና ለአቅራቢው ሊመለስ የሚችል። እያንዳንዱ ዝርዝር ሊጋራ ይችላል።',
           'ባለቤቶች «የእንቅስቃሴ መዝገብ»ም አላቸው፦ ዋጋ የቀየረ፣ ክምችት የሰረዘ ወይም ሠራተኛ የጨመረ ማን '
               'እንደሆነ። ማንም ሊያስተካክለው ወይም ሊሰርዘው አይችልም።',
           'ሪፖርቶች የኢንተርኔት ግንኙነት ይፈልጋሉ። አሃዞቹ ያመሳሰሉትን ስልኮች ሁሉ ያካትታሉ።',
