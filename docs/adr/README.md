@@ -38,5 +38,6 @@ quietly work around an accepted ADR in code.
 | [ADR-028](ADR-028-screenshots-in-postgres-until-object-storage.md) | Payment screenshots in Postgres until there is object storage | Accepted |
 | [ADR-029](ADR-029-v2-is-the-sellability-release.md) | V2 is the sellability release; multi-writer offline stays deferred | Accepted |
 | [ADR-030](ADR-030-sell-units.md) | Sell units: a pack is recorded on the line, never multiplied into it | Accepted |
+| [ADR-031](ADR-031-barcodes.md) | Barcodes: a product carries its barcodes, in one canonical spelling | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

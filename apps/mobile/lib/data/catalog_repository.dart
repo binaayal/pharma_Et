@@ -13,6 +13,7 @@ class LocalProduct {
     required this.isControlled,
     required this.priceSantim,
     this.packs = const [],
+    this.barcodes = const [],
   });
 
   final String id;
@@ -27,6 +28,10 @@ class LocalProduct {
   /// for a product that only ever leaves the shelf one base unit at a time.
   final List<ProductPack> packs;
 
+  /// The barcodes that identify this product, canonical (FR-13) — what a scan is
+  /// compared with. Empty for a product that has never been linked to one.
+  final List<String> barcodes;
+
   /// Builds a product from a `product` row.
   factory LocalProduct.fromRow(Map<String, Object?> r) => LocalProduct(
         id: r['id'] as String,
@@ -35,7 +40,19 @@ class LocalProduct {
         isControlled: (r['is_controlled'] as int) == 1,
         priceSantim: r['price_santim'] as int,
         packs: decodePacks(r['packs_json'] as String?),
+        barcodes: decodeBarcodes(r['barcodes_json'] as String?),
       );
+}
+
+/// Reads the barcodes stored on a product row. Never throws, for the reason [decodePacks]
+/// does not: a product whose barcodes cannot be read is still found by name.
+List<String> decodeBarcodes(String? json) {
+  if (json == null || json.isEmpty) return const [];
+  try {
+    return (jsonDecode(json) as List<dynamic>).whereType<String>().toList();
+  } catch (_) {
+    return const [];
+  }
 }
 
 /// Reads the packs stored on a product row. Never throws: a product whose pack list cannot
@@ -268,6 +285,7 @@ class CatalogRepository {
   Future<List<ProductStock>> stockByProduct(String branchId) async {
     final rows = await _db.db.rawQuery('''
       SELECT p.id, p.name, p.unit, p.is_controlled, p.price_santim, p.packs_json,
+             p.barcodes_json,
              COALESCE(SUM(b.qty_on_hand), 0)                        AS on_hand,
              COUNT(b.id)                                             AS batches,
              MIN(CASE WHEN b.qty_on_hand > 0 THEN b.expiry_date END) AS nearest,
@@ -370,6 +388,8 @@ class CatalogRepository {
             'packs_json': product.packs == null
                 ? null
                 : jsonEncode(product.packs!.map((p) => p.toJson()).toList()),
+            'barcodes_json':
+                product.barcodes == null ? null : jsonEncode(product.barcodes),
             'change_seq': product.changeSeq,
             'deleted': product.deletedAt == null ? 0 : 1,
           },

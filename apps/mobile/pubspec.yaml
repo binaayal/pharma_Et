@@ -40,6 +40,10 @@ dependencies:
   # Opens the public privacy and account-deletion pages, and dials support — both stores
   # require those to be reachable from inside the app.
   url_launcher: ^6.3.2
+  # The camera as a barcode scanner (FR-13, ADR-031). Its detector is bundled in the app
+  # rather than fetched from Play Services on first use: the first scan must work in a
+  # shop with no network.
+  mobile_scanner: ^7.4.2
 
 dev_dependencies:
   flutter_test:

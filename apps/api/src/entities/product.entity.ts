@@ -54,4 +54,12 @@ export class Product extends SyncedEntity {
    */
   @Column('jsonb', { default: () => "'[]'::jsonb" })
   packs: StoredPack[];
+
+  /**
+   * The barcodes that identify this product at the counter, in canonical form (FR-13,
+   * ADR-031). Several, because one medicine comes from several manufacturers. No barcode
+   * belongs to two products of one pharmacy — held by `ManagementService.setBarcodes`.
+   */
+  @Column('jsonb', { default: () => "'[]'::jsonb" })
+  barcodes: string[];
 }

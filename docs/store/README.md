@@ -120,6 +120,12 @@ Not collected: location, contacts, messages, health info (no patient data is sto
 prescriptions are recorded by number, prescriber and date only), audio, calendar, web
 browsing, advertising ID.
 
+**Camera permission (added with FR-13).** The app asks for the camera when a user taps
+"Scan a barcode". Frames are decoded on the device to read the barcode; no image or video is
+stored or sent, so the camera adds **no** row to the table above. If the console asks why the
+permission is requested: *"Scanning medicine barcodes at the pharmacy counter."* The camera
+is declared not required, so phones without one can still install.
+
 **Other Play Console declarations**
 - *Ads:* No ads.
 - *Target audience:* 18+ only; not designed for children.

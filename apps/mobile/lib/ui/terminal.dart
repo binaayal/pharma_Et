@@ -233,6 +233,18 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// The product a scanned barcode belongs to, or null (FR-13).
+  ///
+  /// Looked up in the catalogue already on this phone, so a scan works with no network —
+  /// and [barcode] must be canonical (`parseScan` / `canonicalBarcode`), because that is
+  /// the form the links are stored in.
+  LocalProduct? productForBarcode(String barcode) {
+    for (final product in products) {
+      if (product.barcodes.contains(barcode)) return product;
+    }
+    return null;
+  }
+
   // ------------------------------------------------------------------------ cart
 
   int get cartTotal => cart.fold(0, (sum, line) => sum + line.lineTotalSantim);

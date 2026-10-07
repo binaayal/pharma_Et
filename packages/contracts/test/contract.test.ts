@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   CONTRACT_VERSION,
   SUPPORTED_CONTRACT_VERSIONS,
+  BARCODE_VECTORS,
   MAX_PACK_SIZE,
+  barcode,
   baseQuantity,
+  canonicalBarcode,
+  productBarcodes,
   cashUpPayload,
   goodsReceiptPayload,
   operation,
@@ -345,6 +349,64 @@ describe('envelope v1.5.0 — sell units (FR-11, ADR-030)', () => {
     for (const v of ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0']) {
       expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
     }
-    expect(CONTRACT_VERSION).toBe('1.5.0');
+  });
+});
+
+describe('contract v1.6.0 — barcodes (FR-13, ADR-031)', () => {
+  it.each(BARCODE_VECTORS)('canonicalises %s to %s', (input, canonical) => {
+    expect(canonicalBarcode(input)).toBe(canonical);
+  });
+
+  it('is idempotent — canonicalising twice changes nothing', () => {
+    for (const [input] of BARCODE_VECTORS) {
+      const once = canonicalBarcode(input);
+      expect(canonicalBarcode(once)).toBe(once);
+    }
+  });
+
+  it('makes the EAN-13 on the box and the GTIN in its DataMatrix the same barcode', () => {
+    expect(canonicalBarcode('6291100080014')).toBe(canonicalBarcode('06291100080014'));
+  });
+
+  it('stores only the canonical form, so two spellings cannot both be saved', () => {
+    expect(barcode.safeParse('06291100080014').success).toBe(true);
+    expect(barcode.safeParse('6291100080014').success).toBe(false);
+  });
+
+  it('refuses a barcode with a space, a control character, or nothing in it', () => {
+    for (const bad of ['', 'abc', 'has space 1', 'tab\there', '\u001d0106291100080014']) {
+      expect(barcode.safeParse(bad).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+
+  it('refuses the same barcode twice on one product', () => {
+    expect(productBarcodes.safeParse(['06291100080014', 'SHELF-0042']).success).toBe(true);
+    expect(productBarcodes.safeParse(['06291100080014', '06291100080014']).success).toBe(false);
+  });
+
+  const ref = {
+    id: PRODUCT,
+    name: 'Amoxicillin 500mg capsule',
+    unit: 'capsule',
+    isControlled: false,
+    psychotropicClass: null,
+    currentPriceSantim: 400,
+    changeSeq: 7,
+    deletedAt: null,
+  };
+
+  it('pulls a product with no `barcodes` at all — what a 1.5.0 server sends', () => {
+    expect(productRef.safeParse(ref).success).toBe(true);
+  });
+
+  it('pulls a product with its barcodes', () => {
+    expect(productRef.parse({ ...ref, barcodes: ['06291100080014'] }).barcodes).toHaveLength(1);
+  });
+
+  it('keeps every earlier version inside the support window (ADR-009)', () => {
+    for (const v of ['1.0.0', '1.4.0', '1.5.0', '1.6.0']) {
+      expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
+    }
+    expect(CONTRACT_VERSION).toBe('1.6.0');
   });
 });

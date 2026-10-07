@@ -359,6 +359,47 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-13 — Barcode scanning · Priority: M · V2
+**Actors:** Pharmacist/Cashier (scan to sell, scan to receive); Owner, Branch Manager (link barcodes).
+**Preconditions:** a phone with a camera; products defined (FR-3). Design: ADR-031.
+
+**Main flow (sale):**
+1. The Cashier taps scan and points the camera at a box.
+2. The system finds the product that carries that barcode, on the device, and adds it to the sale exactly as selecting it would (FR-4).
+3. The scanner stays open for the next box.
+
+**Alternate flows:**
+- 13a. **Linking.** An Owner or Branch Manager opens a product and scans a box; the barcode is recorded against the product and reaches every terminal on its next sync. A barcode may be unlinked.
+- 13b. **Receiving.** At goods receipt (FR-7), scanning a box selects its product; where the code is a GS1 DataMatrix, its batch number and expiry date are entered into the receipt line for the user to confirm.
+
+**Exception flows:**
+- E-13.1 Unknown barcode: the system says so and adds nothing. The product can still be found by name.
+- E-13.2 No camera, or permission refused: the system says so; every screen that offers a scan still accepts typing.
+- E-13.3 Offline: scanning to sell and to receive work against the links the terminal last pulled. Linking needs a network.
+
+**Business rules:**
+- BR-13.1 A scan is matched **on the device**; the network is never on the path of a sale (NFR-1).
+- BR-13.2 A barcode is stored and compared in **one canonical form**: a GTIN as 14 digits, so the EAN-13 on a box and the GTIN in its DataMatrix are the same barcode.
+- BR-13.3 Within a pharmacy, **a barcode identifies exactly one product.** Linking one that another product carries is refused, naming that product.
+- BR-13.4 An unknown barcode never resolves to a similar one.
+- BR-13.5 Linking and unlinking require `catalog.manage` (AC-2.1) and are recorded in the audit log.
+- BR-13.6 A scanned sale obeys every rule of a selected one: FEFO (AC-3.2), expired-stock warning (E-4.2), and the refusal of controlled substances while dispensing is switched off (ADR-024).
+- BR-13.7 A batch number and expiry read from a code are **proposed, not saved**: the user sees them before the receipt line is added. An unreadable field is left empty, never guessed.
+- BR-13.8 Camera frames are processed on the device and are not stored or transmitted.
+
+**Acceptance criteria:**
+- AC-13.1 *Given* a product linked by scanning the EAN-13 on its box, *when* a Cashier scans that box, *then* the product is added to the sale at its price.
+- AC-13.2 *Given* the same product, *when* the GS1 DataMatrix on the box is scanned instead, *then* the same product is added.
+- AC-13.3 *Given* an offline terminal, *when* a Cashier scans a linked box, *then* the product is added.
+- AC-13.4 *Given* a barcode linked to product A, *when* an Owner tries to link it to product B, *then* it is refused with A's name and B is unchanged.
+- AC-13.5 *Given* a barcode no product carries, *when* it is scanned at the till, *then* nothing is added and the Cashier is told.
+- AC-13.6 *Given* a Cashier, *when* they open a product, *then* they are offered no way to link or unlink a barcode, and the API denies the attempt.
+- AC-13.7 *Given* a delivery box with a GS1 DataMatrix, *when* it is scanned at goods receipt, *then* the product, batch number and expiry are filled in and the line is not saved until the user adds it.
+- AC-13.8 *Given* two pharmacies, *when* each links the same barcode, *then* both succeed and neither can see the other's link.
+- AC-13.9 *Given* a terminal on the previous contract version, *when* it syncs, *then* it pulls its catalogue unchanged.
+
+---
+
 ## 4. Non-functional requirements
 
 ### NFR-1 — Offline capability & availability · Priority: M
@@ -428,6 +469,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-6 — controlled-substance ledger | §5.6, §6 | `api/src/modules/ledger/`, `api/src/migrations/1759400000000-ControlledLedger.ts`, `mobile/lib/ui/ledger_screen.dart` | `g5-controlled-ledger.spec.ts`, `g3-ledger-immutability.spec.ts` | **Built, switched off until A-1 (ADR-024).** AC-6.1 (database refuses edit and delete; corrections are compensating events), AC-6.2 (ordered history), BR-6.3 (CSV export marked provisional), BR-3.3 (projection rebuilds exactly from events). With the switch off every controlled operation is rejected and writes nothing. |
 | FR-11 sell units (break-bulk) — **V2** | §3, §5.2, §5.4, §5.5; ADR-030 | contract: `packages/contracts/src/entities.ts` (`productPack`, `baseQuantity`) · server: `api/src/migrations/SellUnits`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/data/{sale,inventory,catalog}_repository.dart`, `mobile/lib/ui/{sell_screen,receive_screen,catalog_sheets}.dart` | `g4-sell-units.spec.ts` (30), `g4_sell_units_test.dart` (20), `g7_schema_upgrade_test.dart`, `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-11.1 to AC-11.7 on both sides: pack sales exact to the santim, stock in base units, oversell by the box detected, a 1.4.0 terminal unchanged (ADR-009), a V1 local database upgraded in place. `itemsSold` in the sales summary counts units as rung up (ADR-030, consequences). |
 | FR-12 pre-loaded medicines catalogue — **V2** | — (bundled reference data; the existing product-create path) | source: `docs/regulatory/EFDA-GDL-067-essential-medicines-list-2024.pdf` · build: `scripts/build-medicines-catalogue.py` → `mobile/assets/catalogue/medicines.json` · app: `mobile/lib/data/medicine_catalogue.dart`, `mobile/lib/ui/catalog_sheets.dart` | `medicine_catalogue_test.dart` (18), `inventory_screens_test.dart` | **Done** — 1,315 entries from 490 generics of the 2024 list. AC-12.1 to AC-12.5 at the widget tier; the file itself is tested for size, duplicates, stray footnotes and the absence of any price or controlled flag. **Not covered:** medicines outside the Essential Medicines List (brands, the drug-shop and OTC lists) — typed by hand until those lists are added. |
+| FR-13 barcode scanning — **V2** | §5.2; ADR-031 | contract: `packages/contracts/src/entities.ts` (`canonicalBarcode`, `productBarcodes`) · server: `api/src/migrations/ProductBarcodes`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/core/gs1.dart`, `mobile/lib/ui/scan_screen.dart`, `mobile/lib/ui/{sell_screen,receive_screen,stock_screen}.dart` | `g2-product-barcodes.spec.ts` (19), `gs1_test.dart` (24), `g2_barcodes_test.dart` (5), `barcode_screens_test.dart` (8), `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Built; the camera is untested.** AC-13.1 to AC-13.9 hold with the camera replaced by a script — matching, canonical form, one-product-per-barcode, tenant isolation, N-1. **What no test here can show** is that a real phone reads a real box: focus, glare, a curved blister pack, a low-end camera. That is a device check, and belongs on the field-UAT list (`engineering/field-uat.md`). |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

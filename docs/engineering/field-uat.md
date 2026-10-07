@@ -114,6 +114,19 @@ Record these; none has a pass/fail, and all of them are why we are here.
 - The expiry date entry (FR-7). It is Gregorian on purpose while the rest of the app is
   Ethiopian — does that read as deliberate at the counter, or as a bug?
 
+### 4.5 V2 at the counter (FR-11, FR-12, FR-13)
+
+These three were built and tested without a handset. Each has a part only a shop can check.
+
+| What to do | What must be true | Why CI cannot show it |
+|---|---|---|
+| **Scan twenty different boxes** from the shelf, in the shop's own light — blister cartons, a bottle, a small box, one with a DataMatrix | Each is read within about two seconds; none reads as a different product | A test hands the app a string. Focus, glare, curvature and a cheap camera are not strings. |
+| **Scan a basket of five**, including the same box twice | Five lines' worth in the cart, the repeat counted twice and not six times | The repeat guard is a timing choice made at a desk |
+| **Receive one delivery by scanning** a box with a GS1 DataMatrix | The lot and expiry filled in match what is printed on the box | Real manufacturers' codes, not the ones written for the tests |
+| **Deny the camera permission**, then tap scan | A plain message, and typing still works | Permission dialogs are the operating system's |
+| **Sell a strip and a box** of a product with packs; receive five boxes | The owner agrees the stock count and the money are both right | Whether "strip" and "box" are the words this shop uses |
+| **Set up ten products from the medicines list** | The pharmacist finds each in a few letters; note every one they could not find, and every suggestion that reads wrongly | The list was parsed from a PDF and spot-checked, not reviewed by a pharmacist |
+
 ## 5. Recording findings
 
 One row per finding, in the log below. Severity per §14: **S1** data loss / cross-tenant /

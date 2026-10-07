@@ -8,6 +8,7 @@ import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/ui/dispense_screen.dart';
 import 'package:pharmaet_mobile/ui/home_screen.dart';
 import 'package:pharmaet_mobile/ui/kit.dart';
+import 'package:pharmaet_mobile/ui/scan_screen.dart';
 import 'package:pharmaet_mobile/ui/sell_screen.dart';
 import 'package:pharmaet_mobile/ui/terminal.dart';
 
@@ -215,6 +216,98 @@ void main() {
 
       expect(find.text('This stock has expired'), findsNothing);
       expect(find.textContaining('LOT-b2'), findsOneWidget);
+    });
+  });
+
+  group('ringing up by scanning (FR-13)', () {
+    tearDown(() => BarcodeScanner.debugScans = null);
+
+    Future<TestTerminal> counter(WidgetTester tester) async {
+      final t = TestTerminal.build(db);
+      t.catalog.products_.addAll(const [
+        LocalProduct(
+            id: 'p1',
+            name: 'Paracetamol 500mg tablet',
+            unit: 'tablet',
+            isControlled: false,
+            priceSantim: 500,
+            barcodes: ['06291100080014']),
+        LocalProduct(
+            id: 'p2',
+            name: 'Amoxicillin 500mg capsule',
+            unit: 'capsule',
+            isControlled: false,
+            priceSantim: 400,
+            barcodes: ['06291100090013', 'SHELF-0042']),
+        LocalProduct(
+            id: 'p3',
+            name: 'Diazepam 5mg tablet',
+            unit: 'tablet',
+            isControlled: true,
+            priceSantim: 4000,
+            barcodes: ['06291100070016']),
+      ]);
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+      return t;
+    }
+
+    Future<void> scan(WidgetTester tester, List<String> codes) async {
+      BarcodeScanner.debugScans = List.of(codes);
+      await tester.tap(find.byTooltip('Scan a barcode'));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    testWidgets('the EAN-13 on the box adds that product', (tester) async {
+      final t = await counter(tester);
+      await scan(tester, ['6291100080014']);
+
+      expect(t.terminal.cart.single.product.id, 'p1');
+      expect(t.terminal.cartTotal, 500);
+    });
+
+    testWidgets('the DataMatrix on the same box adds the same product',
+        (tester) async {
+      final t = await counter(tester);
+      await scan(tester, ['010629110008001417271231${'10'}LOT42']);
+
+      expect(t.terminal.cart.single.product.id, 'p1');
+    });
+
+    testWidgets('a whole basket in one go; the same box twice is two',
+        (tester) async {
+      final t = await counter(tester);
+      await scan(tester, ['6291100080014', 'SHELF-0042', '6291100080014']);
+
+      expect(t.terminal.cart.length, 2);
+      expect(t.terminal.cart.firstWhere((l) => l.product.id == 'p1').qty, 2);
+      expect(t.terminal.cart.firstWhere((l) => l.product.id == 'p2').qty, 1);
+      expect(t.terminal.cartTotal, 1400);
+    });
+
+    testWidgets('an unknown barcode adds nothing — never a near match',
+        (tester) async {
+      final t = await counter(tester);
+      // One digit off a real one.
+      await scan(tester, ['6291100080015']);
+
+      expect(t.terminal.cart, isEmpty);
+    });
+
+    testWidgets('a controlled substance is not sold by a scan either',
+        (tester) async {
+      final t = await counter(tester);
+      await scan(tester, ['6291100070016']);
+
+      // The same refusal a tap gets (ADR-024): the scanner is not a way round the ledger.
+      expect(t.terminal.cart, isEmpty);
+    });
+
+    testWidgets('the camera is not started until somebody asks for it',
+        (tester) async {
+      await counter(tester);
+      expect(find.byType(ScanScreen), findsNothing);
+      expect(find.byTooltip('Scan a barcode'), findsOneWidget);
     });
   });
 

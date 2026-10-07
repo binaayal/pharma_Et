@@ -157,6 +157,14 @@ class TenantApi {
           },
           token: token);
 
+  /// Replaces the barcodes that identify a product (FR-13). The server stores each in
+  /// canonical form and refuses one another product already carries (409), with that
+  /// product's name in the message.
+  Future<void> setBarcodes(
+          String token, String productId, List<String> barcodes) =>
+      _post('/products/$productId/barcodes', {'barcodes': barcodes},
+          token: token);
+
   /// Replaces a product's packs — strip of 10, box of 100, each with its own price
   /// (FR-11). Recorded in the audit log with the list before and after.
   Future<void> setPacks(

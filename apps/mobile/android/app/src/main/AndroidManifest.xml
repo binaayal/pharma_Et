@@ -2,6 +2,12 @@
     <!-- Flutter's template grants INTERNET only in the debug and profile manifests, so a
          release build installs, runs, and silently never syncs. Sync is the product. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The barcode scanner (FR-13). Declared here as well as by the plugin, so the reason
+         is written where permissions are reviewed. Asked for only when somebody taps scan;
+         frames are read on the device and never stored or sent. Not required: a phone with
+         no camera still installs and sells by typing. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <!-- Release: HTTPS only (the debug manifest opens cleartext to the developer's machine),
          and no cloud or device-to-device backup. The local database holds a pharmacy's sales
          and the secure store its cached sign-in; a backup restored onto another phone would

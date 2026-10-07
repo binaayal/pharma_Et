@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import type { EntityManager } from 'typeorm';
 import { uuidv7 } from 'uuidv7';
 import type { Grant, ProductPack } from '@pharmaet/contracts';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
@@ -253,6 +255,7 @@ export class ManagementService {
       priceSantim: number;
       isControlled?: boolean;
       packs?: ProductPack[];
+      barcodes?: string[];
     },
   ) {
     if (!Number.isInteger(input.priceSantim) || input.priceSantim < 0) {
@@ -269,9 +272,11 @@ export class ManagementService {
     }
 
     const packs = input.packs ?? [];
+    const barcodes = input.barcodes ?? [];
 
     return this.db.runInScope(scope, async (em) => {
       const id = uuidv7();
+      await this.assertBarcodesFree(em, barcodes, id);
       await em.getRepository(Product).insert({
         id,
         tenantId: scope.tenantId,
@@ -281,6 +286,7 @@ export class ManagementService {
         psychotropicClass: null,
         currentPriceSantim: input.priceSantim,
         packs,
+        barcodes,
         changeSeq: await this.changeSeq.next(em, scope.tenantId),
         deletedAt: null,
       });
@@ -294,6 +300,7 @@ export class ManagementService {
           // Only when there are some, so a product created without packs is recorded
           // exactly as it was before FR-11.
           ...(packs.length > 0 ? { packs } : {}),
+          ...(barcodes.length > 0 ? { barcodes } : {}),
         },
       });
 
@@ -377,5 +384,65 @@ export class ManagementService {
 
       return { id: product.id, packs };
     });
+  }
+
+  /**
+   * Replaces the barcodes that identify a product at the counter (FR-13, ADR-031).
+   *
+   * The whole list is replaced, for the reason packs are: "these are its barcodes now" has
+   * one meaning, where add and remove calls arriving out of order do not.
+   *
+   * **A barcode names one product.** If it named two, a scan would have to pick, and
+   * whichever it picked would be wrong half the time at a different price — silently, on a
+   * device nobody is watching. So a code already on another product is refused with that
+   * product's name, which is what the person holding the box needs in order to decide
+   * which of the two is mistaken.
+   */
+  async setBarcodes(scope: TenantScope, productId: string, barcodes: string[]) {
+    return this.db.runInScope(scope, async (em) => {
+      const repo = em.getRepository(Product);
+      const product = await repo.findOne({ where: { id: productId } });
+      if (!product) throw new NotFoundException('product not found');
+
+      await this.assertBarcodesFree(em, barcodes, product.id);
+
+      const previous = product.barcodes ?? [];
+      product.barcodes = barcodes;
+      product.changeSeq = await this.changeSeq.next(em, scope.tenantId);
+      await repo.save(product);
+
+      await this.audit.record(em, scope, {
+        type: 'audit.barcodes_changed',
+        streamId: product.id,
+        payload: { productName: product.name, previous, barcodes },
+      });
+
+      return { id: product.id, barcodes };
+    });
+  }
+
+  /**
+   * Refuses any of [barcodes] already carried by a different live product.
+   *
+   * Runs on the scoped connection, so "a different product" can only ever mean one of this
+   * pharmacy's: two pharmacies stock the same box and both link its barcode (ADR-003).
+   */
+  private async assertBarcodesFree(
+    em: EntityManager,
+    barcodes: string[],
+    exceptProductId: string,
+  ): Promise<void> {
+    for (const code of barcodes) {
+      const holder = await em
+        .getRepository(Product)
+        .createQueryBuilder('p')
+        .where('p.barcodes @> :code::jsonb', { code: JSON.stringify([code]) })
+        .andWhere('p.id <> :id', { id: exceptProductId })
+        .andWhere('p.deleted_at IS NULL')
+        .getOne();
+      if (holder) {
+        throw new ConflictException(`barcode ${code} already belongs to "${holder.name}"`);
+      }
+    }
   }
 }

@@ -4,6 +4,7 @@ import {
   controlledAdjustmentPayload,
   controlledDispensePayload,
   goodsReceiptPayload,
+  productBarcodes,
   productPacks,
   salePayload,
   shiftPayload,
@@ -165,6 +166,11 @@ export const productRef = z.object({
    * server always sends it, empty when the product has none.
    */
   packs: productPacks.optional(),
+  /**
+   * The barcodes that identify this product at the counter (FR-13, ADR-031), in canonical
+   * form. Optional for the same reason as `packs`; the server always sends it.
+   */
+  barcodes: productBarcodes.optional(),
   changeSeq,
   deletedAt: utcTimestamp.nullable(),
 });

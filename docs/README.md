@@ -86,6 +86,7 @@ answer, permanently.
 | [ADR-028](adr/ADR-028-screenshots-in-postgres-until-object-storage.md) | Payment screenshots in Postgres until there is object storage | Accepted |
 | [ADR-029](adr/ADR-029-v2-is-the-sellability-release.md) | V2 is the sellability release; multi-writer offline stays deferred | Accepted |
 | [ADR-030](adr/ADR-030-sell-units.md) | Sell units: a pack is recorded on the line, never multiplied into it | Accepted |
+| [ADR-031](adr/ADR-031-barcodes.md) | Barcodes: a product carries its barcodes, in one canonical spelling | Accepted |
 
 ---
 

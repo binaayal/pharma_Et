@@ -90,7 +90,7 @@ erDiagram
 ### 5.2 Catalog & pricing
 | Table | Key columns | Notes |
 |---|---|---|
-| `product` | `id`, `tenant_id`, `name`, `unit`, `is_controlled`, `psychotropic_class`, `packs` | `is_controlled=true` routes stock through the event store (§6). `unit` is the base unit. `packs` is a JSON list of `{name, size, priceSantim}` — at most four, each with its own price (FR-11, ADR-030); empty for a product sold only loose, and always empty for a controlled one. |
+| `product` | `id`, `tenant_id`, `name`, `unit`, `is_controlled`, `psychotropic_class`, `packs`, `barcodes` | `is_controlled=true` routes stock through the event store (§6). `unit` is the base unit. `packs` is a JSON list of `{name, size, priceSantim}` — at most four, each with its own price (FR-11, ADR-030); empty for a product sold only loose, and always empty for a controlled one. `barcodes` is a JSON list of the codes a scan recognises as this product, each in canonical form (a GTIN as 14 digits); no barcode is on two live products of one tenant (FR-13, ADR-031). |
 | `product_price` | `id`, `tenant_id`, `product_id`, `price_santim`, `effective_from` | Price history retained; current price = latest effective. Price changes also emit an audit event (§6). |
 
 ### 5.3 Inventory — standard drugs (mutable)
