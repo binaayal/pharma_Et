@@ -129,11 +129,7 @@ abstract final class ReceiptOutput {
           row(s.get('receipt.total'), formatEtb(doc.totalSantim),
               style: strong),
           pw.SizedBox(height: 2),
-          row(s.get('receipt.paidBy'), doc.tenderName(s)),
-          if (doc.tender == ReceiptTender.cash) ...[
-            row(s.get('receipt.received'), formatMoney(doc.receivedSantim)),
-            row(s.get('receipt.change'), formatMoney(doc.changeSantim)),
-          ],
+          for (final (label, value) in doc.settlement(s)) row(label, value),
           rule(),
           pw.Text('${s.get('receipt.servedBy')}: ${doc.cashier}', style: small),
           pw.SizedBox(height: 2),

@@ -305,3 +305,103 @@ export function controlledAdjustmentOp(
     },
   };
 }
+
+/** A credit customer created at the counter (contract 1.7.0, ADR-034). */
+export function customerOp(
+  tenant: SeededTenant,
+  options: { terminalSeq: number; customerId?: string; name?: string; terminalId?: string },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: options.terminalId ?? TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: options.customerId ?? uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.cashier.id,
+    clientTs: '2026-10-07T08:00:00.000Z',
+    entityType: 'customer' as const,
+    payload: {
+      name: options.name ?? 'Abebe Kebede',
+      phone: '0911 23 45 67',
+      note: null,
+      createdAt: '2026-10-07T08:00:00.000Z',
+    },
+  };
+}
+
+/**
+ * A sale with some of its total on credit (contract 1.7.0, ADR-034). `paidNowSantim` is
+ * what was handed over in cash; the rest is owed by `customerId`.
+ */
+export function creditSaleOp(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    customerId: string;
+    qty?: number;
+    unitPriceSantim?: number;
+    paidNowSantim?: number;
+    shiftId?: string | null;
+    terminalId?: string;
+  },
+) {
+  const op = saleOp(tenant, {
+    terminalSeq: options.terminalSeq,
+    qty: options.qty ?? 3,
+    unitPriceSantim: options.unitPriceSantim ?? 1500,
+    terminalId: options.terminalId,
+  });
+  const total = op.payload.totalSantim;
+  const paidNow = options.paidNowSantim ?? 0;
+  return {
+    ...op,
+    payload: {
+      ...op.payload,
+      shiftId: options.shiftId ?? null,
+      customerId: options.customerId,
+      payments: [
+        ...(paidNow > 0 ? [{ id: uuidv7(), method: 'cash' as const, amountSantim: paidNow }] : []),
+        { id: uuidv7(), method: 'credit' as const, amountSantim: total - paidNow },
+      ],
+    },
+  };
+}
+
+/** Money taken against a customer's debt (contract 1.7.0, ADR-034). */
+export function creditPaymentOp(
+  tenant: SeededTenant,
+  options: {
+    terminalSeq: number;
+    customerId: string;
+    amountSantim: number;
+    method?: 'cash' | 'other_recorded';
+    shiftId?: string | null;
+    terminalId?: string;
+  },
+) {
+  return {
+    opId: uuidv7(),
+    terminalId: options.terminalId ?? TERMINAL,
+    terminalSeq: options.terminalSeq,
+    entityId: uuidv7(),
+    opType: 'create' as const,
+    baseVersion: null,
+    tenantId: tenant.id,
+    branchId: tenant.branchIds[0],
+    actorId: tenant.users.cashier.id,
+    clientTs: '2026-10-08T09:00:00.000Z',
+    entityType: 'credit_payment' as const,
+    payload: {
+      customerId: options.customerId,
+      amountSantim: options.amountSantim,
+      method: options.method ?? ('cash' as const),
+      paidAt: '2026-10-08T09:00:00.000Z',
+      shiftId: options.shiftId ?? null,
+      receivedBy: tenant.users.cashier.id,
+      note: null,
+    },
+  };
+}

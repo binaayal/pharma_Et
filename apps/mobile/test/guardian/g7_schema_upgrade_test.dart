@@ -177,6 +177,9 @@ void main() {
       'product',
       'sale_line',
       'goods_receipt_line',
+      // FR-16 added these two tables, and a column to `sale` above.
+      'customer',
+      'credit_payment',
     ]) {
       expect(
         await columnsOf(upgraded, table),

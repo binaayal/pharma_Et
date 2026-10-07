@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PharmaEt sync & API contract",
   "description": "Generated from packages/contracts/src by `pnpm gen:contracts`. Do not hand-edit. This is a controlled artifact — see docs/06-delivery-plan.md §7.",
-  "contractVersion": "1.6.0",
+  "contractVersion": "1.7.0",
   "definitions": {
     "Operation": {
       "anyOf": [
@@ -431,6 +431,120 @@
             "payload"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalSeq": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/terminalSeq"
+            },
+            "entityId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "opType": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opType"
+            },
+            "baseVersion": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/baseVersion"
+            },
+            "tenantId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "branchId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/branchId"
+            },
+            "actorId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "clientTs": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            "entityType": {
+              "type": "string",
+              "const": "customer"
+            },
+            "payload": {
+              "$ref": "#/definitions/CustomerPayload"
+            }
+          },
+          "required": [
+            "opId",
+            "terminalId",
+            "terminalSeq",
+            "entityId",
+            "opType",
+            "baseVersion",
+            "tenantId",
+            "branchId",
+            "actorId",
+            "clientTs",
+            "entityType",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "opId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "terminalSeq": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/terminalSeq"
+            },
+            "entityId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "opType": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opType"
+            },
+            "baseVersion": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/baseVersion"
+            },
+            "tenantId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "branchId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/branchId"
+            },
+            "actorId": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            "clientTs": {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            "entityType": {
+              "type": "string",
+              "const": "credit_payment"
+            },
+            "payload": {
+              "$ref": "#/definitions/CreditPaymentPayload"
+            }
+          },
+          "required": [
+            "opId",
+            "terminalId",
+            "terminalSeq",
+            "entityId",
+            "opType",
+            "baseVersion",
+            "tenantId",
+            "branchId",
+            "actorId",
+            "clientTs",
+            "entityType",
+            "payload"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -479,7 +593,7 @@
       "properties": {
         "contractVersion": {
           "type": "string",
-          "default": "1.6.0"
+          "default": "1.7.0"
         },
         "terminalId": {
           "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
@@ -557,6 +671,12 @@
           "type": "array",
           "items": {
             "$ref": "#/definitions/StockBatchRef"
+          }
+        },
+        "customers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CustomerRef"
           }
         },
         "serverTime": {
@@ -781,6 +901,57 @@
       ],
       "additionalProperties": false
     },
+    "CustomerRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "name": {
+          "type": "string"
+        },
+        "phone": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "balanceSantim": {
+          "type": "integer",
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "changeSeq": {
+          "$ref": "#/definitions/PushResponse/properties/changeSeq"
+        },
+        "deletedAt": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "UTC ISO-8601 timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "phone",
+        "note",
+        "balanceSantim",
+        "changeSeq",
+        "deletedAt"
+      ],
+      "additionalProperties": false
+    },
     "SalePayload": {
       "type": "object",
       "properties": {
@@ -818,6 +989,17 @@
           "items": {
             "$ref": "#/definitions/PaymentPayload"
           }
+        },
+        "customerId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Client-generated UUIDv7 identifier"
         }
       },
       "required": [
@@ -947,7 +1129,8 @@
           "type": "string",
           "enum": [
             "cash",
-            "other_recorded"
+            "other_recorded",
+            "credit"
           ]
         },
         "amountSantim": {
@@ -1085,8 +1268,7 @@
           "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
         },
         "expectedSantim": {
-          "type": "integer",
-          "description": "Money in santim (1 ETB = 100 santim)"
+          "$ref": "#/definitions/CustomerRef/properties/balanceSantim"
         },
         "countedSantim": {
           "type": "integer",
@@ -1094,7 +1276,7 @@
           "description": "Money in santim (1 ETB = 100 santim)"
         },
         "varianceSantim": {
-          "$ref": "#/definitions/CashUpPayload/properties/expectedSantim"
+          "$ref": "#/definitions/CustomerRef/properties/balanceSantim"
         },
         "note": {
           "anyOf": [
@@ -1300,6 +1482,106 @@
         "note",
         "correctsEventId",
         "countedAt"
+      ],
+      "additionalProperties": false
+    },
+    "CustomerPayload": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 40
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 300
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        }
+      },
+      "required": [
+        "name",
+        "phone",
+        "note",
+        "createdAt"
+      ],
+      "additionalProperties": false
+    },
+    "CreditPaymentPayload": {
+      "type": "object",
+      "properties": {
+        "customerId": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "amountSantim": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "Money in santim (1 ETB = 100 santim)"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "cash",
+            "other_recorded"
+          ]
+        },
+        "paidAt": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/clientTs"
+        },
+        "shiftId": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Client-generated UUIDv7 identifier"
+        },
+        "receivedBy": {
+          "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 300
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "customerId",
+        "amountSantim",
+        "method",
+        "paidAt",
+        "shiftId",
+        "receivedBy",
+        "note"
       ],
       "additionalProperties": false
     },

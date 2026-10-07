@@ -49,7 +49,7 @@ class LocalDb {
   Future<void> acknowledgeQuarantine() =>
       db.delete('meta', where: 'key = ?', whereArgs: [_quarantineKey]);
 
-  static const _version = 6;
+  static const _version = 7;
 
   /// Opens the terminal's database, and **always returns one** (ADR-018).
   ///
@@ -255,6 +255,7 @@ class LocalDb {
     await _createControlledSchema(db);
     await _addSellUnitColumns(db);
     await _addBarcodeColumn(db);
+    await _createCreditSchema(db);
 
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
@@ -397,6 +398,48 @@ class LocalDb {
     await db.execute('ALTER TABLE product ADD COLUMN barcodes_json TEXT');
   }
 
+  /// The customer credit ledger — ዕዳ (FR-16, ADR-034; contract 1.7.0).
+  ///
+  /// `customer` is the one table that is both: created here at the counter, and mirrored
+  /// back from the server so every phone knows every customer. Its `balance_santim` is the
+  /// **server's** figure only; what this phone has queued is added on when it is read, so
+  /// a pull overwriting the row can never erase an unsynced debt.
+  ///
+  /// `credit_payment` is authored here like a sale. `sale.customer_id` is null on every
+  /// sale ever rung up before this, which is what they were: nobody's debt.
+  static Future<void> _createCreditSchema(DatabaseExecutor db) async {
+    await db.execute('''
+      CREATE TABLE customer (
+        id              TEXT PRIMARY KEY,
+        name            TEXT NOT NULL,
+        phone           TEXT,
+        note            TEXT,
+        balance_santim  INTEGER NOT NULL DEFAULT 0,
+        change_seq      INTEGER NOT NULL DEFAULT 0,
+        deleted         INTEGER NOT NULL DEFAULT 0,
+        synced          INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE credit_payment (
+        id             TEXT PRIMARY KEY,
+        branch_id      TEXT NOT NULL,
+        customer_id    TEXT NOT NULL,
+        amount_santim  INTEGER NOT NULL,
+        method         TEXT NOT NULL,
+        paid_at        TEXT NOT NULL,
+        shift_id       TEXT,
+        received_by    TEXT NOT NULL,
+        note           TEXT,
+        synced         INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX credit_payment_customer ON credit_payment (customer_id)');
+    await db.execute('ALTER TABLE sale ADD COLUMN customer_id TEXT');
+    await db.execute('CREATE INDEX sale_customer ON sale (customer_id)');
+  }
+
   /// Schema upgrades run on a device holding real, unsynced sales.
   ///
   /// So they are additive only — new tables and new nullable columns. Anything that
@@ -420,6 +463,9 @@ class LocalDb {
     }
     if (from < 6) {
       await _addBarcodeColumn(db);
+    }
+    if (from < 7) {
+      await _createCreditSchema(db);
     }
   }
 

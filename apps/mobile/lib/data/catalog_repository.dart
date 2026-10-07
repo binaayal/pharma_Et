@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../contracts/contracts.dart';
+import 'customer_repository.dart';
 import 'local_db.dart';
 
 class LocalProduct {
@@ -413,6 +414,11 @@ class CatalogRepository {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
+
+      // Credit customers and what the server says each owes (FR-16). In the same
+      // transaction as the cursor: a balance and the point it is correct as of move
+      // together or not at all.
+      await CustomerRepository.applyPulled(txn, response.customers ?? const []);
 
       await txn.insert(
         'meta',

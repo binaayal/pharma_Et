@@ -1,4 +1,5 @@
 import '../contracts/contracts.dart';
+import '../data/customer_repository.dart';
 import '../data/catalog_repository.dart';
 import '../data/local_db.dart';
 import '../data/outbox.dart';
@@ -65,12 +66,16 @@ class SyncService {
     required CatalogRepository catalog,
     required SaleRepository sales,
     required InventoryRepository inventory,
+    CustomerRepository? customers,
   })  : _db = db,
         _outbox = outbox,
         _client = client,
         _catalog = catalog,
         _sales = sales,
-        _inventory = inventory;
+        _inventory = inventory,
+        // Stateless over the same database and queue, so a default is the same object in
+        // every way that matters; callers that hold one pass it for clarity.
+        _customers = customers ?? CustomerRepository(db, outbox);
 
   final LocalDb _db;
   final Outbox _outbox;
@@ -78,6 +83,7 @@ class SyncService {
   final CatalogRepository _catalog;
   final SaleRepository _sales;
   final InventoryRepository _inventory;
+  final CustomerRepository _customers;
 
   DateTime? _lastSyncedAt;
 
@@ -161,6 +167,15 @@ class SyncService {
           if (entry.entityType == 'goods_receipt' ||
               entry.entityType == 'stock_adjustment')
             _inventory.toOperation(
+              entry,
+              tenantId: tenantId,
+              branchId: branchId,
+              actorId: actorId,
+              terminalId: terminalId,
+            )
+          else if (entry.entityType == 'customer' ||
+              entry.entityType == 'credit_payment')
+            _customers.toOperation(
               entry,
               tenantId: tenantId,
               branchId: branchId,

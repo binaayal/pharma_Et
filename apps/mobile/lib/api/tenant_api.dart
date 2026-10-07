@@ -308,17 +308,28 @@ class SalesFigures {
     required this.grossSantim,
     required this.cashSantim,
     required this.itemsSold,
+    this.creditSantim = 0,
   });
   factory SalesFigures.fromJson(Map<String, dynamic> j) => SalesFigures(
         saleCount: _int(j['saleCount']),
         grossSantim: _int(j['grossSantim']),
         cashSantim: _int(j['cashSantim']),
         itemsSold: _int(j['itemsSold']),
+        // Absent from a server that predates the credit ledger, which reads as zero —
+        // and on such a server it is.
+        creditSantim: _int(j['creditSantim']),
       );
   final int saleCount;
   final int grossSantim;
   final int cashSantim;
   final int itemsSold;
+
+  /// Sold on credit: revenue, not yet money (FR-16).
+  final int creditSantim;
+
+  /// Telebirr, bank transfer and the like — what was paid, but not in cash. Credit is
+  /// taken out: a debt shown as "other tender" would read as money that came in.
+  int get otherTenderSantim => grossSantim - cashSantim - creditSantim;
 }
 
 class BranchSales extends SalesFigures {
@@ -329,6 +340,7 @@ class BranchSales extends SalesFigures {
     required super.grossSantim,
     required super.cashSantim,
     required super.itemsSold,
+    super.creditSantim,
   });
   factory BranchSales.fromJson(Map<String, dynamic> j) {
     final f = SalesFigures.fromJson(j);
@@ -339,6 +351,7 @@ class BranchSales extends SalesFigures {
       grossSantim: f.grossSantim,
       cashSantim: f.cashSantim,
       itemsSold: f.itemsSold,
+      creditSantim: f.creditSantim,
     );
   }
   final String branchId;

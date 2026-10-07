@@ -8,6 +8,8 @@ export interface BranchSalesRow {
   grossSantim: number;
   cashSantim: number;
   otherTenderSantim: number;
+  /** Sold on credit in the window: revenue, not yet money (FR-16). */
+  creditSantim: number;
   itemsSold: number;
 }
 
@@ -21,6 +23,8 @@ export interface SalesSummary {
     grossSantim: number;
     cashSantim: number;
     otherTenderSantim: number;
+    /** Sold on credit in the window: revenue, not yet money (FR-16). */
+    creditSantim: number;
     itemsSold: number;
   };
   /**
@@ -64,13 +68,17 @@ export class SalesSummaryService {
              coalesce(sum(s.total_santim), 0)::bigint         AS "grossSantim",
              coalesce(sum(pay.cash), 0)::bigint               AS "cashSantim",
              coalesce(sum(pay.other), 0)::bigint              AS "otherTenderSantim",
+             coalesce(sum(pay.credit), 0)::bigint             AS "creditSantim",
              coalesce(sum(items.qty), 0)::bigint              AS "itemsSold",
              max(s.created_at)                                AS "lastSyncedAt"
         FROM sale s
         JOIN branch b ON b.id = s.branch_id
         LEFT JOIN LATERAL (
-              SELECT sum(p.amount_santim) FILTER (WHERE p.method = 'cash')  AS cash,
-                     sum(p.amount_santim) FILTER (WHERE p.method <> 'cash') AS other
+              SELECT sum(p.amount_santim) FILTER (WHERE p.method = 'cash')           AS cash,
+                     sum(p.amount_santim) FILTER (WHERE p.method = 'other_recorded') AS other,
+                     -- Sold but not yet paid (FR-16). Its own column: lumped in with
+                     -- "other tender" it would read as money received.
+                     sum(p.amount_santim) FILTER (WHERE p.method = 'credit')         AS credit
                 FROM payment p
                WHERE p.sale_id = s.id AND p.deleted_at IS NULL
              ) pay ON true
@@ -95,6 +103,7 @@ export class SalesSummaryService {
       grossSantim: Number(r.grossSantim),
       cashSantim: Number(r.cashSantim),
       otherTenderSantim: Number(r.otherTenderSantim),
+      creditSantim: Number(r.creditSantim),
       itemsSold: Number(r.itemsSold),
     }));
 
@@ -113,6 +122,7 @@ export class SalesSummaryService {
         grossSantim: branches.reduce((n, b) => n + b.grossSantim, 0),
         cashSantim: branches.reduce((n, b) => n + b.cashSantim, 0),
         otherTenderSantim: branches.reduce((n, b) => n + b.otherTenderSantim, 0),
+        creditSantim: branches.reduce((n, b) => n + b.creditSantim, 0),
         itemsSold: branches.reduce((n, b) => n + b.itemsSold, 0),
       },
       lastSyncedAt: lastSyncedAt ? new Date(lastSyncedAt).toISOString() : null,

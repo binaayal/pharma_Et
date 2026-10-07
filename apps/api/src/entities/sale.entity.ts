@@ -28,6 +28,10 @@ export class Sale extends SyncedEntity {
   @Column('uuid', { name: 'terminal_id' })
   terminalId: string;
 
+  /** Who owes the `credit` part of this sale, if any of it was on credit (FR-16). */
+  @Column('uuid', { name: 'customer_id', nullable: true })
+  customerId: string | null;
+
   @OneToMany(() => SaleLine, (line) => line.sale, { cascade: ['insert'] })
   lines: SaleLine[];
 
@@ -83,7 +87,7 @@ export class Payment extends SyncedEntity {
 
   /** V1 has no gateway integration; non-cash tenders are recorded, not settled (Vision §4). */
   @Column('text')
-  method: 'cash' | 'other_recorded';
+  method: 'cash' | 'other_recorded' | 'credit';
 
   @Column('bigint', { name: 'amount_santim', transformer: bigintTransformer })
   amountSantim: number;

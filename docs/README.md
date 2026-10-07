@@ -89,6 +89,7 @@ answer, permanently.
 | [ADR-031](adr/ADR-031-barcodes.md) | Barcodes: a product carries its barcodes, in one canonical spelling | Accepted |
 | [ADR-032](adr/ADR-032-receipts.md) | Receipts: one description of the sale, shared as text and printed through the phone | Accepted |
 | [ADR-033](adr/ADR-033-backup-and-restore.md) | Backup and restore: an encrypted document of the phone's rows, restored by merging | Accepted |
+| [ADR-034](adr/ADR-034-customer-credit-ledger.md) | The customer credit ledger: a debt is a payment row, and the balance is two figures | Accepted |
 
 ---
 

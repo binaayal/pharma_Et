@@ -152,9 +152,18 @@ class Outbox {
           case 'duplicate':
             await txn
                 .delete('outbox', where: 'op_id = ?', whereArgs: [ack.opId]);
-            if (entityId != null && entityType == 'sale') {
+            // Sales, customers and repayments each carry a `synced` flag that something
+            // reads: a credit balance is the server's figure plus what is still unsynced,
+            // so leaving the flag down would count an acknowledged debt twice (FR-16).
+            const flagged = {
+              'sale': 'sale',
+              'customer': 'customer',
+              'credit_payment': 'credit_payment',
+            };
+            final table = flagged[entityType];
+            if (entityId != null && table != null) {
               await txn.update(
-                'sale',
+                table,
                 {'synced': 1},
                 where: 'id = ?',
                 whereArgs: [entityId],

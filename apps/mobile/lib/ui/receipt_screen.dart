@@ -24,6 +24,8 @@ class ReceiptScreen extends StatelessWidget {
     required this.lines,
     required this.tender,
     required this.commitMs,
+    this.creditSantim = 0,
+    this.customerName,
   });
 
   final String saleId;
@@ -40,6 +42,10 @@ class ReceiptScreen extends StatelessWidget {
       })> lines;
   final Tender tender;
   final int commitMs;
+
+  /// What of this sale went on a customer's account, and whose (FR-16).
+  final int creditSantim;
+  final String? customerName;
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +76,14 @@ class ReceiptScreen extends StatelessWidget {
         Tender.cash => ReceiptTender.cash,
         Tender.telebirr => ReceiptTender.telebirr,
         Tender.other => ReceiptTender.other,
+        Tender.credit => ReceiptTender.credit,
       },
-      receivedSantim: totalSantim + changeSantim,
+      receivedSantim: tender == Tender.credit
+          ? totalSantim - creditSantim
+          : totalSantim + changeSantim,
       changeSantim: changeSantim,
+      creditSantim: creditSantim,
+      customerName: customerName,
     );
 
     return Scaffold(
@@ -99,7 +110,9 @@ class ReceiptScreen extends StatelessWidget {
                 const PMark(icon: Icons.check_rounded),
                 const SizedBox(height: 12),
                 Text(
-                    '${formatEtbShort(totalSantim)} ${context.t('receipt.paid')}',
+                    // A sale on credit is sold, not paid: saying "paid" here would be the
+                    // one word on the screen that is untrue.
+                    '${formatEtbShort(totalSantim)} ${context.t(tender == Tender.credit ? 'receipt.sold' : 'receipt.paid')}',
                     style: const TextStyle(
                         fontSize: 20, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
@@ -119,7 +132,14 @@ class ReceiptScreen extends StatelessWidget {
                 if (tender == Tender.cash)
                   _line(context.t('receipt.change'), formatMoney(changeSantim),
                       last: true)
-                else
+                else if (tender == Tender.credit) ...[
+                  _line(context.t('credit.paidNow'),
+                      formatMoney(totalSantim - creditSantim)),
+                  _line(
+                      '${context.t('receipt.onAccount')}${customerName == null ? '' : ' — $customerName'}',
+                      formatMoney(creditSantim),
+                      last: true),
+                ] else
                   _line(
                       context.t('receipt.paidBy'),
                       tender == Tender.telebirr

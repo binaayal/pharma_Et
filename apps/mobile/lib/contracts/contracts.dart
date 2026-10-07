@@ -7,12 +7,12 @@
 // needs an ADR, both-side contract tests including N-1 (ADR-009), a guardian-suite update,
 // two reviews, and an RTM entry.
 //
-// Contract version: 1.6.0
+// Contract version: 1.7.0
 
 // ignore_for_file: unnecessary_cast, lines_longer_than_80_chars, unnecessary_this
 
 /// The contract version this client speaks, sent as the `x-contract-version` header.
-const String kContractVersion = '1.6.0';
+const String kContractVersion = '1.7.0';
 
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) return true;
@@ -56,6 +56,10 @@ sealed class Operation {
         return OperationControlledDispense.fromJson(json);
       case 'controlled_adjustment':
         return OperationControlledAdjustment.fromJson(json);
+      case 'customer':
+        return OperationCustomer.fromJson(json);
+      case 'credit_payment':
+        return OperationCreditPayment.fromJson(json);
       default:
         throw FormatException('unknown entityType: ${json['entityType']}');
     }
@@ -147,6 +151,7 @@ class SalePayload {
     required this.totalSantim,
     required this.lines,
     required this.payments,
+    this.customerId,
   });
 
   /// Client-generated UUIDv7 identifier
@@ -157,6 +162,8 @@ class SalePayload {
   final int totalSantim;
   final List<SaleLinePayload> lines;
   final List<PaymentPayload> payments;
+  /// Client-generated UUIDv7 identifier
+  final String? customerId;
 
   factory SalePayload.fromJson(Map<String, dynamic> json) => SalePayload(
         shiftId: json['shiftId'] == null ? null : json['shiftId'] as String,
@@ -165,6 +172,7 @@ class SalePayload {
         totalSantim: json['totalSantim'] as int,
         lines: (json['lines'] as List<dynamic>).map((e) => SaleLinePayload.fromJson(e as Map<String, dynamic>)).toList(),
         payments: (json['payments'] as List<dynamic>).map((e) => PaymentPayload.fromJson(e as Map<String, dynamic>)).toList(),
+        customerId: json['customerId'] == null ? null : json['customerId'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -174,9 +182,10 @@ class SalePayload {
         'totalSantim': totalSantim,
         'lines': lines.map((e) => e.toJson()).toList(),
         'payments': payments.map((e) => e.toJson()).toList(),
+        'customerId': customerId,
       };
 
-  List<Object?> get _props => <Object?>[shiftId, cashierId, soldAt, totalSantim, lines, payments];
+  List<Object?> get _props => <Object?>[shiftId, cashierId, soldAt, totalSantim, lines, payments, customerId];
 
   @override
   bool operator ==(Object other) =>
@@ -658,7 +667,6 @@ class CashUpPayload {
   final String shiftId;
   final String userId;
   final String countedAt;
-  /// Money in santim (1 ETB = 100 santim)
   final int expectedSantim;
   /// Money in santim (1 ETB = 100 santim)
   final int countedSantim;
@@ -1122,6 +1130,246 @@ class ControlledAdjustmentPayload {
   String toString() => 'ControlledAdjustmentPayload(${toJson()})';
 }
 
+class OperationCustomer extends Operation {
+  const OperationCustomer({
+    required this.opId,
+    required this.terminalId,
+    required this.terminalSeq,
+    required this.entityId,
+    required this.opType,
+    this.baseVersion,
+    required this.tenantId,
+    this.branchId,
+    required this.actorId,
+    required this.clientTs,
+    required this.entityType,
+    required this.payload,
+  }) : super();
+
+  final String opId;
+  final String terminalId;
+  final int terminalSeq;
+  final String entityId;
+  final String opType;
+  final int? baseVersion;
+  final String tenantId;
+  final String? branchId;
+  final String actorId;
+  final String clientTs;
+  final String entityType;
+  final CustomerPayload payload;
+
+  factory OperationCustomer.fromJson(Map<String, dynamic> json) => OperationCustomer(
+        opId: json['opId'] as String,
+        terminalId: json['terminalId'] as String,
+        terminalSeq: json['terminalSeq'] as int,
+        entityId: json['entityId'] as String,
+        opType: json['opType'] as String,
+        baseVersion: json['baseVersion'] == null ? null : json['baseVersion'] as int,
+        tenantId: json['tenantId'] as String,
+        branchId: json['branchId'] == null ? null : json['branchId'] as String,
+        actorId: json['actorId'] as String,
+        clientTs: json['clientTs'] as String,
+        entityType: json['entityType'] as String,
+        payload: CustomerPayload.fromJson(json['payload'] as Map<String, dynamic>),
+      );
+
+  @override
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'opId': opId,
+        'terminalId': terminalId,
+        'terminalSeq': terminalSeq,
+        'entityId': entityId,
+        'opType': opType,
+        'baseVersion': baseVersion,
+        'tenantId': tenantId,
+        'branchId': branchId,
+        'actorId': actorId,
+        'clientTs': clientTs,
+        'entityType': entityType,
+        'payload': payload.toJson(),
+      };
+
+  List<Object?> get _props => <Object?>[opId, terminalId, terminalSeq, entityId, opType, baseVersion, tenantId, branchId, actorId, clientTs, entityType, payload];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is OperationCustomer && _deepEquals(_props, other._props));
+
+  @override
+  int get hashCode => _deepHash(_props);
+
+  @override
+  String toString() => 'OperationCustomer(${toJson()})';
+}
+
+class CustomerPayload {
+  const CustomerPayload({
+    required this.name,
+    this.phone,
+    this.note,
+    required this.createdAt,
+  });
+
+  final String name;
+  final String? phone;
+  final String? note;
+  final String createdAt;
+
+  factory CustomerPayload.fromJson(Map<String, dynamic> json) => CustomerPayload(
+        name: json['name'] as String,
+        phone: json['phone'] == null ? null : json['phone'] as String,
+        note: json['note'] == null ? null : json['note'] as String,
+        createdAt: json['createdAt'] as String,
+      );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'name': name,
+        'phone': phone,
+        'note': note,
+        'createdAt': createdAt,
+      };
+
+  List<Object?> get _props => <Object?>[name, phone, note, createdAt];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is CustomerPayload && _deepEquals(_props, other._props));
+
+  @override
+  int get hashCode => _deepHash(_props);
+
+  @override
+  String toString() => 'CustomerPayload(${toJson()})';
+}
+
+class OperationCreditPayment extends Operation {
+  const OperationCreditPayment({
+    required this.opId,
+    required this.terminalId,
+    required this.terminalSeq,
+    required this.entityId,
+    required this.opType,
+    this.baseVersion,
+    required this.tenantId,
+    this.branchId,
+    required this.actorId,
+    required this.clientTs,
+    required this.entityType,
+    required this.payload,
+  }) : super();
+
+  final String opId;
+  final String terminalId;
+  final int terminalSeq;
+  final String entityId;
+  final String opType;
+  final int? baseVersion;
+  final String tenantId;
+  final String? branchId;
+  final String actorId;
+  final String clientTs;
+  final String entityType;
+  final CreditPaymentPayload payload;
+
+  factory OperationCreditPayment.fromJson(Map<String, dynamic> json) => OperationCreditPayment(
+        opId: json['opId'] as String,
+        terminalId: json['terminalId'] as String,
+        terminalSeq: json['terminalSeq'] as int,
+        entityId: json['entityId'] as String,
+        opType: json['opType'] as String,
+        baseVersion: json['baseVersion'] == null ? null : json['baseVersion'] as int,
+        tenantId: json['tenantId'] as String,
+        branchId: json['branchId'] == null ? null : json['branchId'] as String,
+        actorId: json['actorId'] as String,
+        clientTs: json['clientTs'] as String,
+        entityType: json['entityType'] as String,
+        payload: CreditPaymentPayload.fromJson(json['payload'] as Map<String, dynamic>),
+      );
+
+  @override
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'opId': opId,
+        'terminalId': terminalId,
+        'terminalSeq': terminalSeq,
+        'entityId': entityId,
+        'opType': opType,
+        'baseVersion': baseVersion,
+        'tenantId': tenantId,
+        'branchId': branchId,
+        'actorId': actorId,
+        'clientTs': clientTs,
+        'entityType': entityType,
+        'payload': payload.toJson(),
+      };
+
+  List<Object?> get _props => <Object?>[opId, terminalId, terminalSeq, entityId, opType, baseVersion, tenantId, branchId, actorId, clientTs, entityType, payload];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is OperationCreditPayment && _deepEquals(_props, other._props));
+
+  @override
+  int get hashCode => _deepHash(_props);
+
+  @override
+  String toString() => 'OperationCreditPayment(${toJson()})';
+}
+
+class CreditPaymentPayload {
+  const CreditPaymentPayload({
+    required this.customerId,
+    required this.amountSantim,
+    required this.method,
+    required this.paidAt,
+    this.shiftId,
+    required this.receivedBy,
+    this.note,
+  });
+
+  final String customerId;
+  /// Money in santim (1 ETB = 100 santim)
+  final int amountSantim;
+  final String method;
+  final String paidAt;
+  /// Client-generated UUIDv7 identifier
+  final String? shiftId;
+  final String receivedBy;
+  final String? note;
+
+  factory CreditPaymentPayload.fromJson(Map<String, dynamic> json) => CreditPaymentPayload(
+        customerId: json['customerId'] as String,
+        amountSantim: json['amountSantim'] as int,
+        method: json['method'] as String,
+        paidAt: json['paidAt'] as String,
+        shiftId: json['shiftId'] == null ? null : json['shiftId'] as String,
+        receivedBy: json['receivedBy'] as String,
+        note: json['note'] == null ? null : json['note'] as String,
+      );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'customerId': customerId,
+        'amountSantim': amountSantim,
+        'method': method,
+        'paidAt': paidAt,
+        'shiftId': shiftId,
+        'receivedBy': receivedBy,
+        'note': note,
+      };
+
+  List<Object?> get _props => <Object?>[customerId, amountSantim, method, paidAt, shiftId, receivedBy, note];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is CreditPaymentPayload && _deepEquals(_props, other._props));
+
+  @override
+  int get hashCode => _deepHash(_props);
+
+  @override
+  String toString() => 'CreditPaymentPayload(${toJson()})';
+}
+
 class Ack {
   const Ack({
     required this.opId,
@@ -1244,6 +1492,7 @@ class PullResponse {
     required this.branches,
     required this.users,
     required this.stockBatches,
+    this.customers,
     required this.serverTime,
   });
 
@@ -1254,6 +1503,7 @@ class PullResponse {
   final List<BranchRef> branches;
   final List<UserRef> users;
   final List<StockBatchRef> stockBatches;
+  final List<CustomerRef>? customers;
   final String serverTime;
 
   factory PullResponse.fromJson(Map<String, dynamic> json) => PullResponse(
@@ -1264,6 +1514,7 @@ class PullResponse {
         branches: (json['branches'] as List<dynamic>).map((e) => BranchRef.fromJson(e as Map<String, dynamic>)).toList(),
         users: (json['users'] as List<dynamic>).map((e) => UserRef.fromJson(e as Map<String, dynamic>)).toList(),
         stockBatches: (json['stockBatches'] as List<dynamic>).map((e) => StockBatchRef.fromJson(e as Map<String, dynamic>)).toList(),
+        customers: json['customers'] == null ? null : (json['customers'] as List<dynamic>).map((e) => CustomerRef.fromJson(e as Map<String, dynamic>)).toList(),
         serverTime: json['serverTime'] as String,
       );
 
@@ -1275,10 +1526,11 @@ class PullResponse {
         'branches': branches.map((e) => e.toJson()).toList(),
         'users': users.map((e) => e.toJson()).toList(),
         'stockBatches': stockBatches.map((e) => e.toJson()).toList(),
+        'customers': customers?.map((e) => e.toJson()).toList(),
         'serverTime': serverTime,
       };
 
-  List<Object?> get _props => <Object?>[contractVersion, cursor, hasMore, products, branches, users, stockBatches, serverTime];
+  List<Object?> get _props => <Object?>[contractVersion, cursor, hasMore, products, branches, users, stockBatches, customers, serverTime];
 
   @override
   bool operator ==(Object other) =>
@@ -1545,6 +1797,60 @@ class StockBatchRef {
 
   @override
   String toString() => 'StockBatchRef(${toJson()})';
+}
+
+class CustomerRef {
+  const CustomerRef({
+    required this.id,
+    required this.name,
+    this.phone,
+    this.note,
+    required this.balanceSantim,
+    required this.changeSeq,
+    this.deletedAt,
+  });
+
+  final String id;
+  final String name;
+  final String? phone;
+  final String? note;
+  /// Money in santim (1 ETB = 100 santim)
+  final int balanceSantim;
+  final int changeSeq;
+  /// UTC ISO-8601 timestamp
+  final String? deletedAt;
+
+  factory CustomerRef.fromJson(Map<String, dynamic> json) => CustomerRef(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        phone: json['phone'] == null ? null : json['phone'] as String,
+        note: json['note'] == null ? null : json['note'] as String,
+        balanceSantim: json['balanceSantim'] as int,
+        changeSeq: json['changeSeq'] as int,
+        deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
+      );
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'id': id,
+        'name': name,
+        'phone': phone,
+        'note': note,
+        'balanceSantim': balanceSantim,
+        'changeSeq': changeSeq,
+        'deletedAt': deletedAt,
+      };
+
+  List<Object?> get _props => <Object?>[id, name, phone, note, balanceSantim, changeSeq, deletedAt];
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || (other is CustomerRef && _deepEquals(_props, other._props));
+
+  @override
+  int get hashCode => _deepHash(_props);
+
+  @override
+  String toString() => 'CustomerRef(${toJson()})';
 }
 
 class LoginRequest {

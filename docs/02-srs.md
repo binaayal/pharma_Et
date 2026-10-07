@@ -475,6 +475,53 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-16 — Customer credit ledger (ዕዳ) · Priority: M · V2
+**Actors:** Pharmacist/Cashier, Branch Manager, Owner.
+**Preconditions:** authenticated; offline-capable. Design: ADR-034.
+
+**Main flow (selling on credit):**
+1. At payment, the Cashier chooses **On credit** and picks the customer who will owe — or opens a new account for them.
+2. The Cashier enters what, if anything, is paid now. The rest goes on the customer's account.
+3. The sale commits locally and is queued, like any sale (FR-4). Stock decrements as usual.
+
+**Main flow (collecting):**
+1. The user opens Customers & credit: every customer, what each owes, and the total.
+2. The user opens a customer and records a payment — the amount and whether it was cash.
+3. The customer's balance falls by that amount.
+
+**Exception flows:**
+- E-16.1 Offline: opening an account, selling on credit and taking a repayment all work against local state.
+- E-16.2 A repayment of more than is owed is accepted; the customer is shown as paid ahead.
+- E-16.3 Cash is taken against a debt with no till open: recorded, with a warning that no cash-up will expect it.
+
+**Business rules:**
+- BR-16.1 A sale on credit names the customer who owes it. Credit owed by nobody is refused, on the device and at the API.
+- BR-16.2 For a sale with credit, what was paid now plus what is owed equals the sale total, in integer santim (G4).
+- BR-16.3 **What a customer owes is exactly their credit purchases less their repayments.** The stored balance is recomputable from those records and must equal them.
+- BR-16.4 A credit sale or a repayment is applied exactly once, however often it is sent (AC-9.2).
+- BR-16.5 A customer and their balance belong to the pharmacy, across all its branches, and to no other pharmacy.
+- BR-16.6 A terminal shows the server's balance plus its own unsynced credit sales and repayments. Receiving a newer server balance never removes an unsynced entry, and an acknowledged entry is never counted twice.
+- BR-16.7 **Cash received against a debt during a shift is part of that shift's expected cash; the credit part of a sale is not** (BR-8.2).
+- BR-16.8 Credit is reported apart from cash and from other tender; it is never presented as money received.
+- BR-16.9 A customer record holds a name and, optionally, a phone number and a note. It holds nothing about health or treatment, and a sale is linked to a customer only when part of it is owed.
+- BR-16.10 A sale is never refused because a customer already owes, and there is no credit limit. *(Reading recorded here: the backlog asks to "track and recover debt", not to police it. A limit that blocks is a lost sale; if one is wanted later it should warn, as an oversell does.)*
+- BR-16.11 Anyone permitted to sell may sell on credit and record a repayment; each is recorded with the user who did it. *(Reading recorded here: no new capability, so the FR-2 matrix is unchanged.)*
+- BR-16.12 A terminal creates customers; it does not edit them.
+
+**Acceptance criteria:**
+- AC-16.1 *Given* a sale of 45.00 with 20.00 paid now, *when* it is completed on credit for a customer, *then* the customer owes 25.00 more and the sale's payments total 45.00.
+- AC-16.2 *Given* a customer owing 45.00, *when* a repayment of 20.00 is recorded, *then* they owe 25.00; *when* 50.00 is recorded instead, *then* they are 5.00 ahead.
+- AC-16.3 *Given* an offline terminal, *when* a new customer is created and sold to on credit, *then* both are queued in that order and both apply on reconnect.
+- AC-16.4 *Given* a credit sale and a repayment, *when* either is pushed twice, *then* the balance moves once.
+- AC-16.5 *Given* two terminals syncing credit sales for one customer at the same moment, *when* both complete, *then* the balance equals the sum of both and no sale is rejected.
+- AC-16.6 *Given* a shift with a cash sale, a part-credit sale and a cash repayment, *when* the till is counted, *then* expected cash is the float plus the cash from both sales plus the repayment, on the terminal and on the server alike.
+- AC-16.7 *Given* a server balance and unsynced local entries, *when* a newer server balance is pulled, *then* the local entries are still included; *when* they are acknowledged and pulled, *then* they are included once.
+- AC-16.8 *Given* two pharmacies, *when* one attempts to sell on credit to, or record a repayment against, the other's customer, *then* it is rejected and the customer's balance is unchanged.
+- AC-16.9 *Given* a sales summary, *when* a sale was partly on credit, *then* the credit part is reported separately and cash + other tender + credit equals gross.
+- AC-16.10 *Given* a terminal on the previous contract version, *when* it syncs cash sales, *then* they apply unchanged.
+
+---
+
 ## 4. Non-functional requirements
 
 ### NFR-1 — Offline capability & availability · Priority: M
@@ -547,6 +594,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-13 barcode scanning — **V2** | §5.2; ADR-031 | contract: `packages/contracts/src/entities.ts` (`canonicalBarcode`, `productBarcodes`) · server: `api/src/migrations/ProductBarcodes`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/core/gs1.dart`, `mobile/lib/ui/scan_screen.dart`, `mobile/lib/ui/{sell_screen,receive_screen,stock_screen}.dart` | `g2-product-barcodes.spec.ts` (19), `gs1_test.dart` (24), `g2_barcodes_test.dart` (5), `barcode_screens_test.dart` (8), `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Built; the camera is untested.** AC-13.1 to AC-13.9 hold with the camera replaced by a script — matching, canonical form, one-product-per-barcode, tenant isolation, N-1. **What no test here can show** is that a real phone reads a real box: focus, glare, a curved blister pack, a low-end camera. That is a device check, and belongs on the field-UAT list (`engineering/field-uat.md`). |
 | FR-14 receipts — **V2** | ADR-032 (no schema or contract change) | `mobile/lib/core/receipt.dart`, `mobile/lib/ui/receipt_output.dart`, `mobile/lib/ui/receipt_screen.dart`, font: `mobile/assets/fonts/` | `receipt_test.dart` (15), `receipt_screen_test.dart` (5) | **Built as scoped; a printer has not been used.** Share-as-text and print-through-the-phone, AC-14.1 to AC-14.6: the text is checked line by line in both languages, and a real PDF is rendered in the tests — including in Amharic, with the font's glyph coverage read from the file. **Not built:** direct Bluetooth thermal printing (BR-14.7, ADR-032 §4). **Not shown by any test:** that a particular printer prints it; that is a field-UAT row. |
 | FR-15 backup and restore — **V2** | ADR-033 (no schema, contract or server change) | `mobile/lib/data/backup.dart`, `mobile/lib/ui/backup_screen.dart`, `mobile/lib/ui/settings_screen.dart` | `g7_backup_restore_test.dart` (24), `backup_screen_test.dart` (16) | **Done at the data tier; the file's journey is untested.** AC-15.1 to AC-15.8: restore across two real database files, merge without loss, idempotence, order, wrong passphrase, tampering, wrong branch, plaintext scan, atomicity. **Not shown by any test:** a file actually sent through Telegram and picked back on a second phone — the share sheet and the file picker are the operating system's (`engineering/field-uat.md` §4.5). |
+| FR-16 customer credit ledger — **V2** | §5.4; ADR-034 | contract: `packages/contracts/src/entities.ts` (`customerPayload`, `creditPaymentPayload`, `creditPortion`), `packages/contracts/src/sync.ts` (`customerRef`) · server: `api/src/migrations/CreditLedger`, `api/src/modules/credit/`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/cashup/cash-up.service.ts` · till: `mobile/lib/data/customer_repository.dart`, `mobile/lib/data/sale_repository.dart`, `mobile/lib/ui/customers_screen.dart`, `mobile/lib/ui/payment_screen.dart` | `g4-credit-ledger.spec.ts` (31), `g4_credit_ledger_test.dart` (22), `credit_screens_test.dart` (16), `receipt_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-16.1 to AC-16.10 on both sides: balance equals rows after mixed, replayed and concurrent sequences; cash-up agrees on terminal and server; tenant isolation; N-1. The concurrency test found, and this change fixed, a deadlock that would have parked a legitimate sale (ADR-034 §10). **Not built:** editing or merging customers, a statement across phones, ageing of debts. |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

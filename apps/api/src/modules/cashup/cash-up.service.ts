@@ -72,7 +72,20 @@ export class CashUpService {
       ),
     );
 
-    const cashTakenSantim = Number(row?.cash ?? 0);
+    // Cash taken against customers' debts in this till (FR-16, ADR-034). It went into the
+    // same drawer as the cash from sales, so it is expected to be there when the drawer is
+    // counted. Leaving it out would make every repayment look like unexplained extra cash —
+    // or, worse, cover a shortfall of exactly that size.
+    const repaid = firstRow<{ cash: string }>(
+      await em.query(
+        `SELECT coalesce(sum(amount_santim), 0)::bigint AS cash
+           FROM credit_payment
+          WHERE shift_id = $1 AND deleted_at IS NULL AND method = 'cash'`,
+        [shiftId],
+      ),
+    );
+
+    const cashTakenSantim = Number(row?.cash ?? 0) + Number(repaid?.cash ?? 0);
     return {
       cashTakenSantim,
       saleCount: Number(row?.sales ?? 0),

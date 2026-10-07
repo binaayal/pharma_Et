@@ -8,6 +8,7 @@ import 'package:pharmaet_mobile/core/theme.dart';
 import 'package:pharmaet_mobile/data/backup.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/controlled_repository.dart';
+import 'package:pharmaet_mobile/data/customer_repository.dart';
 import 'package:pharmaet_mobile/data/inventory_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/data/outbox.dart';
@@ -29,7 +30,7 @@ import 'pump.dart';
 /// T1/T2; this tier is about what ends up on screen.
 class TestTerminal {
   TestTerminal._(this.terminal, this.catalog, this.shifts, this.inventory,
-      this.sync, this.sales);
+      this.sync, this.sales, this.customers);
 
   final Terminal terminal;
   final StubCatalog catalog;
@@ -37,6 +38,7 @@ class TestTerminal {
   final StubInventory inventory;
   final StubSync sync;
   final SaleRepository sales;
+  final StubCustomers customers;
 
   static TestTerminal build(
     LocalDb db, {
@@ -49,6 +51,7 @@ class TestTerminal {
     final sales = SaleRepository(db, outbox, catalog);
     final shifts = StubShifts(db, outbox);
     final inventory = StubInventory(db, outbox, catalog);
+    final customers = StubCustomers(db, outbox);
     final client = SyncClient(baseUrl: 'http://stub.invalid');
     final sync = StubSync(
       db: db,
@@ -68,6 +71,7 @@ class TestTerminal {
       controlled: StubControlled(db, outbox),
       // Few key-derivation rounds: screen tests are about the flow, not the cost of a guess.
       backups: BackupService(db, kdfRounds: 1000),
+      customers: customers,
       syncService: sync,
       api: TenantApi(
           baseUrl: 'http://stub.invalid',
@@ -77,7 +81,8 @@ class TestTerminal {
       onSignOut: () {},
       branchName: 'Bole',
     );
-    return TestTerminal._(terminal, catalog, shifts, inventory, sync, sales);
+    return TestTerminal._(
+        terminal, catalog, shifts, inventory, sync, sales, customers);
   }
 
   void addProduct(String id, String name,
@@ -162,6 +167,76 @@ class StubCatalog extends CatalogRepository {
   Future<({int expiring, int negative})> attention(String branchId,
           {int days = 60, DateTime? today}) async =>
       (expiring: 0, negative: 0);
+}
+
+/// Customers held in memory: a widget test cannot wait on real file I/O.
+class StubCustomers extends CustomerRepository {
+  StubCustomers(super.db, super.outbox);
+
+  final all = <LocalCustomer>[];
+  final payments = <({
+    String customerId,
+    int amountSantim,
+    String method,
+    String? shiftId
+  })>[];
+
+  @override
+  Future<List<LocalCustomer>> customers() async =>
+      [...all]..sort((a, b) => b.balanceSantim.compareTo(a.balanceSantim));
+
+  @override
+  Future<LocalCustomer?> customer(String id) async {
+    for (final c in all) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  @override
+  Future<List<CreditEntry>> history(String customerId,
+          {int limit = 30}) async =>
+      const [];
+
+  @override
+  Future<LocalCustomer> create(
+      {required String name, String? phone, String? note}) async {
+    final created = LocalCustomer(
+        id: 'new-${all.length + 1}',
+        name: name.trim(),
+        phone: phone == null || phone.trim().isEmpty ? null : phone.trim(),
+        balanceSantim: 0);
+    all.add(created);
+    return created;
+  }
+
+  @override
+  Future<String> recordPayment({
+    required String customerId,
+    required int amountSantim,
+    required String branchId,
+    required String receivedBy,
+    String method = 'cash',
+    String? shiftId,
+    String? note,
+  }) async {
+    payments.add((
+      customerId: customerId,
+      amountSantim: amountSantim,
+      method: method,
+      shiftId: shiftId
+    ));
+    final i = all.indexWhere((c) => c.id == customerId);
+    if (i >= 0) {
+      final c = all[i];
+      all[i] = LocalCustomer(
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          balanceSantim: c.balanceSantim - amountSantim);
+    }
+    return 'payment-${payments.length}';
+  }
 }
 
 class StubShifts extends ShiftRepository {
