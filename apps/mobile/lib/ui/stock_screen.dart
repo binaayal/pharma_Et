@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../core/gs1.dart';
 import '../core/money.dart';
 import '../core/permissions.dart';
 import '../core/theme.dart';
@@ -12,6 +13,7 @@ import 'catalog_sheets.dart';
 import 'kit.dart';
 import 'receive_screen.dart';
 import 'reconcile_screen.dart';
+import 'scan_screen.dart';
 import 'sell_screen.dart';
 import 'terminal.dart';
 
@@ -334,6 +336,44 @@ class _ProductScreenState extends State<ProductScreen> {
                   ),
                 ),
             ],
+            if (p.barcodes.isNotEmpty || t.can(Capability.catalogManage)) ...[
+              // What a scan at the counter recognises as this product (FR-13).
+              PSection(context.t('barcodes.title')),
+              if (p.barcodes.isEmpty)
+                PNotice.text(Tone.blue, Icons.qr_code_scanner,
+                    context.t('barcodes.none'),
+                    margin: EdgeInsets.zero)
+              else
+                PRows(children: [
+                  for (final code in p.barcodes)
+                    PRow(
+                      avatarIcon: Icons.qr_code_2,
+                      title: code,
+                      trailing: t.can(Capability.catalogManage)
+                          ? IconButton(
+                              tooltip: context.t('barcodes.remove'),
+                              icon: const Icon(Icons.close,
+                                  size: 18, color: PharmaColors.faint),
+                              onPressed: () => _setBarcodes(context, t, [
+                                for (final c in p.barcodes)
+                                  if (c != code) c
+                              ]),
+                            )
+                          : null,
+                    ),
+                ]),
+              if (t.can(Capability.catalogManage))
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: PButton(
+                    kind: BtnKind.plain,
+                    small: true,
+                    icon: Icons.qr_code_scanner,
+                    label: context.t('barcodes.link'),
+                    onPressed: () => _linkBarcode(context, t),
+                  ),
+                ),
+            ],
             PSection(context.t('product.batchesFefo')),
             if (batches.isEmpty)
               PNotice.text(
@@ -410,6 +450,46 @@ class _ProductScreenState extends State<ProductScreen> {
       onTap:
           t.can(Capability.goodsReceive) ? () => _adjust(context, t, b) : null,
     );
+  }
+
+  /// Links the scanned box to this product (FR-13).
+  ///
+  /// Checked against this phone's catalogue first, so the common mistake — the box already
+  /// belongs to another product — is caught with that product's name and no round trip.
+  /// The server holds the same rule and is the one that counts (ADR-031).
+  Future<void> _linkBarcode(BuildContext context, Terminal t) async {
+    final p = widget.stock.product;
+    final raw =
+        await BarcodeScanner.once(context, title: context.t('barcodes.link'));
+    if (raw == null || !context.mounted) return;
+    final code = parseScan(raw)?.barcode;
+    if (code == null) return;
+    if (p.barcodes.contains(code)) {
+      return toast(context, context.t('barcodes.already'));
+    }
+    final holder = t.productForBarcode(code);
+    if (holder != null) {
+      return toast(
+          context, context.tf('barcodes.taken', {'name': holder.name}));
+    }
+    await _setBarcodes(context, t, [...p.barcodes, code]);
+  }
+
+  Future<void> _setBarcodes(
+      BuildContext context, Terminal t, List<String> barcodes) async {
+    try {
+      await t.authed((token) =>
+          t.api.setBarcodes(token, widget.stock.product.id, barcodes));
+      await t.sync();
+      if (!context.mounted) return;
+      toast(context, context.t('barcodes.saved'));
+      // The row this screen was opened with is now stale; the list behind it reloads.
+      Navigator.of(context).pop();
+    } catch (e) {
+      // Offline, or the server refused it (another product has this barcode): said as it
+      // is, and nothing on this phone has changed.
+      if (context.mounted) toast(context, '$e');
+    }
   }
 
   Future<void> _adjust(

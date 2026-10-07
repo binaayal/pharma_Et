@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CurrentGrant } from '../../common/auth/current-grant.decorator';
 import { CurrentScope } from '../../common/auth/current-scope.decorator';
 import { RequireCapability } from '../../common/auth/capability.decorator';
-import { productPacks, type Grant } from '@pharmaet/contracts';
+import { canonicalBarcode, productBarcodes, productPacks, type Grant } from '@pharmaet/contracts';
 import type { TenantScope } from '../../common/db/tenant-scope';
 import { ZodValidationPipe } from '../../common/http/zod-validation.pipe';
 import { ManagementService } from './management.service';
@@ -31,6 +31,17 @@ const userInput = z.object({
   branchIds: z.array(z.string().uuid()).default([]),
 });
 
+/**
+ * Barcodes as a scanner read them. Canonicalised here, at the boundary, and only then held
+ * to the contract's stored form — so a client may send the 13 digits printed on the box and
+ * the server still stores, compares and returns exactly one spelling of it (ADR-031).
+ */
+const scannedBarcodes = z
+  .array(z.string().max(64))
+  .max(64)
+  .transform((codes) => [...new Set(codes.map(canonicalBarcode))])
+  .pipe(productBarcodes);
+
 const productInput = z.object({
   name: z.string().min(1).max(200),
   unit: z.string().min(1).max(40),
@@ -39,9 +50,12 @@ const productInput = z.object({
   // FR-11. The same schema the pull response is validated against, so a pack list the
   // server accepts is by construction one every terminal can read.
   packs: productPacks.optional(),
+  barcodes: scannedBarcodes.optional(),
 });
 
 const packsInput = z.object({ packs: productPacks });
+
+const barcodesInput = z.object({ barcodes: scannedBarcodes });
 
 const priceInput = z.object({ priceSantim: z.number().int().nonnegative() });
 
@@ -151,5 +165,19 @@ export class ManagementController {
     @Body(new ZodValidationPipe(packsInput)) body: z.infer<typeof packsInput>,
   ) {
     return this.management.setPacks(scope, id, body.packs);
+  }
+
+  /**
+   * Replaces the barcodes that identify a product (FR-13). Behind `catalog.manage`: a
+   * barcode decides which price a scan charges, so linking one is a catalogue change.
+   */
+  @Post('products/:id/barcodes')
+  @RequireCapability('catalog.manage')
+  setBarcodes(
+    @CurrentScope() scope: TenantScope,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodValidationPipe(barcodesInput)) body: z.infer<typeof barcodesInput>,
+  ) {
+    return this.management.setBarcodes(scope, id, body.barcodes);
   }
 }

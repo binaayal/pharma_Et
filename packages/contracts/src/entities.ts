@@ -68,6 +68,59 @@ export function baseQuantity(line: { qty: number; packSize?: number | null }): n
   return line.qty * (line.packSize ?? 1);
 }
 
+/* -------------------------------------------------------------------------- */
+/* Barcodes (FR-13, ADR-031) — contract v1.6.0                                 */
+/* -------------------------------------------------------------------------- */
+
+/** How many barcodes one product may carry: the same medicine from several makers. */
+export const MAX_BARCODES_PER_PRODUCT = 12;
+
+/**
+ * A barcode in the one form it is stored and compared in.
+ *
+ * The same trade item is printed as 8, 12 or 13 digits on a retail box (EAN-8, UPC-A,
+ * EAN-13) and as 14 inside a GS1 DataMatrix. GS1 defines them as one number: the shorter
+ * forms are the GTIN-14 with leading zeros dropped. So an all-digit code of those lengths is
+ * left-padded to 14, and a box linked by scanning its EAN-13 is found again when its
+ * DataMatrix is scanned at the next delivery.
+ *
+ * Anything else — a wholesaler's own Code 128 label — is kept exactly as read, trimmed.
+ *
+ * Implemented a second time in Dart (`apps/mobile/lib/core/gs1.dart`), because the till
+ * matches a scan with no network. `BARCODE_VECTORS` below is run against both.
+ */
+export function canonicalBarcode(raw: string): string {
+  const code = raw.trim();
+  return /^(\d{8}|\d{12}|\d{13})$/.test(code) ? code.padStart(14, '0') : code;
+}
+
+/** Inputs and the canonical form each must produce, for both implementations. */
+export const BARCODE_VECTORS: ReadonlyArray<readonly [input: string, canonical: string]> = [
+  ['6291100080014', '06291100080014'], // EAN-13
+  ['06291100080014', '06291100080014'], // already GTIN-14
+  ['036000291452', '00036000291452'], // UPC-A
+  ['96385074', '00000096385074'], // EAN-8
+  [' 6291100080014 ', '06291100080014'],
+  ['SHELF-0042', 'SHELF-0042'], // an in-house label: not a GTIN, kept as read
+  ['12345', '12345'], // digits, but no GTIN is this long
+  ['123456789', '123456789'],
+];
+
+/** A stored barcode: already canonical, printable, no spaces. */
+export const barcode = z
+  .string()
+  .regex(/^[\x21-\x7e]{4,48}$/, 'a barcode is 4 to 48 printable characters with no spaces')
+  .refine((code) => canonicalBarcode(code) === code, {
+    message: 'a GTIN is stored as 14 digits (use canonicalBarcode)',
+  });
+
+export const productBarcodes = z
+  .array(barcode)
+  .max(MAX_BARCODES_PER_PRODUCT)
+  .refine((codes) => new Set(codes).size === codes.length, {
+    message: 'the same barcode is listed twice',
+  });
+
 export const saleLinePayload = z.object({
   id: uuidv7,
   productId: uuidv7,

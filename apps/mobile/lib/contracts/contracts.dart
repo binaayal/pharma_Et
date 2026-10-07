@@ -7,12 +7,12 @@
 // needs an ADR, both-side contract tests including N-1 (ADR-009), a guardian-suite update,
 // two reviews, and an RTM entry.
 //
-// Contract version: 1.5.0
+// Contract version: 1.6.0
 
 // ignore_for_file: unnecessary_cast, lines_longer_than_80_chars, unnecessary_this
 
 /// The contract version this client speaks, sent as the `x-contract-version` header.
-const String kContractVersion = '1.5.0';
+const String kContractVersion = '1.6.0';
 
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) return true;
@@ -1300,6 +1300,7 @@ class ProductRef {
     this.psychotropicClass,
     required this.currentPriceSantim,
     this.packs,
+    this.barcodes,
     required this.changeSeq,
     this.deletedAt,
   });
@@ -1312,6 +1313,7 @@ class ProductRef {
   /// Money in santim (1 ETB = 100 santim)
   final int currentPriceSantim;
   final List<ProductPack>? packs;
+  final List<String>? barcodes;
   final int changeSeq;
   /// UTC ISO-8601 timestamp
   final String? deletedAt;
@@ -1324,6 +1326,7 @@ class ProductRef {
         psychotropicClass: json['psychotropicClass'] == null ? null : json['psychotropicClass'] as String,
         currentPriceSantim: json['currentPriceSantim'] as int,
         packs: json['packs'] == null ? null : (json['packs'] as List<dynamic>).map((e) => ProductPack.fromJson(e as Map<String, dynamic>)).toList(),
+        barcodes: json['barcodes'] == null ? null : (json['barcodes'] as List<dynamic>).map((e) => e as String).toList(),
         changeSeq: json['changeSeq'] as int,
         deletedAt: json['deletedAt'] == null ? null : json['deletedAt'] as String,
       );
@@ -1336,11 +1339,12 @@ class ProductRef {
         'psychotropicClass': psychotropicClass,
         'currentPriceSantim': currentPriceSantim,
         'packs': packs?.map((e) => e.toJson()).toList(),
+        'barcodes': barcodes,
         'changeSeq': changeSeq,
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props => <Object?>[id, name, unit, isControlled, psychotropicClass, currentPriceSantim, packs, changeSeq, deletedAt];
+  List<Object?> get _props => <Object?>[id, name, unit, isControlled, psychotropicClass, currentPriceSantim, packs, barcodes, changeSeq, deletedAt];
 
   @override
   bool operator ==(Object other) =>

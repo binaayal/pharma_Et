@@ -626,6 +626,7 @@ export class SyncService {
           currentPriceSantim: p.currentPriceSantim,
           // Always present from this server; a 1.4.0 terminal ignores it (ADR-012 §1).
           packs: p.packs ?? [],
+          barcodes: p.barcodes ?? [],
           changeSeq: p.changeSeq,
           deletedAt: p.deletedAt?.toISOString() ?? null,
         })),

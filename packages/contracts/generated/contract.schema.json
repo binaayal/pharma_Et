@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "PharmaEt sync & API contract",
   "description": "Generated from packages/contracts/src by `pnpm gen:contracts`. Do not hand-edit. This is a controlled artifact — see docs/06-delivery-plan.md §7.",
-  "contractVersion": "1.5.0",
+  "contractVersion": "1.6.0",
   "definitions": {
     "Operation": {
       "anyOf": [
@@ -479,7 +479,7 @@
       "properties": {
         "contractVersion": {
           "type": "string",
-          "default": "1.5.0"
+          "default": "1.6.0"
         },
         "terminalId": {
           "$ref": "#/definitions/Operation/anyOf/0/properties/opId"
@@ -607,6 +607,14 @@
             "$ref": "#/definitions/ProductPack"
           },
           "maxItems": 4
+        },
+        "barcodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[\\x21-\\x7e]{4,48}$"
+          },
+          "maxItems": 12
         },
         "changeSeq": {
           "$ref": "#/definitions/PushResponse/properties/changeSeq"

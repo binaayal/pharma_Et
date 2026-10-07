@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/gs1.dart';
 import '../core/money.dart';
 import '../core/permissions.dart';
 import '../contracts/contracts.dart';
@@ -9,6 +10,7 @@ import '../l10n/locale_store.dart';
 import 'dispense_screen.dart';
 import 'kit.dart';
 import 'payment_screen.dart';
+import 'scan_screen.dart';
 import 'sync_chip.dart';
 import 'terminal.dart';
 import 'till.dart';
@@ -80,6 +82,34 @@ class _SellScreenState extends State<SellScreen> {
     t.addLine(product, batch: batch, overrideBy: overrideBy, onHand: onHand);
     _search.clear();
     FocusScope.of(context).unfocus();
+  }
+
+  /// Rings up by scanning (FR-13). The camera stays open for the whole basket: each box
+  /// is matched against the catalogue on this phone and added exactly as a tap would add
+  /// it — same FEFO batch, same expired-stock warning, same refusal of a controlled item.
+  Future<void> _scan() async {
+    final t = TerminalScope.read(context);
+    final unknown = context.t('scan.unknown');
+    final added = context.l10n;
+    await BarcodeScanner.many(
+      context,
+      title: context.t('sell.scan'),
+      onCode: (raw) async {
+        final scan = parseScan(raw);
+        final product = scan == null ? null : t.productForBarcode(scan.barcode);
+        // Not found is said, and nothing is added. Guessing a near match would put the
+        // wrong medicine in the bag at the wrong price.
+        if (product == null) return ScanFeedback(unknown, ok: false);
+        if (!mounted) return ScanFeedback(unknown, ok: false);
+        final before = t.cartItems;
+        await _add(product);
+        if (t.cartItems == before) {
+          // A controlled item, or a denied capability: _add already said why.
+          return ScanFeedback(product.name, ok: false);
+        }
+        return ScanFeedback(added.f('scan.added', {'name': product.name}));
+      },
+    );
   }
 
   /// The only stock is expired (E-4.2, ADR-020). True only when someone who *may*
@@ -168,6 +198,8 @@ class _SellScreenState extends State<SellScreen> {
                     focusNode: _focus,
                     hint: context.t('sell.search'),
                     onChanged: (_) => setState(() {}),
+                    onScan: t.can(Capability.saleCreate) ? _scan : null,
+                    scanTooltip: context.t('sell.scan'),
                   ),
                   if (t.shift == null && t.can(Capability.saleCreate))
                     GestureDetector(
@@ -417,11 +449,17 @@ class _SearchBox extends StatelessWidget {
       {required this.controller,
       required this.focusNode,
       required this.hint,
-      required this.onChanged});
+      required this.onChanged,
+      required this.scanTooltip,
+      this.onScan});
   final TextEditingController controller;
   final FocusNode focusNode;
   final String hint;
   final ValueChanged<String> onChanged;
+  final String scanTooltip;
+
+  /// Opens the camera scanner (FR-13). Null hides the button.
+  final VoidCallback? onScan;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -450,6 +488,13 @@ class _SearchBox extends StatelessWidget {
               ),
             ),
           ),
+          if (onScan != null)
+            IconButton(
+              tooltip: scanTooltip,
+              icon: const Icon(Icons.qr_code_scanner,
+                  size: 22, color: PharmaColors.green),
+              onPressed: onScan,
+            ),
         ]),
       );
 }

@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../contracts/contracts.dart';
+import '../core/gs1.dart';
 import '../core/money.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
 import '../data/inventory_repository.dart';
 import '../l10n/locale_store.dart';
 import 'kit.dart';
+import 'scan_screen.dart';
 import 'terminal.dart';
 
 /// Goods receipt (prototype screen 14; FR-7 base).
@@ -194,6 +196,41 @@ class _LineSheetState extends State<_LineSheet> {
       _expiry != null &&
       (int.tryParse(_qty.text) ?? 0) > 0;
 
+  void _choose(LocalProduct? p) {
+    _product = p;
+    // A delivery arrives by the box. Default to the largest pack so the common case is
+    // the one that needs no extra tap.
+    _pack = p == null || p.packs.isEmpty ? null : p.packs.last;
+  }
+
+  /// Reads the delivery box (FR-13). A plain barcode picks the product; a GS1 DataMatrix
+  /// also carries the lot and the expiry printed beside it — the two fields of a receipt
+  /// where a typing slip means expired medicine on the shelf marked good.
+  ///
+  /// What the code says is put **in the fields**, not saved: the person still sees the
+  /// lot and the date and can correct them against the box before adding the line.
+  Future<void> _scan() async {
+    final unknown = context.t('scan.unknown');
+    final raw =
+        await BarcodeScanner.once(context, title: context.t('receive.scan'));
+    if (raw == null || !mounted) return;
+    final scan = parseScan(raw);
+    if (scan == null) return;
+
+    LocalProduct? product;
+    for (final p in widget.products) {
+      if (p.barcodes.contains(scan.barcode)) product = p;
+    }
+    setState(() {
+      if (product != null) _choose(product);
+      if (scan.lot != null) _lot.text = scan.lot!;
+      final expiry =
+          scan.expiry == null ? null : DateTime.tryParse(scan.expiry!);
+      if (expiry != null) _expiry = expiry;
+    });
+    if (product == null) toast(context, unknown);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -208,6 +245,16 @@ class _LineSheetState extends State<_LineSheet> {
                 style:
                     const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
             const SizedBox(height: 14),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: PButton(
+                kind: BtnKind.plain,
+                small: true,
+                icon: Icons.qr_code_scanner,
+                label: context.t('receive.scan'),
+                onPressed: _scan,
+              ),
+            ),
             PField(
               label: context.t('receive.product'),
               child: DropdownButtonFormField<LocalProduct>(
@@ -215,12 +262,7 @@ class _LineSheetState extends State<_LineSheet> {
                 items: widget.products
                     .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
                     .toList(),
-                onChanged: (p) => setState(() {
-                  _product = p;
-                  // A delivery arrives by the box. Default to the largest pack so the
-                  // common case is the one that needs no extra tap.
-                  _pack = p == null || p.packs.isEmpty ? null : p.packs.last;
-                }),
+                onChanged: (p) => setState(() => _choose(p)),
               ),
             ),
             PField(

@@ -49,7 +49,7 @@ class LocalDb {
   Future<void> acknowledgeQuarantine() =>
       db.delete('meta', where: 'key = ?', whereArgs: [_quarantineKey]);
 
-  static const _version = 5;
+  static const _version = 6;
 
   /// Opens the terminal's database, and **always returns one** (ADR-018).
   ///
@@ -254,6 +254,7 @@ class LocalDb {
     await _createInventorySchema(db);
     await _createControlledSchema(db);
     await _addSellUnitColumns(db);
+    await _addBarcodeColumn(db);
 
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
@@ -386,6 +387,16 @@ class LocalDb {
         .execute('ALTER TABLE goods_receipt_line ADD COLUMN pack_size INTEGER');
   }
 
+  /// Product barcodes (FR-13, ADR-031; contract 1.6.0).
+  ///
+  /// The barcodes the server says identify each product, as a small JSON list. Reference
+  /// data like the rest of the row: overwritten by each pull, never authored here. Null on
+  /// a product pulled before this existed, which reads as "no barcode" — it is found by
+  /// name, exactly as before.
+  static Future<void> _addBarcodeColumn(DatabaseExecutor db) async {
+    await db.execute('ALTER TABLE product ADD COLUMN barcodes_json TEXT');
+  }
+
   /// Schema upgrades run on a device holding real, unsynced sales.
   ///
   /// So they are additive only — new tables and new nullable columns. Anything that
@@ -406,6 +417,9 @@ class LocalDb {
     }
     if (from < 5) {
       await _addSellUnitColumns(db);
+    }
+    if (from < 6) {
+      await _addBarcodeColumn(db);
     }
   }
 
