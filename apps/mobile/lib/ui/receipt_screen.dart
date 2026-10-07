@@ -122,7 +122,9 @@ class ReceiptScreen extends StatelessWidget {
                         fontSize: 20, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 4),
                 Text(
-                    '${context.t('receipt.sale')} #$number · ${context.l10n.date(now)}, ${context.l10n.time(now)}',
+                    // Says which price list, as the paper does (FR-19) — the cashier
+                    // should see it was a wholesale sale before handing the slip over.
+                    '${context.t('receipt.sale')} #$number${wholesale ? ' · ${context.t('tier.wholesale')}' : ''} · ${context.l10n.date(now)}, ${context.l10n.time(now)}',
                     style: const TextStyle(
                         fontSize: 12.5, color: PharmaColors.muted)),
                 const SizedBox(height: 16),

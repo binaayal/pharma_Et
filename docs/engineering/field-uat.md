@@ -231,8 +231,37 @@ lost. This is the scenario `g7_schema_upgrade_test.dart` rehearses, on a real fi
 | 7 — "1 sales" | **Not fixed by that build.** Home and Reports still read "1 sales". The first fix reworded the summary and missed these two screens; corrected with FR-18, with a test |
 | 1 — the dash on a printed credit receipt, and 6 — the medicine heading | Not re-checked on the phone; each is held by a test |
 
-Nothing from FR-7a, FR-8a, FR-18 or FR-19 has been on a phone: build 61 predates them.
+**Third pass, same day: FR-7a, FR-8a, FR-18 and FR-19 on the phone** (version 2.0.0, code
+64, commit `2dc6d74`, installed over code 61; server on the same commit, contract 1.9.0). The
+local database went from schema 7 to 9 in place, signed in, till intact.
+
+| What was done | Result |
+|---|---|
+| Wholesale price on a product (80.00 beside 100.00) and on its box (750.00 beside 900.00) | **Pass.** Both saved, synced, and shown on the product; the Activity log reads "Wholesale price of Amoxicillin 50mg set to 80.00" |
+| Sell at wholesale | **Pass.** The Retail / Wholesale switch appeared only after a wholesale price existed; switching repriced the line to 80.00 and the box to 750.00; one box sold for 750.00 and synced; the next sale opened on Retail |
+| The wholesale slip | **Pass** in the print preview: "Sale #BOL-576D · Wholesale", every character present. **Defect:** the screen itself did not say Wholesale — see below |
+| Sales summary | **Pass.** Total 1,650; "Of which wholesale 750" |
+| Receive a delivery not paid for | **Pass.** Supplier typed as a name, ten at 30.00, "Not paid yet" with 100.00 paid now: 200.00 left owing. **Defect** in the label — see below |
+| Suppliers | **Pass.** The supplier had been opened by the receipt; "You owe 200", counted once after the round trip to the server |
+| Pay a supplier from the till | **Pass.** No source was preselected and the button stayed disabled until one was chosen; 50.00 from the open till; 150.00 owed, flagged as unsynced until the push, then clean |
+| Cash-up after it | **Pass.** Float 200 + cash sales 1,150 + debts repaid 200 − paid to suppliers 50 = 1,500 expected. Not counted: the till was left open |
+| Where the money is | **Pass**, against real records: 1,650 sold in 30 days, profit about 250 on Amoxicillin; nothing to reorder, sitting or to return, each said plainly |
+
+**What this pass found:**
+
+8. **The pack editor clipped a price.** With a wholesale field added there were four fields
+   on one line, and "900.00" showed as "900.0". Each pack is now two lines — name and size,
+   then the two prices — and a test lays it out at this phone's width.
+9. **"Goes on the supplier's account" ran into its own figure** ("…account200.00"). Now
+   "Left owing".
+10. **The sale-complete screen did not say a sale was wholesale**, though the paper did.
+    It does now.
+
+Fixes 8–10 have not been on the phone. **Not done in any pass:** a real barcode read, a
+restore from a file, a payment by a cashier (the button is hidden; nobody signed in as one).
 
 **Left on the test account:** a pack on Amoxicillin 50mg, a Paracetamol product, a
-receipt of five boxes, one credit sale, one customer ("Test Customer") and one repayment.
+receipt of five boxes, one credit sale, one customer ("Test Customer") and one repayment;
+and from the third pass a wholesale price on Amoxicillin and its box, one wholesale sale,
+a supplier ("Test Wholesaler") owed 150.00, a delivery of ten Paracetamol and one payment.
 Nothing in this system is deleted, so they stay.

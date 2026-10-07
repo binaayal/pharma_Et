@@ -160,64 +160,71 @@ class PackRows extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final (i, draft) in drafts.indexed)
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                flex: 5,
-                child: PField(
-                  label: context.t('packs.name'),
-                  hint: context.t('packs.nameHint'),
-                  controller: draft.name,
-                  onChanged: (_) => onChanged(),
+            // Two lines a pack. Four fields on one line fitted a 720-pixel phone only by
+            // clipping the price ("900.0…"), found on a real handset — and a price is
+            // the one figure here nobody should have to guess at.
+            Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  flex: 3,
+                  child: PField(
+                    label: context.t('packs.name'),
+                    hint: context.t('packs.nameHint'),
+                    controller: draft.name,
+                    onChanged: (_) => onChanged(),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 4,
-                child: PField(
-                  // One short word. "TABLET IN ONE" wrapped onto two lines on a real
-                  // 720-pixel phone and pushed this field out of line with its
-                  // neighbours; the unit now sits inside the field as its hint.
-                  label: context.t('packs.size'),
-                  hint: '10 $unit',
-                  controller: draft.size,
-                  keyboardType: TextInputType.number,
-                  onChanged: (_) => onChanged(),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 2,
+                  child: PField(
+                    label: context.t('packs.size'),
+                    hint: '10 $unit',
+                    controller: draft.size,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => onChanged(),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 5,
-                child: PField(
-                  label: context.t('catalog.price'),
-                  controller: draft.price,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => onChanged(),
+                Padding(
+                  padding: const EdgeInsets.only(top: 22),
+                  child: IconButton(
+                    tooltip: context.t('packs.remove'),
+                    icon: const Icon(Icons.close,
+                        size: 18, color: PharmaColors.faint),
+                    onPressed: () => onRemove(i),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                flex: 5,
-                child: PField(
-                  // The price for a clinic or an organisation (FR-19). Left empty, the
-                  // pack has one price for everybody.
-                  label: context.t('tier.wholesaleShort'),
-                  hint: '—',
-                  controller: draft.wholesale,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => onChanged(),
+              ]),
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Expanded(
+                  child: PField(
+                    label: context.t('catalog.price'),
+                    controller: draft.price,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => onChanged(),
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: 22),
-                child: IconButton(
-                  tooltip: context.t('packs.remove'),
-                  icon: const Icon(Icons.close,
-                      size: 18, color: PharmaColors.faint),
-                  onPressed: () => onRemove(i),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: PField(
+                    // The price for a clinic or an organisation (FR-19). Left empty,
+                    // the pack has one price for everybody.
+                    label: context.t('tier.wholesaleShort'),
+                    hint: '—',
+                    controller: draft.wholesale,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => onChanged(),
+                  ),
                 ),
-              ),
+              ]),
+              // Tells one pack from the next now that each is two lines tall.
+              if (i < drafts.length - 1)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Divider(height: 1, color: PharmaColors.line),
+                ),
             ]),
           if (drafts.length < maxPacksPerProduct)
             Padding(

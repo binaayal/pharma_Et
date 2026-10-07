@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:pharmaet_mobile/contracts/contracts.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/inventory_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
@@ -370,6 +371,56 @@ void main() {
         (tester) async {
       await openPrice(tester, controlled: true);
       expect(find.textContaining('Wholesale price'), findsNothing);
+    });
+  });
+
+  group('the pack editor on a small phone', () {
+    testWidgets('shows both prices of a pack in full at 360 dp wide',
+        (tester) async {
+      // Found on a 720-pixel handset: four fields on one line fitted only by clipping
+      // the price to "900.0". A pack is now two lines, and the price has room.
+      tester.view.physicalSize = const Size(720, 1520);
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+
+      final owner = TestTerminal.build(db, role: 'owner');
+      const product = LocalProduct(
+          id: 'p1',
+          name: 'Amoxicillin',
+          unit: 'tablet',
+          isControlled: false,
+          priceSantim: 10000,
+          packs: [
+            ProductPack(
+                name: 'box',
+                size: 10,
+                priceSantim: 90000,
+                wholesalePriceSantim: 75000),
+          ]);
+      await pumpTerminalScreen(
+          tester,
+          owner.terminal,
+          Scaffold(
+              body: Builder(
+                  builder: (context) => TextButton(
+                      onPressed: () => showPacksForm(context, product),
+                      child: const Text('open')))));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      // No overflow was thrown laying it out, and each price field is wide enough for
+      // a five-figure price with its santim.
+      expect(tester.takeException(), isNull);
+      final price = find.widgetWithText(TextField, '900.00');
+      final wholesale = find.widgetWithText(TextField, '750.00');
+      expect(tester.getSize(price).width, greaterThan(130));
+      expect(tester.getSize(wholesale).width, greaterThan(130));
+      // Side by side, under the name.
+      expect(tester.getTopLeft(price).dy, tester.getTopLeft(wholesale).dy);
+      expect(
+          tester.getTopLeft(price).dy,
+          greaterThan(
+              tester.getTopLeft(find.widgetWithText(TextField, 'box')).dy));
     });
   });
 

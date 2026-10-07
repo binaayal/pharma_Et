@@ -65,6 +65,39 @@ void main() {
     await pumpTerminalScreen(tester, t.terminal, screen, locale: locale);
   }
 
+  testWidgets('a wholesale sale says so on the screen, as it does on paper',
+      (tester) async {
+    // Found on a phone: the printed slip said "Wholesale" and the screen did not.
+    final t = TestTerminal.build(db);
+    await pumpTerminalScreen(
+        tester,
+        t.terminal,
+        const ReceiptScreen(
+          saleId: '01930000-0000-7000-8000-00000000a1b2',
+          totalSantim: 17000,
+          changeSantim: 0,
+          tender: Tender.cash,
+          commitMs: 12,
+          wholesale: true,
+          lines: [
+            (
+              name: 'Amoxicillin 500mg capsule',
+              qty: 2,
+              packName: 'box',
+              unit: 'box',
+              unitPriceSantim: 8500,
+              lineTotalSantim: 17000,
+            ),
+          ],
+        ));
+    expect(find.textContaining('· Wholesale ·'), findsOneWidget);
+  });
+
+  testWidgets('a retail sale says nothing about price lists', (tester) async {
+    await open(tester);
+    expect(find.textContaining('Wholesale'), findsNothing);
+  });
+
   testWidgets('offers to share, to print, and to get on with the next sale',
       (tester) async {
     await open(tester);
