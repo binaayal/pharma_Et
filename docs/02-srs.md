@@ -432,6 +432,49 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-15 — On-device backup and restore · Priority: M · V2
+**Actors:** Owner, Branch Manager.
+**Preconditions:** signed in on the terminal. Design: ADR-033.
+
+**Main flow (backup):**
+1. The user opens Backup & restore, which shows how many operations exist only on this terminal and when a backup was last made.
+2. The user chooses a passphrase, entered twice.
+3. The system writes one encrypted file and hands it to the device's share sheet, for the user to keep somewhere other than the terminal.
+
+**Main flow (restore):**
+1. The user picks a backup file.
+2. The system shows which branch it is a backup of, when it was made, and how many unsynced operations it holds, then asks for the passphrase.
+3. The system adds to the terminal whatever the file holds that the terminal lacks, and queues the unsynced operations for the next sync.
+
+**Exception flows:**
+- E-15.1 Wrong passphrase, or a file altered since it was made: refused; nothing on the terminal changes.
+- E-15.2 A file from another pharmacy or another branch: refused before a passphrase is asked for, naming the branch.
+- E-15.3 Not a backup, damaged, or made by a newer version: refused, each with its own message.
+
+**Business rules:**
+- BR-15.1 A backup contains every operation not yet acknowledged by the server, together with the records they describe, as they were at one instant.
+- BR-15.2 A backup is encrypted with a passphrase of at least eight characters. Nothing in it that identifies a sale, a product or a member of staff is readable without the passphrase. **There is no recovery of a forgotten passphrase.**
+- BR-15.3 **A restore only adds.** It never removes, replaces or alters anything already on the terminal, including the terminal's own unsynced operations.
+- BR-15.4 A restore is idempotent: restoring the same file again adds nothing, and an operation the server has already applied is not applied twice (AC-9.2).
+- BR-15.5 Restored operations keep their relative order.
+- BR-15.6 A restore never changes reference data (catalogue, prices, stock mirrored from the server).
+- BR-15.7 A backup can be restored only on a terminal signed in to the same pharmacy and the same branch.
+- BR-15.8 A restore either completes or leaves the terminal exactly as it was.
+- BR-15.9 Backup and restore remain available past the offline ceiling (BR-2.3).
+- BR-15.10 Backup and restore need no network.
+
+**Acceptance criteria:**
+- AC-15.1 *Given* a terminal with five unsynced sales, *when* it is backed up and the file restored on a fresh terminal, *then* the five are queued there in the same order and sync exactly once.
+- AC-15.2 *Given* a terminal with three unsynced sales of its own, *when* a backup holding two others is restored on it, *then* all five are queued and its own three are unchanged.
+- AC-15.3 *Given* a restored file, *when* it is restored again, *then* nothing is added.
+- AC-15.4 *Given* a wrong passphrase, *when* a restore is attempted, *then* it is refused and the terminal is unchanged.
+- AC-15.5 *Given* a backup file, *when* its bytes are inspected, *then* no product name, sale identifier or staff identifier appears in them.
+- AC-15.6 *Given* a backup of branch A, *when* a restore is attempted on a terminal in branch B, *then* it is refused, naming A.
+- AC-15.7 *Given* a Cashier, *when* they open Settings, *then* Backup & restore is not offered.
+- AC-15.8 *Given* an Owner on a terminal past the offline ceiling, *when* they open Settings, *then* Backup & restore is offered.
+
+---
+
 ## 4. Non-functional requirements
 
 ### NFR-1 — Offline capability & availability · Priority: M
@@ -503,6 +546,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-12 pre-loaded medicines catalogue — **V2** | — (bundled reference data; the existing product-create path) | source: `docs/regulatory/EFDA-GDL-067-essential-medicines-list-2024.pdf` · build: `scripts/build-medicines-catalogue.py` → `mobile/assets/catalogue/medicines.json` · app: `mobile/lib/data/medicine_catalogue.dart`, `mobile/lib/ui/catalog_sheets.dart` | `medicine_catalogue_test.dart` (18), `inventory_screens_test.dart` | **Done** — 1,315 entries from 490 generics of the 2024 list. AC-12.1 to AC-12.5 at the widget tier; the file itself is tested for size, duplicates, stray footnotes and the absence of any price or controlled flag. **Not covered:** medicines outside the Essential Medicines List (brands, the drug-shop and OTC lists) — typed by hand until those lists are added. |
 | FR-13 barcode scanning — **V2** | §5.2; ADR-031 | contract: `packages/contracts/src/entities.ts` (`canonicalBarcode`, `productBarcodes`) · server: `api/src/migrations/ProductBarcodes`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/core/gs1.dart`, `mobile/lib/ui/scan_screen.dart`, `mobile/lib/ui/{sell_screen,receive_screen,stock_screen}.dart` | `g2-product-barcodes.spec.ts` (19), `gs1_test.dart` (24), `g2_barcodes_test.dart` (5), `barcode_screens_test.dart` (8), `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Built; the camera is untested.** AC-13.1 to AC-13.9 hold with the camera replaced by a script — matching, canonical form, one-product-per-barcode, tenant isolation, N-1. **What no test here can show** is that a real phone reads a real box: focus, glare, a curved blister pack, a low-end camera. That is a device check, and belongs on the field-UAT list (`engineering/field-uat.md`). |
 | FR-14 receipts — **V2** | ADR-032 (no schema or contract change) | `mobile/lib/core/receipt.dart`, `mobile/lib/ui/receipt_output.dart`, `mobile/lib/ui/receipt_screen.dart`, font: `mobile/assets/fonts/` | `receipt_test.dart` (15), `receipt_screen_test.dart` (5) | **Built as scoped; a printer has not been used.** Share-as-text and print-through-the-phone, AC-14.1 to AC-14.6: the text is checked line by line in both languages, and a real PDF is rendered in the tests — including in Amharic, with the font's glyph coverage read from the file. **Not built:** direct Bluetooth thermal printing (BR-14.7, ADR-032 §4). **Not shown by any test:** that a particular printer prints it; that is a field-UAT row. |
+| FR-15 backup and restore — **V2** | ADR-033 (no schema, contract or server change) | `mobile/lib/data/backup.dart`, `mobile/lib/ui/backup_screen.dart`, `mobile/lib/ui/settings_screen.dart` | `g7_backup_restore_test.dart` (24), `backup_screen_test.dart` (16) | **Done at the data tier; the file's journey is untested.** AC-15.1 to AC-15.8: restore across two real database files, merge without loss, idempotence, order, wrong passphrase, tampering, wrong branch, plaintext scan, atomicity. **Not shown by any test:** a file actually sent through Telegram and picked back on a second phone — the share sheet and the file picker are the operating system's (`engineering/field-uat.md` §4.5). |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

@@ -126,6 +126,7 @@ These three were built and tested without a handset. Each has a part only a shop
 | **Deny the camera permission**, then tap scan | A plain message, and typing still works | Permission dialogs are the operating system's |
 | **Sell a strip and a box** of a product with packs; receive five boxes | The owner agrees the stock count and the money are both right | Whether "strip" and "box" are the words this shop uses |
 | **Print a receipt** on the shop's own printer, in Amharic and in English; **share one** to a phone by SMS and by Telegram | The page is legible, the Amharic is letters and not boxes, and the totals match the till | No printer has been connected to this app. Whether the shop's printer has an Android print service at all is the first thing to find out |
+| **Back up, then lose the phone:** with the network off, ring up five sales on phone A, back up, send the file to yourself by Telegram. On phone B, signed in to the same branch, pick the file and restore. Turn the network on | The five sales appear once on the server. Restore the same file again: still five. Try a wrong passphrase: refused | The share sheet and file picker are the operating system's; and whether an owner can do this unaided is the real question |
 | **Set up ten products from the medicines list** | The pharmacist finds each in a few letters; note every one they could not find, and every suggestion that reads wrongly | The list was parsed from a PDF and spot-checked, not reviewed by a pharmacist |
 
 ## 5. Recording findings

@@ -530,6 +530,47 @@ const Map<String, String> _en = {
   'settings.pending': 'Pending uploads',
   'settings.pendingSub': '{n} records waiting',
   'settings.account': 'Account',
+  'backup.title': 'Backup & restore',
+  'backup.sub': 'Keep a copy of what is only on this phone',
+  'backup.onlyHere': 'Only on this phone',
+  'backup.last': 'Last backup',
+  'backup.never': 'Never',
+  'backup.whyNow':
+      '{n} sales or receipts have not reached the server yet. If this phone is lost before they sync, a backup is the only other copy.',
+  'backup.whyLater':
+      'Everything on this phone has reached the server. A backup now is a copy for your own records.',
+  'backup.now': 'Back up now',
+  'backup.working': 'Working…',
+  'backup.restore': 'Restore from a backup file',
+  'backup.made': 'Backup made. Keep the file somewhere that is not this phone.',
+  'backup.failed':
+      'The backup could not be made. Nothing on this phone was changed.',
+  'backup.passNotice':
+      'A backup is locked with a passphrase you choose. Without it the file cannot be opened — not by you, and not by us. Write it down.',
+  'backup.restoreNotice':
+      'Restoring adds what the backup holds to this phone. It never removes or replaces anything already here, and restoring the same file twice is harmless.',
+  'backup.choosePass': 'Choose a passphrase',
+  'backup.enterPass': 'Enter the backup\'s passphrase',
+  'backup.pass': 'Passphrase',
+  'backup.passAgain': 'The same passphrase again',
+  'backup.passRule': 'At least 8 characters.',
+  'backup.about':
+      'Backup of {branch}, made {date}. It holds {n} sales or receipts that had not synced.',
+  'backup.restored':
+      'Restored {n} sales or receipts. They will upload on the next sync.',
+  'backup.restoredNothing':
+      'Everything in that backup is already on this phone.',
+  'backup.problem.notABackup':
+      'That file is not a PharmaEt backup, or it is damaged.',
+  'backup.problem.tooNew':
+      'That backup was made by a newer version of the app. Update the app, then restore.',
+  'backup.problem.wrongPassphrase':
+      'That passphrase does not open this backup.',
+  'backup.problem.otherPharmacy':
+      'That backup belongs to a different pharmacy.',
+  'backup.problem.otherBranch': 'That backup belongs to another branch.',
+  'backup.problem.otherBranchNamed':
+      'That backup belongs to {branch}. Restore it on a phone signed in to that branch.',
   'settings.footer': 'PharmaEt 1.0.0 · Ethiopian calendar',
   'settings.privacy': 'Privacy policy',
   'settings.deleteAccount': 'Delete account',
@@ -1022,6 +1063,39 @@ const Map<String, String> _am = {
   'settings.pending': 'የሚጠባበቁ',
   'settings.pendingSub': '{n} መዝገቦች ይጠባበቃሉ',
   'settings.account': 'መለያ',
+  'backup.title': 'ቅጂ መያዝና መመለስ',
+  'backup.sub': 'በዚህ ስልክ ብቻ ያለውን ቅጂ ያስቀምጡ',
+  'backup.onlyHere': 'በዚህ ስልክ ብቻ',
+  'backup.last': 'የመጨረሻ ቅጂ',
+  'backup.never': 'የለም',
+  'backup.whyNow':
+      '{n} ሽያጮች ወይም ርክክቦች ገና ወደ ሰርቨሩ አልደረሱም። ከመመሳሰላቸው በፊት ይህ ስልክ ከጠፋ ሌላ ቅጂ ያለው በመጠባበቂያው ብቻ ነው።',
+  'backup.whyLater': 'በዚህ ስልክ ያለው ሁሉ ወደ ሰርቨሩ ደርሷል። አሁን የሚይዙት ቅጂ ለራስዎ መዝገብ ነው።',
+  'backup.now': 'አሁን ቅጂ ያዝ',
+  'backup.working': 'በመሥራት ላይ…',
+  'backup.restore': 'ከቅጂ ፋይል መልስ',
+  'backup.made': 'ቅጂው ተይዟል። ፋይሉን ከዚህ ስልክ ውጭ በሆነ ቦታ ያስቀምጡ።',
+  'backup.failed': 'ቅጂውን መያዝ አልተቻለም። በዚህ ስልክ ላይ ምንም አልተቀየረም።',
+  'backup.passNotice':
+      'ቅጂው እርስዎ በመረጡት የይለፍ ሐረግ ይቆለፋል። ያለ እሱ ፋይሉ ሊከፈት አይችልም — በእርስዎም፣ በእኛም። ጽፈው ያስቀምጡት።',
+  'backup.restoreNotice':
+      'መመለስ በቅጂው ያለውን ወደዚህ ስልክ ይጨምራል። አስቀድሞ ያለውን በጭራሽ አያጠፋም ወይም አይተካም፤ አንድን ፋይል ሁለት ጊዜ መመለስም ጉዳት የለውም።',
+  'backup.choosePass': 'የይለፍ ሐረግ ይምረጡ',
+  'backup.enterPass': 'የቅጂውን የይለፍ ሐረግ ያስገቡ',
+  'backup.pass': 'የይለፍ ሐረግ',
+  'backup.passAgain': 'ያንኑ የይለፍ ሐረግ ደግመው',
+  'backup.passRule': 'ቢያንስ 8 ፊደላት።',
+  'backup.about': 'የ{branch} ቅጂ፣ {date} የተያዘ። ያልተመሳሰሉ {n} ሽያጮች ወይም ርክክቦች ይዟል።',
+  'backup.restored': '{n} ሽያጮች ወይም ርክክቦች ተመልሰዋል። በሚቀጥለው ማመሳሰል ይላካሉ።',
+  'backup.restoredNothing': 'በዚያ ቅጂ ያለው ሁሉ አስቀድሞ በዚህ ስልክ ላይ አለ።',
+  'backup.problem.notABackup': 'ያ ፋይል የPharmaEt ቅጂ አይደለም፣ ወይም ተበላሽቷል።',
+  'backup.problem.tooNew':
+      'ያ ቅጂ በአዲስ የመተግበሪያ ስሪት የተያዘ ነው። መተግበሪያውን አዘምነው ከዚያ ይመልሱ።',
+  'backup.problem.wrongPassphrase': 'ያ የይለፍ ሐረግ ይህን ቅጂ አይከፍትም።',
+  'backup.problem.otherPharmacy': 'ያ ቅጂ የሌላ ፋርማሲ ነው።',
+  'backup.problem.otherBranch': 'ያ ቅጂ የሌላ ቅርንጫፍ ነው።',
+  'backup.problem.otherBranchNamed':
+      'ያ ቅጂ የ{branch} ነው። ወደዚያ ቅርንጫፍ በገባ ስልክ ላይ ይመልሱት።',
   'settings.footer': 'ፋርማኢት 1.0.0 · የኢትዮጵያ ዘመን አቆጣጠር',
   'settings.privacy': 'የግላዊነት ፖሊሲ',
   'settings.deleteAccount': 'መለያ ሰርዝ',

@@ -38,7 +38,7 @@ The backlog was written from the APK. These are its claims read against the repo
 | "Reports need the internet every time" | Correct. `reports_screen.dart` reads `/reports/*`; only a cashier's "today on this device" figure is local. | FR-8a reports are computed from local data first. |
 | "An audit log the owner can read" is missing | **Half true.** The log exists, is immutable, and is served by `GET /audit` (ADR-015). There is no screen for it on the phone. | FR-17 is a screen, not a subsystem. |
 | "The app already flags stock expiring within 60 days" | Correct (`CatalogRepository.attention`). No supplier link, so no return list yet. | FR-18 builds on FR-3. |
-| "One free-tier Render instance abroad" | Correct, and recorded as a deliberate starting point with an upgrade path (ADR-027). | An owner decision about money, not an engineering one — §6. |
+| "One free-tier Render instance abroad" | Correct, and recorded as a deliberate starting point with an upgrade path (ADR-027). | An owner decision about money, not an engineering one — **decided: stay on the free tiers** (§6). |
 | "Already localized to Amharic"; "transfer + proof subscription is deliberate" | Both correct. | Untouched. |
 
 ---
@@ -107,7 +107,7 @@ the same gates as V1 (`06` §4, §7).
 | 2 | **FR-12 pre-loaded catalogue** | **Built** — the 2024 Essential Medicines List as suggestions in the product form. The drug-shop and OTC lists are not in it yet |
 | 3 | **FR-13 barcode scan** | **Built; needs a real phone and real boxes** — ADR-031, contract 1.6.0 |
 | 4 | **FR-14 receipts** — share first (a day's work), then Bluetooth printing | **Half built** — share, and print through the phone's print system (ADR-032). **Bluetooth thermal printing is not built**: it needs a printer in hand |
-| 5 | **FR-15 backup and restore**, and the hosting decision (§6) | |
+| 5 | **FR-15 backup and restore**, and the hosting decision (§6) | **Built** — ADR-033. Hosting **decided 2026-10-07: stay on the free tiers** (§6) |
 | 6 | **FR-16 credit ledger** | |
 | 7 | **FR-17 audit trail and daily summary on the phone** | |
 | 8 | FR-18, FR-7a, FR-8a, FR-19, FR-20 — in the order pilots ask for them | |
@@ -142,11 +142,19 @@ Nothing is loosened.
 
 Engineering can settle everything else from the documents. These it cannot:
 
-1. **Hosting (backlog P0-4).** ADR-027 chose free tiers knowingly and wrote the upgrade path.
-   Moving to an always-on instance removes the cold start; it costs money every month, and
-   the region and data-residency answer is a business statement to customers. Nothing in V2
-   is blocked on it — every counter feature is offline — so it waits for a decision rather
-   than a build.
+1. **Hosting (backlog P0-4) — decided 2026-10-07: stay as it is,** on the free tiers of
+   Render and Neon (ADR-027, ADR-028). The backlog listed this as a blocker; the owner's
+   decision is that it is not one yet, and it is recorded here so it is not re-raised as an
+   oversight. What that means at a counter, stated plainly because it is now a known
+   property and not a bug to fix:
+   - the first request after the server has been idle is slow (a cold start). Selling,
+     receiving, scanning, receipts and backup are unaffected — all of them are offline;
+   - **reports, adding a product, changing a price or a pack, linking a barcode and staff
+     changes need the server** and will wait for it;
+   - the data-residency answer to a customer is unchanged from ADR-027.
+
+   ADR-027 keeps the upgrade path. The signal to revisit is a pilot shop saying reports are
+   too slow to open, not a date.
 2. **Pricing tiers** (single-shop vs multi-branch). A billing change, not a code change yet.
 3. **Regulatory readings** for track-and-trace and e-invoicing, as with A-1.
 4. **What the receipt is, legally.** FR-14 prints a slip that states the sale. Whether that

@@ -48,6 +48,10 @@ dependencies:
   # own print system — any printer with a print service, or "Save as PDF".
   printing: ^5.15.1
   pdf: ^3.13.1
+  # Backup files (FR-15, ADR-033): AES-256-GCM for the file — pure Dart, so it behaves
+  # the same on every phone — and the system file picker to choose one to restore.
+  cryptography: ^2.9.0
+  file_selector: ^1.1.0
 
 dev_dependencies:
   flutter_test:
