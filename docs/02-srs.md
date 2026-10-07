@@ -400,6 +400,38 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-14 — Receipts on paper and on the phone · Priority: M · V2
+**Actors:** Pharmacist/Cashier.
+**Preconditions:** a sale has just been committed (FR-4). Design: ADR-032.
+
+**Main flow:**
+1. After a sale, the receipt screen offers **Share** and **Print**.
+2. Share hands the receipt, as text, to the phone's share sheet (SMS, Telegram, and so on).
+3. Print lays the receipt out as a page and hands it to the phone's print system.
+
+**Exception flows:**
+- E-14.1 Sharing or printing fails: the user is told the receipt could not be sent and that the sale is saved; the next sale is not held up.
+- E-14.2 No printer is available: the phone's print system offers saving as PDF.
+
+**Business rules:**
+- BR-14.1 A receipt states exactly what the sale recorded: each line in the unit it was sold in (FR-11), the committed totals, the tender, and for cash the amount received and the change. No figure is recomputed for display (G4).
+- BR-14.2 The shared text and the printed page are rendered from one description of the sale and cannot differ in content.
+- BR-14.3 A receipt is in the language the terminal is set to, with the date in the Ethiopian calendar and the Gregorian date beside it (FR-10).
+- BR-14.4 Producing a receipt needs no network of the app's own.
+- BR-14.5 A receipt failing never affects the sale it describes (BR-4.1).
+- BR-14.6 A receipt names the shop, the sale reference and the cashier's first name. It carries nothing about the customer, and makes **no claim to be a fiscal document** — see ADR-032 §6.
+- BR-14.7 *(Scope.)* Direct Bluetooth thermal printing is **not** part of this requirement as built; it is a separate item (ADR-032 §4).
+
+**Acceptance criteria:**
+- AC-14.1 *Given* a completed sale of 2 boxes at 100.00 and 10 tablets at 5.00, *when* the Cashier shares the receipt, *then* the text shows both lines with their arithmetic and a total of 250.00 ETB.
+- AC-14.2 *Given* a cash sale, *when* the receipt is produced, *then* it shows the cash received and the change; *given* a non-cash sale, *then* it shows neither.
+- AC-14.3 *Given* a terminal set to Amharic, *when* the receipt is printed, *then* its labels are in Amharic and legible (not substitute boxes).
+- AC-14.4 *Given* a receipt longer than one sheet, *when* it is printed on cut paper, *then* it continues on a further sheet.
+- AC-14.5 *Given* sharing fails, *when* the Cashier is told, *then* the message says the sale is saved and a new sale can be started at once.
+- AC-14.6 *Given* an offline terminal, *when* a sale completes, *then* the receipt can be shared and printed.
+
+---
+
 ## 4. Non-functional requirements
 
 ### NFR-1 — Offline capability & availability · Priority: M
@@ -470,6 +502,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-11 sell units (break-bulk) — **V2** | §3, §5.2, §5.4, §5.5; ADR-030 | contract: `packages/contracts/src/entities.ts` (`productPack`, `baseQuantity`) · server: `api/src/migrations/SellUnits`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/data/{sale,inventory,catalog}_repository.dart`, `mobile/lib/ui/{sell_screen,receive_screen,catalog_sheets}.dart` | `g4-sell-units.spec.ts` (30), `g4_sell_units_test.dart` (20), `g7_schema_upgrade_test.dart`, `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-11.1 to AC-11.7 on both sides: pack sales exact to the santim, stock in base units, oversell by the box detected, a 1.4.0 terminal unchanged (ADR-009), a V1 local database upgraded in place. `itemsSold` in the sales summary counts units as rung up (ADR-030, consequences). |
 | FR-12 pre-loaded medicines catalogue — **V2** | — (bundled reference data; the existing product-create path) | source: `docs/regulatory/EFDA-GDL-067-essential-medicines-list-2024.pdf` · build: `scripts/build-medicines-catalogue.py` → `mobile/assets/catalogue/medicines.json` · app: `mobile/lib/data/medicine_catalogue.dart`, `mobile/lib/ui/catalog_sheets.dart` | `medicine_catalogue_test.dart` (18), `inventory_screens_test.dart` | **Done** — 1,315 entries from 490 generics of the 2024 list. AC-12.1 to AC-12.5 at the widget tier; the file itself is tested for size, duplicates, stray footnotes and the absence of any price or controlled flag. **Not covered:** medicines outside the Essential Medicines List (brands, the drug-shop and OTC lists) — typed by hand until those lists are added. |
 | FR-13 barcode scanning — **V2** | §5.2; ADR-031 | contract: `packages/contracts/src/entities.ts` (`canonicalBarcode`, `productBarcodes`) · server: `api/src/migrations/ProductBarcodes`, `api/src/modules/admin/management.service.ts` · till: `mobile/lib/core/gs1.dart`, `mobile/lib/ui/scan_screen.dart`, `mobile/lib/ui/{sell_screen,receive_screen,stock_screen}.dart` | `g2-product-barcodes.spec.ts` (19), `gs1_test.dart` (24), `g2_barcodes_test.dart` (5), `barcode_screens_test.dart` (8), `sell_screen_test.dart`, `packages/contracts/test/contract.test.ts` | **Built; the camera is untested.** AC-13.1 to AC-13.9 hold with the camera replaced by a script — matching, canonical form, one-product-per-barcode, tenant isolation, N-1. **What no test here can show** is that a real phone reads a real box: focus, glare, a curved blister pack, a low-end camera. That is a device check, and belongs on the field-UAT list (`engineering/field-uat.md`). |
+| FR-14 receipts — **V2** | ADR-032 (no schema or contract change) | `mobile/lib/core/receipt.dart`, `mobile/lib/ui/receipt_output.dart`, `mobile/lib/ui/receipt_screen.dart`, font: `mobile/assets/fonts/` | `receipt_test.dart` (15), `receipt_screen_test.dart` (5) | **Built as scoped; a printer has not been used.** Share-as-text and print-through-the-phone, AC-14.1 to AC-14.6: the text is checked line by line in both languages, and a real PDF is rendered in the tests — including in Amharic, with the font's glyph coverage read from the file. **Not built:** direct Bluetooth thermal printing (BR-14.7, ADR-032 §4). **Not shown by any test:** that a particular printer prints it; that is a field-UAT row. |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

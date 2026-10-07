@@ -106,7 +106,7 @@ the same gates as V1 (`06` §4, §7).
 | 1 | **FR-11 sell units** — it was unverified; it was verified missing, so it went first | **Built** — ADR-030, contract 1.5.0 |
 | 2 | **FR-12 pre-loaded catalogue** | **Built** — the 2024 Essential Medicines List as suggestions in the product form. The drug-shop and OTC lists are not in it yet |
 | 3 | **FR-13 barcode scan** | **Built; needs a real phone and real boxes** — ADR-031, contract 1.6.0 |
-| 4 | **FR-14 receipts** — share first (a day's work), then Bluetooth printing | |
+| 4 | **FR-14 receipts** — share first (a day's work), then Bluetooth printing | **Half built** — share, and print through the phone's print system (ADR-032). **Bluetooth thermal printing is not built**: it needs a printer in hand |
 | 5 | **FR-15 backup and restore**, and the hosting decision (§6) | |
 | 6 | **FR-16 credit ledger** | |
 | 7 | **FR-17 audit trail and daily summary on the phone** | |
@@ -149,3 +149,7 @@ Engineering can settle everything else from the documents. These it cannot:
    than a build.
 2. **Pricing tiers** (single-shop vs multi-branch). A billing change, not a code change yet.
 3. **Regulatory readings** for track-and-trace and e-invoicing, as with A-1.
+4. **What the receipt is, legally.** FR-14 prints a slip that states the sale. Whether that
+   slip can replace the receipt a registered sales machine produces — and so whether a shop
+   may actually retire its till — is the Ministry of Revenue's rule to state, not ours.
+   Until it is answered the receipt carries no TIN and claims nothing (ADR-032 §6).
