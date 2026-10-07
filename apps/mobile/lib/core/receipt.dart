@@ -101,8 +101,11 @@ class ReceiptDoc {
   List<(String, String)> settlement(Strings s) => [
         (
           s.get('receipt.paidBy'),
+          // Brackets, not a dash. Found on a real phone: the printed page is set in fonts
+          // with no em dash, and "On credit — Abebe" came out with an empty box in the
+          // middle. Everything in a receipt line has to exist in Latin-1 or Ethiopic.
           tender == ReceiptTender.credit && customerName != null
-              ? '${tenderName(s)} — $customerName'
+              ? '${tenderName(s)} ($customerName)'
               : tenderName(s)
         ),
         if (tender == ReceiptTender.cash) ...[

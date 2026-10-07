@@ -321,6 +321,23 @@ class AuditEntry {
             {'branch': (p['name'] as String?) ?? '—'});
       case 'audit.branch_updated':
         return s.get('audit.say.branchUpdated');
+      case 'audit.payment_proof_submitted':
+        return s.f('audit.say.proofSubmitted',
+            {'amount': formatMoney(_int(p['amountSantim']))});
+      case 'audit.payment_accepted':
+        return s.get('audit.say.paymentAccepted');
+      case 'audit.payment_rejected':
+        return s.get('audit.say.paymentRejected');
+      case 'audit.payment_proof_image_deleted':
+        return s.get('audit.say.proofImageDeleted');
+      case 'audit.subscription_changed':
+        return s.get('audit.say.subscriptionChanged');
+      case 'audit.tenant_onboarded':
+        return s.get('audit.say.tenantOnboarded');
+      case 'audit.tenant_deactivated':
+        return s.get('audit.say.tenantDeactivated');
+      case 'audit.tenant_reactivated':
+        return s.get('audit.say.tenantReactivated');
       default:
         // An event this version of the app has no sentence for — a newer server's. Shown
         // by its name rather than hidden: an audit trail does not get to skip entries.

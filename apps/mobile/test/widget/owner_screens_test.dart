@@ -129,10 +129,10 @@ void main() {
       await open(
           tester, summary(shifts: [shift('Hana', 0), shift('Dawit', 0)]));
 
-      expect(find.text('2 tills counted, none short.'), findsOneWidget);
+      expect(find.text('Tills counted, none short: 2.'), findsOneWidget);
       expect(find.text('exact'), findsNWidgets(2));
       expect(find.text('Amoxicillin 500mg'), findsOneWidget);
-      expect(find.text('1 price changes'), findsOneWidget);
+      expect(find.text('Price changes: 1'), findsOneWidget);
     });
 
     testWidgets('a shortage leads, and an overage does not soften it',
@@ -155,8 +155,7 @@ void main() {
 
     testWidgets('a till nobody counted is shown as still open', (tester) async {
       await open(tester, summary(open: 1, shifts: [shift('Hana', null)]));
-      expect(find.textContaining('still open and have not been counted'),
-          findsOneWidget);
+      expect(find.textContaining('still open and not counted'), findsOneWidget);
       expect(find.text('still open'), findsOneWidget);
     });
 

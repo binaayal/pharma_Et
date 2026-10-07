@@ -107,13 +107,13 @@ void main() {
     test('tills that balanced are said to have balanced — zero is the news',
         () {
       final t = text(day(shifts: [shift('Hana', 0), shift('Dawit', 0)]));
-      expect(t, contains('2 tills counted, none short.'));
+      expect(t, contains('Tills counted, none short: 2.'));
     });
 
     test('a till left open is reported, not skipped', () {
       final t =
           text(day(open: 1, shifts: [shift('Hana', null, closed: false)]));
-      expect(t, contains('1 tills are still open and have not been counted.'));
+      expect(t, contains('Tills still open and not counted: 1.'));
     });
 
     test('a day with no till says so', () {
@@ -128,7 +128,7 @@ void main() {
 
     test('says what is owed and what came in against it', () {
       expect(text(day()),
-          contains('Owed to you: 5,400.00 from 3 customers · repaid 800.00'));
+          contains('Owed to you: 5,400.00 (customers: 3) · repaid 800.00'));
     });
 
     test('lists what is running low, with how many are left', () {
@@ -147,15 +147,15 @@ void main() {
     test(
         'mentions what an owner should have been told, only when there is some',
         () {
-      expect(text(day()), isNot(contains('price changes')));
+      expect(text(day()), isNot(contains('Price changes')));
       final t = text(day(attention: {
         'priceChanges': 2,
         'stockWriteOffs': 1,
         'expiredDispenses': 1,
       }));
-      expect(t, contains('2 price changes'));
-      expect(t, contains('1 stock write-offs'));
-      expect(t, contains('1 sales of expired stock'));
+      expect(t, contains('Price changes: 2'));
+      expect(t, contains('Stock write-offs: 1'));
+      expect(t, contains('Sales of expired stock: 1'));
     });
 
     test('is in Amharic when the phone is', () {
@@ -294,6 +294,29 @@ void main() {
               {'username': 'dawit', 'role': 'cashier'}).describe(Strings.en),
           'dawit deactivated');
       expect(entry('audit.user_created', {}).kind, AuditKind.staff);
+    });
+
+    test('what the platform did to the account reads as a sentence too', () {
+      // Found on a real phone: these showed as raw names — "tenant reactivated" — in an
+      // owner's own activity log.
+      expect(entry('audit.tenant_reactivated', {}).describe(Strings.en),
+          'Pharmacy account switched back on');
+      expect(entry('audit.subscription_changed', {}).describe(Strings.en),
+          'Subscription changed');
+      expect(
+          entry('audit.payment_proof_submitted', {'amountSantim': 100000})
+              .describe(Strings.en),
+          'Subscription payment of 1,000.00 submitted for checking');
+      expect(entry('audit.tenant_deactivated', {}).describe(Strings.am),
+          'የፋርማሲው መለያ ተዘግቷል');
+    });
+
+    test('reads well for one as for many', () {
+      // "1 sales", "1 customers owe" were on the screen. Counts are now stated after a
+      // label, which is right for any number in both languages.
+      final t = text(day(attention: {'priceChanges': 1}));
+      expect(t, contains('Price changes: 1'));
+      expect(t, isNot(contains('1 price changes')));
     });
 
     test('an event from a newer server is shown by name, not hidden', () {

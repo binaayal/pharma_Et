@@ -149,12 +149,43 @@ void main() {
     test('says who it is on account for, what was paid now and what is owed',
         () {
       final text = onCredit.toText(Strings.en);
-      expect(text, contains('Paid by: On credit — Abebe Kebede'));
+      expect(text, contains('Paid by: On credit (Abebe Kebede)'));
       expect(text, contains('Paid now: 100.00'));
       expect(text, contains('On account for this sale: 150.00'));
       // Not a cash sale: no "cash received", no change.
       expect(text, isNot(contains('Cash received')));
       expect(text, isNot(contains('Change given')));
+    });
+
+    test('every character it prints exists in a font the page is set in', () {
+      // Found on a real phone: "On credit — Abebe" printed with an empty box where the
+      // dash was. The page is set in Helvetica (Latin-1) with an Ethiopic fallback, so a
+      // receipt line may use nothing outside those two. Product and customer names are
+      // the owner's to type; this holds the words the app itself puts on the slip.
+      bool printable(int rune) =>
+          rune <= 0xFF || (rune >= 0x1200 && rune <= 0x139F);
+      for (final s in [Strings.en, Strings.am]) {
+        for (final doc in [
+          onCredit,
+          receipt(),
+          receipt(tender: ReceiptTender.telebirr)
+        ]) {
+          final words = [
+            for (final (label, value) in doc.settlement(s)) ...[label, value],
+            s.get('receipt.sale'),
+            s.get('receipt.total'),
+            s.get('receipt.servedBy'),
+            s.get('receipt.thanks'),
+            doc.when(s),
+            for (final line in doc.lines) ReceiptDoc.quantity(line),
+          ].join(' ');
+          for (final rune in words.runes) {
+            expect(printable(rune), isTrue,
+                reason:
+                    '"${String.fromCharCode(rune)}" (U+${rune.toRadixString(16)}) in: $words');
+          }
+        }
+      }
     });
 
     test('what was paid now and what is owed add up to the total (G4)', () {
@@ -175,7 +206,7 @@ void main() {
         () async {
       final lines = onCredit.settlement(Strings.am);
       expect(lines.map((l) => l.$2).toList(),
-          ['በዱቤ — Abebe Kebede', '100.00', '150.00']);
+          ['በዱቤ (Abebe Kebede)', '100.00', '150.00']);
       final bytes = await ReceiptOutput.pdf(onCredit, Strings.am);
       expect(ascii.decode(bytes.sublist(0, 5)), '%PDF-');
     });

@@ -194,6 +194,9 @@ void main() {
 
       expect(find.text('Amoxicillin 500mg capsule'), findsOneWidget);
       expect(find.text('Amoxicillin 250mg capsule'), findsNothing);
+      // The list's therapeutic heading is not shown: for a medicine with several uses it
+      // names whichever one the list happened to file it under.
+      expect(find.text('Penicillins'), findsNothing);
       await tester.tap(find.text('Amoxicillin 500mg capsule'));
       await tester.pump();
 

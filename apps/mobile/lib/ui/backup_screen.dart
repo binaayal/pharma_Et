@@ -16,22 +16,27 @@ import 'terminal.dart';
 /// Where a backup file goes to and comes from. Both ends belong to the operating system —
 /// its share sheet and its file picker — so tests replace them.
 abstract final class BackupFiles {
-  static Future<void> Function(Uint8List bytes, String name)? debugSave;
+  static Future<bool> Function(Uint8List bytes, String name)? debugSave;
   static Future<Uint8List?> Function()? debugPick;
 
   /// Hands the file to the share sheet, so the owner puts it where *they* keep things:
   /// their own Telegram, their email, a memory card. Deliberately not a folder on this
   /// phone — a backup that lives only on the phone it backs up is lost with it.
-  static Future<void> save(Uint8List bytes, String name) async {
+  ///
+  /// Returns whether the file was actually handed to something. False when the share
+  /// sheet was closed without choosing: the backup then exists only in this phone's
+  /// temporary files, which is the one place a backup must not be left.
+  static Future<bool> save(Uint8List bytes, String name) async {
     final override = debugSave;
     if (override != null) return override(bytes, name);
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/$name');
     await file.writeAsBytes(bytes, flush: true);
-    await SharePlus.instance.share(ShareParams(
+    final result = await SharePlus.instance.share(ShareParams(
       files: [XFile(file.path, mimeType: 'application/octet-stream')],
       subject: name,
     ));
+    return result.status != ShareResultStatus.dismissed;
   }
 
   static Future<Uint8List?> pick() async {
@@ -91,6 +96,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final passphrase = await _askPassphrase(context, confirm: true);
     if (passphrase == null || !mounted) return;
     final done = context.t('backup.made');
+    final notSent = context.t('backup.notSent');
     final failed = context.t('backup.failed');
     setState(() => _busy = true);
     try {
@@ -108,8 +114,14 @@ class _BackupScreenState extends State<BackupScreen> {
       final name = 'pharmaet-${t.session.tenantCode}'
           '-${now.year}${two(now.month)}${two(now.day)}'
           '-${two(now.hour)}${two(now.minute)}.pharmaet-backup';
-      await BackupFiles.save(bytes, name);
+      final kept = await BackupFiles.save(bytes, name);
       if (!mounted) return;
+      if (!kept) {
+        // Found on a real phone: closing the share sheet still said "Backup made". A file
+        // nobody sent anywhere protects nothing, and saying otherwise is the worst thing
+        // this screen could do.
+        return _say(notSent, tone: Tone.amber);
+      }
       setState(() => _lastBackup = now);
       _say(done);
     } catch (_) {
