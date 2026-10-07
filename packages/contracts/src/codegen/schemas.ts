@@ -25,6 +25,7 @@ export const CONTRACT_SCHEMAS: Record<string, ZodTypeAny> = {
   // Entity payloads
   SalePayload: entities.salePayload,
   SaleLinePayload: entities.saleLinePayload,
+  ProductPack: entities.productPack,
   PaymentPayload: entities.paymentPayload,
   GoodsReceiptPayload: entities.goodsReceiptPayload,
   GoodsReceiptLinePayload: entities.goodsReceiptLinePayload,

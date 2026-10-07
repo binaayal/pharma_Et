@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:pharmaet_mobile/contracts/contracts.dart';
 import 'package:pharmaet_mobile/data/catalog_repository.dart';
 import 'package:pharmaet_mobile/data/local_db.dart';
 import 'package:pharmaet_mobile/data/outbox.dart';
@@ -167,7 +168,16 @@ void main() {
     final upgraded = await LocalDb.open(
         factory: databaseFactoryFfi, directory: upgradedDir.path);
 
-    for (final table in ['sale', 'shift', 'cash_up', 'outbox']) {
+    for (final table in [
+      'sale',
+      'shift',
+      'cash_up',
+      'outbox',
+      // FR-11 added columns to these three; an upgraded till must have every one of them.
+      'product',
+      'sale_line',
+      'goods_receipt_line',
+    ]) {
       expect(
         await columnsOf(upgraded, table),
         await columnsOf(fresh, table),
@@ -179,5 +189,70 @@ void main() {
     await upgraded.close();
     freshDir.deleteSync(recursive: true);
     upgradedDir.deleteSync(recursive: true);
+  });
+
+  test('an upgraded till sells by the pack, and its old sales read as loose',
+      () async {
+    // FR-11 (schema v5). The forty queued sales were rung up before packs existed. They
+    // must come through untouched, and "no pack" on them must read as what it was — the
+    // base unit — not as an error or a pack of zero.
+    final dir =
+        await Directory.systemTemp.createTemp('pharmaet_upgrade_packs_');
+    final path = p.join(dir.path, 'pharmaet.db');
+    await writeV1Database(path);
+    {
+      final raw = await databaseFactoryFfi.openDatabase(path);
+      await raw.insert('sale_line', {
+        'id': 'line-0',
+        'sale_id': 'sale-0',
+        'product_id': 'prod-1',
+        'batch_id': null,
+        'qty': 3,
+        'unit_price_santim': 500,
+        'line_total_santim': 1500,
+      });
+      await raw.close();
+    }
+
+    final db =
+        await LocalDb.open(factory: databaseFactoryFfi, directory: dir.path);
+    final outbox = Outbox(db);
+    final sales = SaleRepository(db, outbox, CatalogRepository(db));
+
+    expect(await outbox.depth(), 40);
+    final old =
+        await db.db.query('sale_line', where: 'id = ?', whereArgs: ['line-0']);
+    expect(old.single['qty'], 3);
+    expect(old.single['pack_size'], isNull);
+    expect((await sales.linesOf('sale-0')).single.packName, isNull);
+
+    // And the new capability works on the same file.
+    const box = ProductPack(name: 'box', size: 30, priceSantim: 10000);
+    final sale = await sales.commitSale(
+      lines: [
+        CartLine(
+          product: const LocalProduct(
+            id: '01930000-0000-7000-8000-00000000000a',
+            name: 'Amoxicillin',
+            unit: 'capsule',
+            isControlled: false,
+            priceSantim: 400,
+            packs: [box],
+          ),
+          qty: 2,
+          batchId: null,
+          pack: box,
+        ),
+      ],
+      tenantId: '01930000-0000-7000-8000-000000000001',
+      branchId: branchId,
+      cashierId: cashierId,
+      terminalId: '01930000-0000-7000-8000-000000000004',
+    );
+    expect(sale.totalSantim, 20000);
+    expect(await outbox.depth(), 41);
+
+    await db.close();
+    dir.deleteSync(recursive: true);
   });
 }

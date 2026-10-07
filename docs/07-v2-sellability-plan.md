@@ -103,7 +103,7 @@ the same gates as V1 (`06` §4, §7).
 
 | # | Item | State |
 |---|---|---|
-| 1 | **FR-11 sell units** — it was unverified; it is now verified missing, so it goes first | **In progress** |
+| 1 | **FR-11 sell units** — it was unverified; it was verified missing, so it went first | **Built** — ADR-030, contract 1.5.0 |
 | 2 | **FR-12 pre-loaded catalogue** | Next |
 | 3 | **FR-13 barcode scan** | |
 | 4 | **FR-14 receipts** — share first (a day's work), then Bluetooth printing | |

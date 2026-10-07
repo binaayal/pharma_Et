@@ -226,6 +226,11 @@ class HelpGuide {
               'bottle…) and price.',
           'To change a price, open the product and tap the price. Enter the new price and '
               'tap "Save price".',
+          'If you buy by the box and sell by the strip or the tablet, open the product and '
+              'tap "Add a pack". Give each pack a name (strip, box), how many it holds, and '
+              'its price. Stock is still counted in tablets.',
+          'When selling, tap the pack under the product to sell a whole strip or box. When '
+              'receiving, count the delivery in boxes and the app works out the tablets.',
           'Every price change is recorded with the old and new figure and who made it.',
         ],
       ),
@@ -460,6 +465,11 @@ class HelpGuide {
               'ጠርሙስ…) እና ዋጋውን።',
           'ዋጋ ለመቀየር ምርቱን ከፍተው ዋጋውን ይንኩ። አዲሱን ዋጋ አስገብተው «ዋጋውን አስቀምጥ» '
               'ይንኩ።',
+          'በካርቶን ገዝተው በስትሪፕ ወይም በክኒን የሚሸጡ ከሆነ ምርቱን ከፍተው «ፓኬት ጨምር» ይንኩ። '
+              'ለእያንዳንዱ ፓኬት ስም (ስትሪፕ፣ ካርቶን)፣ የሚይዘውን ብዛትና ዋጋውን ይስጡ። ክምችቱ '
+              'አሁንም በክኒን ይቆጠራል።',
+          'ሲሸጡ ሙሉ ስትሪፕ ወይም ካርቶን ለመሸጥ ከምርቱ ስር ያለውን ፓኬት ይንኩ። ሲረከቡ የመጣውን '
+              'በካርቶን ይቁጠሩ፤ መተግበሪያው ክኒኑን ያሰላል።',
           'እያንዳንዱ የዋጋ ለውጥ ከቀድሞውና ከአዲሱ ዋጋ እንዲሁም ከቀየረው ሰው ጋር ይመዘገባል።',
         ],
       ),

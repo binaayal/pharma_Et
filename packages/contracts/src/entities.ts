@@ -9,14 +9,93 @@ import { isoDate, quantity, santim, utcTimestamp, uuidv7 } from './primitives.js
  * `CONTROLLED_DISPENSING` switch is on — which waits for A-1 to be verified.
  */
 
+/* -------------------------------------------------------------------------- */
+/* Sell units (FR-11, ADR-030) — contract v1.5.0                               */
+/* -------------------------------------------------------------------------- */
+
+/** The most base units one pack may hold. A bound, so a typo cannot move a year of stock. */
+export const MAX_PACK_SIZE = 100_000;
+
+/** How many packs one product may define. Strip, box, carton — nobody needs a fifth. */
+export const MAX_PACKS_PER_PRODUCT = 4;
+
+/**
+ * Base units in one unit of a line's `qty`, when the line was rung up in a pack.
+ *
+ * Absent or null means the line is in the product's base unit, which is every line a
+ * pre-1.5.0 terminal has ever sent. Starts at 2: a "pack" of one is the base unit.
+ */
+export const packSize = z
+  .number()
+  .int()
+  .min(2)
+  .max(MAX_PACK_SIZE)
+  .describe('Base units in one unit of qty; absent means the base unit');
+
+/**
+ * A unit a product can be received and sold in, beside its base unit (FR-11).
+ *
+ * A pack carries **its own price** rather than deriving one, because a box is routinely
+ * cheaper than its tablets added up, and a box price is not in general a whole number of
+ * santim per tablet — 100.00 for 30 has no exact tablet price at all.
+ */
+export const productPack = z.object({
+  /** What the counter calls it: "strip", "box". Shown on the cart line and the receipt. */
+  name: z.string().trim().min(1).max(40),
+  size: packSize,
+  priceSantim: santim.nonnegative(),
+});
+export type ProductPack = z.infer<typeof productPack>;
+
+/** A product's packs: at most a handful, no two alike in name or in size. */
+export const productPacks = z
+  .array(productPack)
+  .max(MAX_PACKS_PER_PRODUCT)
+  .refine((packs) => new Set(packs.map((p) => p.name.toLowerCase())).size === packs.length, {
+    message: 'two packs cannot share a name',
+  })
+  .refine((packs) => new Set(packs.map((p) => p.size)).size === packs.length, {
+    message: 'two packs cannot hold the same number of units',
+  });
+
+/**
+ * What a line does to stock, in base units.
+ *
+ * The one place the multiplication lives on the server and in the dashboard. Stock is always
+ * counted in the base unit (docs/04 §3); a line's `qty` is in the unit it was rung up in.
+ */
+export function baseQuantity(line: { qty: number; packSize?: number | null }): number {
+  return line.qty * (line.packSize ?? 1);
+}
+
 export const saleLinePayload = z.object({
   id: uuidv7,
   productId: uuidv7,
   /** FEFO-selected batch for a standard drug. Null only where no batch applies. */
   batchId: uuidv7.nullable(),
+  /**
+   * How many were sold **in the unit they were sold in** — tablets, or boxes when
+   * `packSize` is set. Stock moves by `qty × packSize` ({@link baseQuantity}).
+   */
   qty: quantity.positive(),
+  /** The price of one unit of `qty`: a tablet's price, or a box's. */
   unitPriceSantim: santim.nonnegative(),
   lineTotalSantim: santim.nonnegative(),
+  /**
+   * Set when the line was sold as a pack (FR-11, ADR-030): the base units in one of them.
+   *
+   * The money invariant is untouched — `lineTotal = qty × unitPrice` still holds exactly,
+   * in the pack's own price — which is why the pack is recorded on the line rather than
+   * multiplied out. A box at 100.00 for 30 tablets has no whole-santim tablet price.
+   *
+   * The terminal's figure is the record. It is not checked against the product's current
+   * packs: a till offline for days may hold yesterday's, and that sale still happened.
+   *
+   * Added in contract 1.5.0. A 1.4.0 terminal never sets it and its sales apply unchanged.
+   */
+  packSize: packSize.nullable().optional(),
+  /** What the pack was called at the counter, for the receipt. Never parsed. */
+  packName: z.string().trim().min(1).max(40).nullable().optional(),
   /**
    * Who authorised dispensing from an already-expired batch (E-4.2, ADR-020).
    *
@@ -63,8 +142,18 @@ export const goodsReceiptLinePayload = z.object({
   productId: uuidv7,
   lotNo: z.string().min(1).max(64),
   expiryDate: isoDate,
+  /** How many arrived, in the unit they were counted in — boxes when `packSize` is set. */
   qty: quantity.positive(),
+  /** What one unit of `qty` cost: a box's cost when received by the box. */
   costSantim: santim.nonnegative(),
+  /**
+   * Set when the line was received in packs (FR-11, ADR-030). The batch is credited
+   * `qty × packSize` base units. Kept on the line, not multiplied out, for the same reason
+   * as on a sale: the invoice says 5 boxes at 120.00, and that is what must be recoverable.
+   *
+   * Added in contract 1.5.0.
+   */
+  packSize: packSize.nullable().optional(),
 });
 export type GoodsReceiptLinePayload = z.infer<typeof goodsReceiptLinePayload>;
 

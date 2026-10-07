@@ -48,7 +48,7 @@
 ## 3. Value conventions (correctness hygiene)
 
 - **Money:** stored as `bigint` in **santim** (1 ETB = 100 santim). No floating point anywhere in money math. Display formats to ETB at the edge.
-- **Quantities:** integers in the product's base unit; packaging conversions handled at product definition, not at transaction time.
+- **Quantities:** integers, always. **Stock** (`stock_batch.qty_on_hand`, adjustments, the controlled ledger) is counted in the product's **base unit**. A **sale line or receipt line** is counted in the unit it was rung up in: `qty` boxes at the box price, with `pack_size` — base units per box — recorded beside it, and null meaning the base unit. Stock moves by `qty × pack_size`. The pack is defined on the product and copied onto the line, so no conversion is ever *derived* at transaction time and no price is ever divided (FR-11, ADR-030).
 - **Time:** persist `timestamptz` in **UTC**. The Ethiopian calendar and Amharic numerals are rendered in the presentation layer only (FR-10, BR-10.2) — no calendar logic in the domain or DB.
 
 ---
@@ -90,7 +90,7 @@ erDiagram
 ### 5.2 Catalog & pricing
 | Table | Key columns | Notes |
 |---|---|---|
-| `product` | `id`, `tenant_id`, `name`, `unit`, `is_controlled`, `psychotropic_class` | `is_controlled=true` routes stock through the event store (§6). |
+| `product` | `id`, `tenant_id`, `name`, `unit`, `is_controlled`, `psychotropic_class`, `packs` | `is_controlled=true` routes stock through the event store (§6). `unit` is the base unit. `packs` is a JSON list of `{name, size, priceSantim}` — at most four, each with its own price (FR-11, ADR-030); empty for a product sold only loose, and always empty for a controlled one. |
 | `product_price` | `id`, `tenant_id`, `product_id`, `price_santim`, `effective_from` | Price history retained; current price = latest effective. Price changes also emit an audit event (§6). |
 
 ### 5.3 Inventory — standard drugs (mutable)
@@ -105,7 +105,7 @@ erDiagram
 | Table | Key columns | Notes |
 |---|---|---|
 | `sale` | `id`, `tenant_id`, `branch_id`, `shift_id`, `cashier_id`, `total_santim`, `sold_at` | Created locally, offline-first. |
-| `sale_line` | `id`, `sale_id`, `product_id`, `batch_id?`, `qty`, `unit_price_santim`, `line_total_santim` | `batch_id` for standard drugs (FEFO-selected). |
+| `sale_line` | `id`, `sale_id`, `product_id`, `batch_id?`, `qty`, `unit_price_santim`, `line_total_santim`, `pack_size?`, `pack_name?` | `batch_id` for standard drugs (FEFO-selected). `qty` and `unit_price_santim` are in the unit sold, so `line_total = qty × unit_price` holds exactly; `pack_size` null = base unit (FR-11). |
 | `payment` | `id`, `sale_id`, `method`, `amount_santim` | V1 `method ∈ {cash, other_recorded}`; no gateway (Vision §4). |
 | `shift` | `id`, `tenant_id`, `branch_id`, `user_id`, `opened_at`, `closed_at?`, `opening_float_santim` | A staff member's till session. |
 | `cash_up` | `id`, `shift_id`, `expected_santim`, `counted_santim`, `variance_santim` | Z-report; variance attributed to user+shift (BR-8.2, AC-8.1). |
@@ -114,7 +114,7 @@ erDiagram
 | Table | Key columns | Notes |
 |---|---|---|
 | `goods_receipt` | `id`, `tenant_id`, `branch_id`, `supplier_name`, `received_at` | Free-form supplier in V1 (FR-7 base). |
-| `goods_receipt_line` | `id`, `goods_receipt_id`, `product_id`, `lot_no`, `expiry_date`, `qty`, `cost_santim` | Standard → creates `stock_batch`; controlled → emits receipt **event**. |
+| `goods_receipt_line` | `id`, `goods_receipt_id`, `product_id`, `lot_no`, `expiry_date`, `qty`, `cost_santim`, `pack_size?` | Standard → creates `stock_batch`; controlled → emits receipt **event**. `qty` and `cost_santim` are per unit received — per box when `pack_size` is set — and the batch is credited `qty × pack_size` (FR-11). |
 
 ### 5.6 Event store (append-only) — ADR-004
 | Table | Key columns | Notes |

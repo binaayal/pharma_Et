@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../contracts/contracts.dart';
 import '../core/money.dart';
 import '../core/theme.dart';
 import '../data/catalog_repository.dart';
@@ -36,6 +37,257 @@ Future<bool> showPriceForm(BuildContext context, LocalProduct product) async {
   return done == true;
 }
 
+/// A product's packs — strip of 10, box of 100, each with its own price (FR-11).
+///
+/// An online write behind `catalog.manage`, like a price: a pack carries a price, so it is
+/// audited as one, and every terminal picks the change up on its next pull.
+Future<bool> showPacksForm(BuildContext context, LocalProduct product) async {
+  final t = TerminalScope.read(context);
+  final done = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) =>
+        TerminalScope(terminal: t, child: _PacksForm(product: product)),
+  );
+  return done == true;
+}
+
+/// The most packs one product may define. Mirrors the contract's `MAX_PACKS_PER_PRODUCT`.
+const maxPacksPerProduct = 4;
+
+/// The most base units one pack may hold. Mirrors the contract's `MAX_PACK_SIZE`.
+const maxPackSize = 100000;
+
+/// One pack being typed: its name, how many base units it holds, and what it sells for.
+class PackDraft {
+  PackDraft({String name = '', String size = '', String price = ''})
+      : name = TextEditingController(text: name),
+        size = TextEditingController(text: size),
+        price = TextEditingController(text: price);
+
+  factory PackDraft.of(ProductPack pack) => PackDraft(
+      name: pack.name,
+      size: '${pack.size}',
+      price: formatMoney(pack.priceSantim));
+
+  final TextEditingController name;
+  final TextEditingController size;
+  final TextEditingController price;
+
+  /// A row nobody has typed in is not a mistake; it is ignored.
+  bool get isBlank =>
+      name.text.trim().isEmpty &&
+      size.text.trim().isEmpty &&
+      price.text.trim().isEmpty;
+
+  void dispose() {
+    name.dispose();
+    size.dispose();
+    price.dispose();
+  }
+}
+
+/// Reads the typed rows into packs, or null if any row is not a pack yet.
+///
+/// The same rules the server applies (`productPacks` in the contract), checked here first so
+/// the owner is told beside the field instead of by a refused request: a pack holds at
+/// least two, has a price, and no two share a name or a size. Money goes through
+/// [parseBirr], never a double (G4).
+List<ProductPack>? readPacks(List<PackDraft> drafts) {
+  final packs = <ProductPack>[];
+  for (final draft in drafts) {
+    if (draft.isBlank) continue;
+    final name = draft.name.text.trim();
+    final size = int.tryParse(draft.size.text.trim());
+    final price = parseBirr(draft.price.text);
+    if (name.isEmpty || name.length > 40) return null;
+    if (size == null || size < 2 || size > maxPackSize) return null;
+    if (price == null) return null;
+    packs.add(ProductPack(name: name, size: size, priceSantim: price));
+  }
+  if (packs.length > maxPacksPerProduct) return null;
+  if (packs.map((p) => p.name.toLowerCase()).toSet().length != packs.length) {
+    return null;
+  }
+  if (packs.map((p) => p.size).toSet().length != packs.length) return null;
+  return packs..sort((a, b) => a.size.compareTo(b.size));
+}
+
+/// The rows of the pack editor, shared by "add product" and "edit packs".
+class PackRows extends StatelessWidget {
+  const PackRows({
+    super.key,
+    required this.drafts,
+    required this.unit,
+    required this.onChanged,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final List<PackDraft> drafts;
+
+  /// The product's base unit, so the size field can say "tablets in one".
+  final String unit;
+  final VoidCallback onChanged;
+  final VoidCallback onAdd;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final (i, draft) in drafts.indexed)
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                flex: 5,
+                child: PField(
+                  label: context.t('packs.name'),
+                  hint: context.t('packs.nameHint'),
+                  controller: draft.name,
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 4,
+                child: PField(
+                  label: context.tf('packs.size', {'unit': unit}),
+                  controller: draft.size,
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 5,
+                child: PField(
+                  label: context.t('catalog.price'),
+                  controller: draft.price,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => onChanged(),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 22),
+                child: IconButton(
+                  tooltip: context.t('packs.remove'),
+                  icon: const Icon(Icons.close,
+                      size: 18, color: PharmaColors.faint),
+                  onPressed: () => onRemove(i),
+                ),
+              ),
+            ]),
+          if (drafts.length < maxPacksPerProduct)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: PButton(
+                kind: BtnKind.plain,
+                small: true,
+                label: '＋ ${context.t('packs.add')}',
+                onPressed: onAdd,
+              ),
+            ),
+        ],
+      );
+}
+
+class _PacksForm extends StatefulWidget {
+  const _PacksForm({required this.product});
+  final LocalProduct product;
+
+  @override
+  State<_PacksForm> createState() => _PacksFormState();
+}
+
+class _PacksFormState extends State<_PacksForm> {
+  late final List<PackDraft> _drafts = [
+    for (final pack in widget.product.packs) PackDraft.of(pack),
+    if (widget.product.packs.isEmpty) PackDraft(),
+  ];
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    for (final draft in _drafts) {
+      draft.dispose();
+    }
+    super.dispose();
+  }
+
+  bool _same(List<ProductPack> a, List<ProductPack> b) =>
+      a.length == b.length &&
+      [for (var i = 0; i < a.length; i++) a[i] == b[i]].every((x) => x);
+
+  Future<void> _save(List<ProductPack> packs) async {
+    final t = TerminalScope.read(context);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await t
+          .authed((token) => t.api.setPacks(token, widget.product.id, packs));
+      unawaited(t.sync());
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = '$e';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.product;
+    final packs = readPacks(_drafts);
+    final changed = packs != null && !_same(packs, p.packs);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          18, 20, 18, MediaQuery.of(context).viewInsets.bottom + 18),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(p.name,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 2),
+            Text(
+                '${formatEtb(p.priceSantim)} ${context.t('pos.perUnit')} ${p.unit}',
+                style:
+                    const TextStyle(color: PharmaColors.muted, fontSize: 13)),
+            const SizedBox(height: 16),
+            PackRows(
+              drafts: _drafts,
+              unit: p.unit,
+              onChanged: () => setState(() {}),
+              onAdd: () => setState(() => _drafts.add(PackDraft())),
+              onRemove: (i) => setState(() => _drafts.removeAt(i).dispose()),
+            ),
+            PNotice.text(
+                Tone.blue, Icons.inventory_2_outlined, context.t('packs.help')),
+            if (packs == null)
+              PNotice.text(
+                  Tone.amber, Icons.info_outline, context.t('packs.invalid')),
+            if (_error != null)
+              PNotice.text(Tone.red, Icons.error_outline, _error!),
+            PButton(
+              label: context.t(_busy ? 'staff.adding' : 'packs.save'),
+              onPressed: _busy || !changed ? null : () => _save(packs),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ProductForm extends StatefulWidget {
   const _ProductForm();
 
@@ -47,6 +299,7 @@ class _ProductFormState extends State<_ProductForm> {
   final _name = TextEditingController();
   final _unit = TextEditingController(text: 'tablet');
   final _price = TextEditingController();
+  final List<PackDraft> _packs = [];
   bool _controlled = false;
   bool _busy = false;
   String? _error;
@@ -56,13 +309,17 @@ class _ProductFormState extends State<_ProductForm> {
     _name.dispose();
     _unit.dispose();
     _price.dispose();
+    for (final draft in _packs) {
+      draft.dispose();
+    }
     super.dispose();
   }
 
   bool get _valid =>
       _name.text.trim().isNotEmpty &&
       _unit.text.trim().isNotEmpty &&
-      (parseBirr(_price.text) ?? 0) > 0;
+      (parseBirr(_price.text) ?? 0) > 0 &&
+      readPacks(_packs) != null;
 
   Future<void> _save() async {
     final t = TerminalScope.read(context);
@@ -75,7 +332,9 @@ class _ProductFormState extends State<_ProductForm> {
           name: _name.text.trim(),
           unit: _unit.text.trim(),
           priceSantim: parseBirr(_price.text)!,
-          isControlled: _controlled));
+          isControlled: _controlled,
+          // A controlled substance is counted in its base unit only (ADR-030 §5).
+          packs: _controlled ? const [] : readPacks(_packs)!));
       // Pull it down now, so the counter can sell it before the next tick.
       unawaited(t.sync());
       if (mounted) Navigator.pop(context, true);
@@ -142,7 +401,20 @@ class _ProductFormState extends State<_ProductForm> {
               ),
               if (_controlled)
                 PNotice.text(Tone.blue, Icons.lock_outline,
-                    context.t('catalog.controlledNotice')),
+                    context.t('catalog.controlledNotice'))
+              else ...[
+                PSection(context.t('packs.title')),
+                PackRows(
+                  drafts: _packs,
+                  unit: _unit.text.trim().isEmpty ? '…' : _unit.text.trim(),
+                  onChanged: () => setState(() {}),
+                  onAdd: () => setState(() => _packs.add(PackDraft())),
+                  onRemove: (i) => setState(() => _packs.removeAt(i).dispose()),
+                ),
+                if (readPacks(_packs) == null)
+                  PNotice.text(Tone.amber, Icons.info_outline,
+                      context.t('packs.invalid')),
+              ],
               if (_error != null)
                 PNotice.text(Tone.red, Icons.error_outline, _error!),
               PButton(

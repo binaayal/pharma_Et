@@ -17,6 +17,9 @@ export function saleOp(
     /** For the concurrency suite: a pharmacy's second branch has its own terminal. */
     branchId?: string;
     terminalId?: string;
+    /** Sold as a pack (contract 1.5.0, FR-11): `qty` and the unit price are per pack. */
+    packSize?: number;
+    packName?: string;
   },
 ) {
   const qty = options.qty ?? 1;
@@ -47,6 +50,9 @@ export function saleOp(
           qty,
           unitPriceSantim: unit,
           lineTotalSantim: lineTotal,
+          // Absent, not null, without a pack — byte-for-byte what a 1.4.0 terminal sends.
+          ...(options.packSize ? { packSize: options.packSize } : {}),
+          ...(options.packName ? { packName: options.packName } : {}),
         },
       ],
       payments: [{ id: uuidv7(), method: 'cash' as const, amountSantim: lineTotal }],
@@ -56,7 +62,15 @@ export function saleOp(
 
 export function receiptOp(
   tenant: SeededTenant,
-  options: { terminalSeq: number; qty: number; lotNo: string; expiryDate: string },
+  options: {
+    terminalSeq: number;
+    qty: number;
+    lotNo: string;
+    expiryDate: string;
+    /** Received by the pack (contract 1.5.0, FR-11): `qty` and the cost are per pack. */
+    packSize?: number;
+    costSantim?: number;
+  },
 ) {
   return {
     opId: uuidv7(),
@@ -80,7 +94,8 @@ export function receiptOp(
           lotNo: options.lotNo,
           expiryDate: options.expiryDate,
           qty: options.qty,
-          costSantim: 800,
+          costSantim: options.costSantim ?? 800,
+          ...(options.packSize ? { packSize: options.packSize } : {}),
         },
       ],
     },

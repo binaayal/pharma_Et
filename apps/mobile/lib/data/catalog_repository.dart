@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../contracts/contracts.dart';
@@ -10,13 +12,61 @@ class LocalProduct {
     required this.unit,
     required this.isControlled,
     required this.priceSantim,
+    this.packs = const [],
   });
 
   final String id;
   final String name;
+
+  /// The base unit — what stock is counted in, and what [priceSantim] is the price of.
   final String unit;
   final bool isControlled;
   final int priceSantim;
+
+  /// The packs this product is also received and sold in, smallest first (FR-11). Empty
+  /// for a product that only ever leaves the shelf one base unit at a time.
+  final List<ProductPack> packs;
+
+  /// Builds a product from a `product` row.
+  factory LocalProduct.fromRow(Map<String, Object?> r) => LocalProduct(
+        id: r['id'] as String,
+        name: r['name'] as String,
+        unit: r['unit'] as String,
+        isControlled: (r['is_controlled'] as int) == 1,
+        priceSantim: r['price_santim'] as int,
+        packs: decodePacks(r['packs_json'] as String?),
+      );
+}
+
+/// Reads the packs stored on a product row. Never throws: a product whose pack list cannot
+/// be read is still a product that can be sold by the base unit, and refusing to list it
+/// would take a medicine off the counter over a display convenience.
+List<ProductPack> decodePacks(String? json) {
+  if (json == null || json.isEmpty) return const [];
+  try {
+    final packs = (jsonDecode(json) as List<dynamic>)
+        .map((e) => ProductPack.fromJson(e as Map<String, dynamic>))
+        .where((p) => p.size >= 2 && p.priceSantim >= 0)
+        .toList()
+      ..sort((a, b) => a.size.compareTo(b.size));
+    return packs;
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// `2 box + 14` — a base-unit count the way someone counting a shelf says it, using the
+/// product's largest pack. Just the number when there are no packs or it does not fill one.
+///
+/// Display only. Nothing is ever computed from this string, and the count it was built
+/// from stays an integer of base units (docs/04 §3).
+String describeQuantity(int baseQty, LocalProduct product) {
+  if (product.packs.isEmpty || baseQty <= 0) return '$baseQty';
+  final pack = product.packs.last;
+  final whole = baseQty ~/ pack.size;
+  if (whole == 0) return '$baseQty';
+  final loose = baseQty % pack.size;
+  return loose == 0 ? '$whole ${pack.name}' : '$whole ${pack.name} + $loose';
 }
 
 class LocalBatch {
@@ -47,15 +97,7 @@ class CatalogRepository {
       where: 'deleted = 0',
       orderBy: 'name ASC',
     );
-    return rows
-        .map((r) => LocalProduct(
-              id: r['id'] as String,
-              name: r['name'] as String,
-              unit: r['unit'] as String,
-              isControlled: (r['is_controlled'] as int) == 1,
-              priceSantim: r['price_santim'] as int,
-            ))
-        .toList();
+    return rows.map(LocalProduct.fromRow).toList();
   }
 
   /// FEFO — first to expire, first out (AC-3.2).
@@ -225,7 +267,7 @@ class CatalogRepository {
   /// batches that still hold stock (prototype screen 12).
   Future<List<ProductStock>> stockByProduct(String branchId) async {
     final rows = await _db.db.rawQuery('''
-      SELECT p.id, p.name, p.unit, p.is_controlled, p.price_santim,
+      SELECT p.id, p.name, p.unit, p.is_controlled, p.price_santim, p.packs_json,
              COALESCE(SUM(b.qty_on_hand), 0)                        AS on_hand,
              COUNT(b.id)                                             AS batches,
              MIN(CASE WHEN b.qty_on_hand > 0 THEN b.expiry_date END) AS nearest,
@@ -239,13 +281,7 @@ class CatalogRepository {
     ''', [branchId]);
     return rows
         .map((r) => ProductStock(
-              product: LocalProduct(
-                id: r['id'] as String,
-                name: r['name'] as String,
-                unit: r['unit'] as String,
-                isControlled: (r['is_controlled'] as int) == 1,
-                priceSantim: r['price_santim'] as int,
-              ),
+              product: LocalProduct.fromRow(r),
               onHand: (r['on_hand'] as int?) ?? 0,
               batchCount: (r['batches'] as int?) ?? 0,
               nearestExpiry: r['nearest'] as String?,
@@ -275,14 +311,19 @@ class CatalogRepository {
 
   /// What moved one product's stock here, newest first: sales, receipts and counts made on
   /// this device (prototype screen 13 — "an auditable movement trail").
+  ///
+  /// Every delta is in base units, so a box sold shows as the thirty that left the shelf
+  /// rather than as one (FR-11).
   Future<List<StockMovement>> movements(String productId, String branchId,
       {int limit = 12}) async {
     final rows = await _db.db.rawQuery('''
-      SELECT 'sale' AS kind, s.sold_at AS at, -l.qty AS delta, s.id AS ref, NULL AS detail
+      SELECT 'sale' AS kind, s.sold_at AS at,
+             -l.qty * COALESCE(l.pack_size, 1) AS delta, s.id AS ref, NULL AS detail
         FROM sale_line l JOIN sale s ON s.id = l.sale_id
        WHERE l.product_id = ? AND s.branch_id = ?
       UNION ALL
-      SELECT 'receipt', g.received_at, gl.qty, g.id, g.supplier_name
+      SELECT 'receipt', g.received_at, gl.qty * COALESCE(gl.pack_size, 1), g.id,
+             g.supplier_name
         FROM goods_receipt_line gl JOIN goods_receipt g ON g.id = gl.goods_receipt_id
        WHERE gl.product_id = ? AND g.branch_id = ?
       UNION ALL
@@ -324,6 +365,11 @@ class CatalogRepository {
             'unit': product.unit,
             'is_controlled': product.isControlled ? 1 : 0,
             'price_santim': product.currentPriceSantim,
+            // Null from a server that predates contract 1.5.0, which reads back as "no
+            // packs" — the same thing it means.
+            'packs_json': product.packs == null
+                ? null
+                : jsonEncode(product.packs!.map((p) => p.toJson()).toList()),
             'change_seq': product.changeSeq,
             'deleted': product.deletedAt == null ? 0 : 1,
           },

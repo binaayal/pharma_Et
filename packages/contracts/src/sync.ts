@@ -4,6 +4,7 @@ import {
   controlledAdjustmentPayload,
   controlledDispensePayload,
   goodsReceiptPayload,
+  productPacks,
   salePayload,
   shiftPayload,
   stockAdjustmentPayload,
@@ -156,6 +157,14 @@ export const productRef = z.object({
   isControlled: z.boolean(),
   psychotropicClass: z.string().nullable(),
   currentPriceSantim: santim.nonnegative(),
+  /**
+   * The packs this product is also received and sold in (FR-11, ADR-030).
+   *
+   * Optional on the wire because a pull response may only ever gain optional fields
+   * (ADR-012 §1): a 1.4.0 terminal ignores it and keeps selling in the base unit. The
+   * server always sends it, empty when the product has none.
+   */
+  packs: productPacks.optional(),
   changeSeq,
   deletedAt: utcTimestamp.nullable(),
 });

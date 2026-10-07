@@ -137,6 +137,10 @@ const ROUTES: Record<string, RouteSpec> = {
   'GET /api/products': { cls: 'tenant', why: 'the pharmacy’s own catalogue and prices' },
   'POST /api/products': { cls: 'tenant', why: 'creates under the caller’s tenant' },
   'POST /api/products/:id/price': { cls: 'tenant', why: 'reprices a product the caller must own' },
+  'POST /api/products/:id/packs': {
+    cls: 'tenant',
+    why: 'redefines packs of a product the caller must own',
+  },
   'GET /api/billing/subscription': { cls: 'tenant', why: 'this pharmacy’s own billing state' },
   'GET /api/billing/payment-proofs': { cls: 'tenant', why: 'proofs this pharmacy submitted' },
   'POST /api/billing/payment-proofs': { cls: 'tenant', why: 'submits against the caller’s tenant' },
@@ -256,6 +260,7 @@ describe('G1 — every route, attempted across the tenant boundary', () => {
       ['PATCH /api/branches/:id', () => b.branchIds[0]],
       ['DELETE /api/users/:id', () => b.users.cashier.id],
       ['POST /api/products/:id/price', () => b.productId],
+      ['POST /api/products/:id/packs', () => b.productId],
       ['GET /api/reports/cash-up/:shiftId', () => b.branchIds[0]],
     ];
 
@@ -267,7 +272,12 @@ describe('G1 — every route, attempted across the tenant boundary', () => {
       const response = await asA(
         method.toLowerCase() as 'patch' | 'delete' | 'post' | 'get',
         path,
-      ).send({ name: 'seized', priceSantim: 1, effectiveFrom: '2026-01-01' });
+      ).send({
+        name: 'seized',
+        priceSantim: 1,
+        effectiveFrom: '2026-01-01',
+        packs: [{ name: 'box', size: 10, priceSantim: 1 }],
+      });
 
       expect(response.status).not.toBe(200);
       expect(response.status).not.toBe(201);

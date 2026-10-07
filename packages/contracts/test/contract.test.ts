@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   CONTRACT_VERSION,
   SUPPORTED_CONTRACT_VERSIONS,
+  MAX_PACK_SIZE,
+  baseQuantity,
   cashUpPayload,
+  goodsReceiptPayload,
   operation,
+  productPacks,
+  productRef,
   pushRequest,
   salePayload,
   santim,
@@ -222,5 +227,124 @@ describe('envelope v1.1.0 (ADR-012)', () => {
 
   it('rejects a shift payload sent under the wrong entity type', () => {
     expect(operation.safeParse({ ...shiftOp, entityType: 'sale' }).success).toBe(false);
+  });
+});
+
+describe('envelope v1.5.0 — sell units (FR-11, ADR-030)', () => {
+  const boxLine = {
+    ...validSale.lines[0],
+    qty: 2,
+    // 100.00 for a box of 30: there is no whole-santim tablet price that makes this.
+    unitPriceSantim: 10_000,
+    lineTotalSantim: 20_000,
+    packSize: 30,
+    packName: 'box',
+  };
+  const boxSale = { ...validSale, totalSantim: 20_000, lines: [boxLine] };
+
+  it("accepts a line sold as a pack, at the pack's own price", () => {
+    expect(salePayload.safeParse(boxSale).success).toBe(true);
+  });
+
+  it('keeps the money invariant in the unit sold — qty × unit price, exactly (G4)', () => {
+    const wrong = {
+      ...boxSale,
+      lines: [{ ...boxLine, lineTotalSantim: 19_999 }],
+      totalSantim: 19_999,
+    };
+    expect(salePayload.safeParse(wrong).success).toBe(false);
+  });
+
+  it('moves stock by qty × pack size, and by qty alone without one', () => {
+    expect(baseQuantity(boxLine)).toBe(60);
+    expect(baseQuantity(validSale.lines[0])).toBe(3);
+    expect(baseQuantity({ qty: 3, packSize: null })).toBe(3);
+  });
+
+  it('still accepts a 1.4.0 line unchanged — no pack fields at all (ADR-009)', () => {
+    expect(salePayload.safeParse(validSale).success).toBe(true);
+    expect(operation.safeParse(validOperation).success).toBe(true);
+  });
+
+  it('accepts explicit nulls, which is what the generated Dart sends', () => {
+    const nulls = {
+      ...validSale,
+      lines: [{ ...validSale.lines[0], packSize: null, packName: null }],
+    };
+    expect(salePayload.safeParse(nulls).success).toBe(true);
+  });
+
+  it('rejects a pack of one, of zero, and a fractional pack', () => {
+    for (const packSize of [1, 0, -5, 2.5, MAX_PACK_SIZE + 1]) {
+      const bad = { ...boxSale, lines: [{ ...boxLine, packSize }] };
+      expect(salePayload.safeParse(bad).success, `packSize ${packSize}`).toBe(false);
+    }
+  });
+
+  it('accepts a receipt counted in boxes at a box cost', () => {
+    const receipt = {
+      supplierName: 'EPSS',
+      receivedAt: '2026-10-07T08:00:00Z',
+      lines: [
+        {
+          id: LINE,
+          productId: PRODUCT,
+          lotNo: 'L1',
+          expiryDate: '2027-12-31',
+          qty: 5,
+          costSantim: 9_000,
+          packSize: 30,
+        },
+      ],
+    };
+    const parsed = goodsReceiptPayload.parse(receipt);
+    expect(baseQuantity(parsed.lines[0])).toBe(150);
+  });
+
+  it('refuses two packs with one name, or two of one size', () => {
+    const strip = { name: 'strip', size: 10, priceSantim: 1_000 };
+    expect(
+      productPacks.safeParse([strip, { name: 'box', size: 100, priceSantim: 9_000 }]).success,
+    ).toBe(true);
+    expect(productPacks.safeParse([strip, { ...strip, name: 'Strip', size: 20 }]).success).toBe(
+      false,
+    );
+    expect(productPacks.safeParse([strip, { ...strip, name: 'blister' }]).success).toBe(false);
+  });
+
+  it('refuses a fractional pack price — a pack is money too (G4)', () => {
+    expect(productPacks.safeParse([{ name: 'box', size: 30, priceSantim: 99.5 }]).success).toBe(
+      false,
+    );
+  });
+
+  const ref = {
+    id: PRODUCT,
+    name: 'Amoxicillin 500mg',
+    unit: 'capsule',
+    isControlled: false,
+    psychotropicClass: null,
+    currentPriceSantim: 400,
+    changeSeq: 7,
+    deletedAt: null,
+  };
+
+  it('pulls a product with no `packs` at all — what a 1.4.0 server sends', () => {
+    expect(productRef.safeParse(ref).success).toBe(true);
+  });
+
+  it('pulls a product with its packs', () => {
+    const parsed = productRef.parse({
+      ...ref,
+      packs: [{ name: 'box', size: 30, priceSantim: 10_000 }],
+    });
+    expect(parsed.packs).toHaveLength(1);
+  });
+
+  it('keeps every earlier version inside the support window (ADR-009)', () => {
+    for (const v of ['1.0.0', '1.1.0', '1.2.0', '1.3.0', '1.4.0', '1.5.0']) {
+      expect(SUPPORTED_CONTRACT_VERSIONS).toContain(v);
+    }
+    expect(CONTRACT_VERSION).toBe('1.5.0');
   });
 });

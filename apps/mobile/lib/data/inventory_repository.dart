@@ -12,6 +12,7 @@ class ReceiptLine {
     required this.expiryDate,
     required this.qty,
     required this.costSantim,
+    this.pack,
   });
 
   final LocalProduct product;
@@ -20,8 +21,19 @@ class ReceiptLine {
   /// ISO calendar date. Gregorian in storage; the Ethiopian calendar is what the user
   /// sees, and the conversion never reaches this layer (BR-10.2).
   final String expiryDate;
+
+  /// How many arrived, **in the unit they were counted in** — boxes when [pack] is set.
   final int qty;
+
+  /// What one unit of [qty] cost: the box's cost when received by the box, exactly as the
+  /// supplier's invoice prints it. Never divided down to a base-unit cost (G4).
   final int costSantim;
+
+  /// The pack the delivery was counted in, or null for the base unit (FR-11, ADR-030).
+  final ProductPack? pack;
+
+  /// What the line puts on the shelf, in base units.
+  int get baseQty => qty * (pack?.size ?? 1);
 }
 
 /// Why a count was corrected. Mirrors the contract's closed list exactly.
@@ -91,6 +103,7 @@ class InventoryRepository {
           'expiry_date': line.expiryDate,
           'qty': line.qty,
           'cost_santim': line.costSantim,
+          'pack_size': line.pack?.size,
         });
 
         linePayloads.add({
@@ -100,6 +113,8 @@ class InventoryRepository {
           'expiryDate': line.expiryDate,
           'qty': line.qty,
           'costSantim': line.costSantim,
+          // Contract 1.5.0 (FR-11). Omitted when received in the base unit.
+          if (line.pack != null) 'packSize': line.pack!.size,
         });
 
         // Credit local stock now. The server does the same on apply, keyed on the same
@@ -111,7 +126,8 @@ class InventoryRepository {
           productId: line.product.id,
           lotNo: line.lotNo,
           expiryDate: line.expiryDate,
-          qty: line.qty,
+          // Five boxes of thirty are 150 on the shelf.
+          qty: line.baseQty,
         );
       }
 
