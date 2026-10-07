@@ -197,6 +197,11 @@ class HelpGuide {
           'Sales summary shows sales by branch and by payment method.',
           'Stock & expiry lists expiring, low and oversold stock.',
           'Cash-up & variance shows each shift and any shortage.',
+          '"Today\'s summary" puts the whole day on one screen: sales, whether each till '
+              'balanced, what customers owe and what is running low. Tap "Share this '
+              'summary" to send it to yourself.',
+          'Owners also have the "Activity log": who changed a price, wrote off stock or '
+              'added staff. Nobody can edit or delete it.',
           'Reports need an internet connection. Figures include every phone that has '
               'synced.',
         ],
@@ -453,6 +458,10 @@ class HelpGuide {
           'የሽያጭ ማጠቃለያ ሽያጭን በቅርንጫፍና በክፍያ ዘዴ ያሳያል።',
           'ክምችትና ማብቂያ የሚያበቁ፣ ያነሱና ከልክ በላይ የተሸጡ ክምችቶችን ይዘረዝራል።',
           'የገንዘብ ቆጠራና ልዩነት እያንዳንዱን ፈረቃና ማንኛውንም ጉድለት ያሳያል።',
+          '«የዛሬ ማጠቃለያ» ሙሉውን ቀን በአንድ ገጽ ያሳያል፦ ሽያጭ፣ እያንዳንዱ ካሻ መመጣጠኑን፣ የደንበኞች '
+              'ዕዳ እና እያለቀ ያለ ክምችት። ለራስዎ ለመላክ «ይህን ማጠቃለያ አጋራ» ይንኩ።',
+          'ባለቤቶች «የእንቅስቃሴ መዝገብ»ም አላቸው፦ ዋጋ የቀየረ፣ ክምችት የሰረዘ ወይም ሠራተኛ የጨመረ ማን '
+              'እንደሆነ። ማንም ሊያስተካክለው ወይም ሊሰርዘው አይችልም።',
           'ሪፖርቶች የኢንተርኔት ግንኙነት ይፈልጋሉ። አሃዞቹ ያመሳሰሉትን ስልኮች ሁሉ ያካትታሉ።',
         ],
       ),

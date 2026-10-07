@@ -94,6 +94,23 @@ export class ReportingController {
   }
 
   /** Stock levels with expiry alerting (BR-3.4). */
+  /**
+   * The end-of-day summary (FR-17): sales, the drawer, who was on, what is owed, what is
+   * running low, and what was done that an owner should know about — for one day, in one
+   * call, because the phone asking for it is on a slow connection and a cold server.
+   */
+  @Get('daily-summary')
+  @RequireCapability('report.branch')
+  dailySummary(
+    @CurrentScope() scope: TenantScope,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId', OPTIONAL_UUID) branchId?: string,
+  ) {
+    assertNotOwnScoped(scope, 'the daily summary');
+    return this.reporting.dailySummaryReport(scope, { ...parseWindow(from, to), branchId });
+  }
+
   @Get('stock')
   @RequireCapability('report.branch')
   stock(

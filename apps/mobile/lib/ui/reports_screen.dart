@@ -7,6 +7,7 @@ import '../core/money.dart';
 import '../core/theme.dart';
 import '../l10n/locale_store.dart';
 import 'kit.dart';
+import 'owner_screens.dart';
 import 'ledger_screen.dart';
 import 'stock_screen.dart';
 import 'sync_chip.dart';
@@ -154,6 +155,25 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         body: StockScreen(
                             onBack: () => Navigator.of(context).pop()))),
               ),
+              // The owner's two evening questions (FR-17): how did today go, and did
+              // anybody do anything I should know about.
+              PRow(
+                avatarIcon: Icons.today_outlined,
+                avatarTone: Tone.green,
+                title: context.t('day.title'),
+                subtitle: context.t('day.sub'),
+                chevron: true,
+                onTap: () => _push(context, const DailySummaryScreen()),
+              ),
+              if (canReadAudit(t))
+                PRow(
+                  avatarIcon: Icons.fact_check_outlined,
+                  avatarTone: Tone.amber,
+                  title: context.t('audit.title'),
+                  subtitle: context.t('audit.sub'),
+                  chevron: true,
+                  onTap: () => _push(context, const AuditScreen()),
+                ),
               PRow(
                 avatar: '℞',
                 avatarTone: Tone.blue,
