@@ -94,9 +94,15 @@ flowchart LR
 > regulated half is a known, bounded build — the event store it needs is already in
 > production use — and `05-qa` §8's provisional compliance tests become final.
 
-**Post-V1:** V1.x — FR-5 inter-branch transfer (**online-only**), FR-8a advanced reporting,
-desktop (Flutter Windows). **V2** — multi-writer offline + conflict engine (full FR-9 +
-NFR-2), FR-7a/b ordering. **Parallel track** — Telebirr/CBE integration.
+**Post-V1** (re-sequenced 2026-10-07, ADR-029): **V2 — the sellability release**: sell units,
+a pre-loaded catalogue, barcode scanning, printed and shared receipts, on-device backup, a
+customer credit ledger, the audit trail on the phone, then suppliers, reorder suggestions and
+profit reports (FR-11 to FR-20, FR-7a, FR-8a). Scope, order and state:
+`07-v2-sellability-plan.md`. V2 runs through the same gates as V1 — §4, §6 and §7 below apply
+unchanged — and alongside the open GA lines in §11, not instead of them.
+**After V2:** FR-5 inter-branch transfer (**online-only**), FR-7b, desktop (Flutter Windows).
+**V3** — multi-writer offline + conflict engine (full FR-9 + NFR-2). **Parallel track** —
+Telebirr/CBE integration.
 
 ---
 

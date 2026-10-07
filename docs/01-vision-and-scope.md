@@ -89,17 +89,23 @@ Each of these is deferred for a stated reason, not forgotten:
 
 | Item | Deferred to | Why |
 |------|-------------|-----|
-| **FR-9 multi-writer offline + conflict resolution (NFR-2)** | V2 | Highest-risk piece in the system; most independent pharmacies run one terminal. Offline concurrent writes can *detect* but never *prevent* oversell — see ADR-002. |
+| **FR-9 multi-writer offline + conflict resolution (NFR-2)** | V3 (was labelled V2 — ADR-029) | Highest-risk piece in the system; most independent pharmacies run one terminal. Offline concurrent writes can *detect* but never *prevent* oversell — see ADR-002. |
 | **FR-5 Inter-branch stock transfer** | V1.x, **online-only** | Fundamentally incompatible with a long offline window (you'd dispatch stock already consumed). It's a back-office act by the owner, not a counter transaction under a power cut. |
-| **FR-7a usage-based ordering, FR-7b multi-wholesaler ordering** | V1.x / V2 | Analytics-grade features that need sales history to be useful; ship after the loop is proven. |
-| **FR-8a advanced/custom reporting & export** | V1.x | Base reports validate the model; advanced reporting is polish. |
+| **FR-7a usage-based ordering** | **V2** (ADR-029) | Needed sales history to be useful; there is one now. Built as reorder suggestions. |
+| **FR-7b multi-wholesaler ordering** | After V2 | Still an analytics-grade feature with no customer asking for it. |
+| **FR-8a advanced/custom reporting & export** | **V2** (ADR-029) | Base reports validated the model. Profit and dead-stock reports are what an owner reads at renewal. |
 | **Desktop application** | V1.x / V2 (Flutter Desktop, Windows-first) | Counter and owner oversight both run on Android — the prototype puts Home, Reports and Branches & staff in the phone app, and the web console is the platform's (screens 20–26). See ADR-001. |
 | **Telebirr / CBE payment integration** | Post-V1 (6+ month effort) | V1 uses manual screenshot verification via the web admin dashboard. |
+
+> **V2 (2026-10-07, ADR-029).** "V2" is now the **sellability release** — the work that lets
+> an owner retire a tool they use today: sell units, a loaded catalogue, scanning, printed
+> receipts, backup, a credit ledger. Its scope and order are in `07-v2-sellability-plan.md`.
+> Multi-writer offline keeps ADR-002's deferral under the name V3.
 
 ### 2.3 Non-goals (explicitly out of scope, not merely deferred)
 
 - **Prescription management integration** (doctor-to-pharmacy workflow). V1 handles dispensing-time *compliance rules* (FR-4), not e-prescription pipelines.
-- **Customer lifecycle / loyalty / refill reminders.** The product serves the *owner's operations*, not end-customer engagement. (A simple customer *credit ledger* may be reconsidered later — credit sales are common in Ethiopian retail — but it is not a V1 goal.)
+- **Customer lifecycle / loyalty / refill reminders.** The product serves the *owner's operations*, not end-customer engagement. (A simple customer *credit ledger* was to be reconsidered — credit sales are common in Ethiopian retail. It has been: it is **in scope for V2** as FR-16, ADR-029. Loyalty and refill reminders are still out.)
 - **End-customer-facing app.** The system is used only by pharmacy owners and their staff.
 
 ---
