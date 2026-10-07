@@ -13,6 +13,8 @@ export interface StoredPack {
   name: string;
   size: number;
   priceSantim: number;
+  /** What one sells for to a wholesale customer; absent or null when it has none (FR-19). */
+  wholesalePriceSantim?: number | null;
 }
 
 /**
@@ -43,6 +45,18 @@ export class Product extends SyncedEntity {
    */
   @Column('bigint', { name: 'current_price_santim', transformer: bigintTransformer })
   currentPriceSantim: number;
+
+  /**
+   * The base unit's price for a wholesale customer — a clinic, an organisation (FR-19,
+   * ADR-037). Null when the product has none, in which case a wholesale sale charges the
+   * ordinary price. Its history is the audit log's `audit.wholesale_price_changed`.
+   */
+  @Column('bigint', {
+    name: 'wholesale_price_santim',
+    nullable: true,
+    transformer: bigintTransformer,
+  })
+  wholesalePriceSantim: number | null;
 
   /**
    * The packs this product is also received and sold in, each with its own price (FR-11,

@@ -422,6 +422,78 @@ void main() {
       expect(find.textContaining('tablet · '), findsNothing);
     });
 
+    // FR-19 — two price lists. The tier belongs to the sale, and is one tap.
+    const wsBox = ProductPack(
+        name: 'box', size: 30, priceSantim: 10000, wholesalePriceSantim: 8500);
+
+    testWidgets('a pharmacy with one price list is never shown the switch',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      t.addProduct('p1', 'Paracetamol', price: 500);
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      expect(find.text('Wholesale'), findsNothing);
+      expect(find.text('Retail'), findsNothing);
+    });
+
+    testWidgets('switching to wholesale re-prices the whole basket at once',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      t.addProduct('p5', 'Amoxicillin',
+          price: 400, wholesale: 330, packs: const [wsBox]);
+      // No wholesale price: a clinic pays for this what everyone pays.
+      t.addProduct('p1', 'Paracetamol', price: 500);
+      t.catalog.onHand_['p5'] = 500;
+      t.catalog.onHand_['p1'] = 500;
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      await tester.tap(find.text('Amoxicillin'));
+      await tester.pump();
+      await tester.pump();
+      // The list makes way for the basket; the next medicine is found by typing.
+      await tester.enterText(find.byType(EditableText).first, 'Para');
+      await tester.pump();
+      await tester.tap(find.text('Paracetamol'));
+      await tester.pump();
+      await tester.pump();
+      expect(t.terminal.cartTotal, 900);
+
+      await tester.tap(find.text('Wholesale'));
+      await tester.pump();
+
+      expect(t.terminal.wholesale, isTrue);
+      expect(t.terminal.cartTotal, 330 + 500);
+      // The chips say what each unit costs on this list.
+      expect(find.text('tablet · 3.30'), findsOneWidget);
+      expect(find.text('box · 85.00'), findsOneWidget);
+
+      await tester.tap(find.text('box · 85.00'));
+      await tester.pump();
+      expect(t.terminal.cartTotal, 8500 + 500);
+
+      // And back: nothing about the basket is lost, only the prices change.
+      await tester.tap(find.text('Retail'));
+      await tester.pump();
+      expect(t.terminal.cartTotal, 10000 + 500);
+      expect(t.terminal.cart.first.pack?.name, 'box');
+    });
+
+    testWidgets('a line added during a wholesale sale is priced wholesale',
+        (tester) async {
+      final t = TestTerminal.build(db);
+      t.addProduct('p5', 'Amoxicillin', price: 400, wholesale: 330);
+      t.catalog.onHand_['p5'] = 500;
+      await pumpTerminalScreen(tester, t.terminal, const SellScreen());
+
+      await tester.tap(find.text('Wholesale'));
+      await tester.pump();
+      await tester.tap(find.text('Amoxicillin'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(t.terminal.cartTotal, 330);
+    });
+
     testWidgets('an empty cart cannot be charged', (tester) async {
       final t = TestTerminal.build(db);
       t.addProduct('p1', 'Paracetamol');

@@ -49,7 +49,7 @@ class LocalDb {
   Future<void> acknowledgeQuarantine() =>
       db.delete('meta', where: 'key = ?', whereArgs: [_quarantineKey]);
 
-  static const _version = 7;
+  static const _version = 8;
 
   /// Opens the terminal's database, and **always returns one** (ADR-018).
   ///
@@ -256,6 +256,7 @@ class LocalDb {
     await _addSellUnitColumns(db);
     await _addBarcodeColumn(db);
     await _createCreditSchema(db);
+    await _addPriceTierColumns(db);
 
     // -------------------------------------------------------------------- meta
     // Terminal identity, the pull cursor, and the monotonic write counter. Kept in the
@@ -440,6 +441,18 @@ class LocalDb {
     await db.execute('CREATE INDEX sale_customer ON sale (customer_id)');
   }
 
+  /// Price tiers (FR-19, ADR-037; contract 1.8.0).
+  ///
+  /// A product's wholesale price, mirrored from the server like its retail one, and which
+  /// list each sale was rung up on. Both null on everything already here: no wholesale
+  /// price, and a retail sale — which is what they are. A pack's wholesale price travels
+  /// inside `packs_json` and needs no column.
+  static Future<void> _addPriceTierColumns(DatabaseExecutor db) async {
+    await db.execute(
+        'ALTER TABLE product ADD COLUMN wholesale_price_santim INTEGER');
+    await db.execute('ALTER TABLE sale ADD COLUMN price_tier TEXT');
+  }
+
   /// Schema upgrades run on a device holding real, unsynced sales.
   ///
   /// So they are additive only — new tables and new nullable columns. Anything that
@@ -466,6 +479,9 @@ class LocalDb {
     }
     if (from < 7) {
       await _createCreditSchema(db);
+    }
+    if (from < 8) {
+      await _addPriceTierColumns(db);
     }
   }
 

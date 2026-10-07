@@ -98,6 +98,32 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
   bool controlledEnabled = false;
   final List<CartLine> cart = [];
 
+  /// Whether the sale being assembled is for a wholesale customer (FR-19). A property of
+  /// the whole sale — a clinic does not buy half its basket at retail — so switching it
+  /// re-prices every line at once.
+  bool wholesale = false;
+
+  /// Whether this pharmacy has set a wholesale price on anything. Where it has not, the
+  /// counter is never shown the switch: a choice between two identical prices is noise.
+  bool get hasWholesalePrices => products.any((p) => p.hasWholesalePrice);
+
+  void setWholesale(bool value) {
+    if (value == wholesale) return;
+    wholesale = value;
+    for (var i = 0; i < cart.length; i++) {
+      final line = cart[i];
+      cart[i] = CartLine(
+        product: line.product,
+        qty: line.qty,
+        batchId: line.batchId,
+        pack: line.pack,
+        expiryOverrideBy: line.expiryOverrideBy,
+        wholesale: value,
+      );
+    }
+    notifyListeners();
+  }
+
   /// The batch FEFO chose for each cart line, and what the branch holds of that product —
   /// what the cart shows under each line, and what decides the oversell notice.
   final Map<String, LocalBatch?> cartBatch = {};
@@ -291,7 +317,8 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
           product: product,
           qty: 1,
           batchId: batch?.id,
-          expiryOverrideBy: overrideBy));
+          expiryOverrideBy: overrideBy,
+          wholesale: wholesale));
       notifyListeners();
     }
   }
@@ -309,6 +336,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
         batchId: line.batchId,
         pack: line.pack,
         expiryOverrideBy: line.expiryOverrideBy,
+        wholesale: wholesale,
       );
     }
     notifyListeners();
@@ -326,6 +354,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
       batchId: line.batchId,
       pack: pack,
       expiryOverrideBy: line.expiryOverrideBy,
+      wholesale: wholesale,
     );
     notifyListeners();
   }
@@ -341,6 +370,7 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     final sale = await sales.commitSale(
       customerId: customerId,
       creditSantim: creditSantim,
+      wholesale: wholesale,
       lines: List.of(cart),
       tenantId: session.scope.tenantId,
       branchId: branchId,
@@ -353,6 +383,9 @@ class Terminal extends ChangeNotifier with WidgetsBindingObserver {
     cart.clear();
     cartBatch.clear();
     cartOnHand.clear();
+    // Back to retail for the next customer: wholesale is the exception, and a till left
+    // on it would undercharge everyone who walked in afterwards.
+    wholesale = false;
     await refresh();
     unawaited(sync());
     return sale;

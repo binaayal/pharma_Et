@@ -256,6 +256,7 @@ export class ManagementService {
       isControlled?: boolean;
       packs?: ProductPack[];
       barcodes?: string[];
+      wholesalePriceSantim?: number | null;
     },
   ) {
     if (!Number.isInteger(input.priceSantim) || input.priceSantim < 0) {
@@ -285,6 +286,7 @@ export class ManagementService {
         isControlled: false,
         psychotropicClass: null,
         currentPriceSantim: input.priceSantim,
+        wholesalePriceSantim: input.wholesalePriceSantim ?? null,
         packs,
         barcodes,
         changeSeq: await this.changeSeq.next(em, scope.tenantId),
@@ -301,6 +303,9 @@ export class ManagementService {
           // exactly as it was before FR-11.
           ...(packs.length > 0 ? { packs } : {}),
           ...(barcodes.length > 0 ? { barcodes } : {}),
+          ...(input.wholesalePriceSantim != null
+            ? { wholesalePriceSantim: input.wholesalePriceSantim }
+            : {}),
         },
       });
 
@@ -340,6 +345,42 @@ export class ManagementService {
           previousPriceSantim: previous,
           priceSantim,
           deltaSantim: priceSantim - previous,
+        },
+      });
+
+      return { id: product.id, previousPriceSantim: previous, priceSantim };
+    });
+  }
+
+  /**
+   * Sets or removes the price a wholesale customer pays (FR-19, ADR-037).
+   *
+   * Audited with the figure before and after, exactly as the retail price is: a wholesale
+   * price quietly lowered is the same finding as a retail one, and it is the price the
+   * largest sales go out at. Bumps `change_seq`, or the counter keeps charging the old one.
+   */
+  async setWholesalePrice(scope: TenantScope, productId: string, priceSantim: number | null) {
+    return this.db.runInScope(scope, async (em) => {
+      const repo = em.getRepository(Product);
+      const product = await repo.findOne({ where: { id: productId } });
+      if (!product) throw new NotFoundException('product not found');
+      if (product.isControlled && priceSantim !== null) {
+        // A controlled dispense carries one price and goes through the ledger (FR-4 §4b).
+        throw new BadRequestException('a controlled substance has one price');
+      }
+
+      const previous = product.wholesalePriceSantim ?? null;
+      product.wholesalePriceSantim = priceSantim;
+      product.changeSeq = await this.changeSeq.next(em, scope.tenantId);
+      await repo.save(product);
+
+      await this.audit.record(em, scope, {
+        type: 'audit.wholesale_price_changed',
+        streamId: product.id,
+        payload: {
+          productName: product.name,
+          previousPriceSantim: previous,
+          priceSantim,
         },
       });
 

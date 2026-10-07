@@ -44,6 +44,7 @@ class ReceiptDoc {
     required this.changeSantim,
     this.creditSantim = 0,
     this.customerName,
+    this.wholesale = false,
   });
 
   /// The name over the door, as far as this device knows it: the branch's name.
@@ -68,6 +69,10 @@ class ReceiptDoc {
 
   /// Whose account. Printed, because the slip is that customer's own record of the debt.
   final String? customerName;
+
+  /// Rung up on the wholesale price list (FR-19). Said on the slip, so an organisation's
+  /// accounts office can see why the prices differ from the ones on the shelf.
+  final bool wholesale;
 
   /// The short sale reference from a branch name and a sale id.
   static String numberFor(String branchOrTenant, String saleId) {
@@ -131,7 +136,9 @@ class ReceiptDoc {
   String toText(Strings s) {
     final out = StringBuffer()
       ..writeln(shop)
-      ..writeln('${s.get('receipt.sale')} #$number')
+      ..writeln(wholesale
+          ? '${s.get('receipt.sale')} #$number · ${s.get('tier.wholesale')}'
+          : '${s.get('receipt.sale')} #$number')
       ..writeln(when(s))
       ..writeln();
     for (final line in lines) {

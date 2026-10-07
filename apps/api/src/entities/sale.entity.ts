@@ -28,6 +28,10 @@ export class Sale extends SyncedEntity {
   @Column('uuid', { name: 'terminal_id' })
   terminalId: string;
 
+  /** The price list the sale was rung up on (FR-19). Null is retail. */
+  @Column('text', { name: 'price_tier', nullable: true })
+  priceTier: 'retail' | 'wholesale' | null;
+
   /** Who owes the `credit` part of this sale, if any of it was on credit (FR-16). */
   @Column('uuid', { name: 'customer_id', nullable: true })
   customerId: string | null;

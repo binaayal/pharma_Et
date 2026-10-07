@@ -7,12 +7,12 @@
 // needs an ADR, both-side contract tests including N-1 (ADR-009), a guardian-suite update,
 // two reviews, and an RTM entry.
 //
-// Contract version: 1.7.0
+// Contract version: 1.8.0
 
 // ignore_for_file: unnecessary_cast, lines_longer_than_80_chars, unnecessary_this
 
 /// The contract version this client speaks, sent as the `x-contract-version` header.
-const String kContractVersion = '1.7.0';
+const String kContractVersion = '1.8.0';
 
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) return true;
@@ -152,6 +152,7 @@ class SalePayload {
     required this.lines,
     required this.payments,
     this.customerId,
+    this.priceTier,
   });
 
   /// Client-generated UUIDv7 identifier
@@ -164,6 +165,7 @@ class SalePayload {
   final List<PaymentPayload> payments;
   /// Client-generated UUIDv7 identifier
   final String? customerId;
+  final String? priceTier;
 
   factory SalePayload.fromJson(Map<String, dynamic> json) => SalePayload(
         shiftId: json['shiftId'] == null ? null : json['shiftId'] as String,
@@ -173,6 +175,7 @@ class SalePayload {
         lines: (json['lines'] as List<dynamic>).map((e) => SaleLinePayload.fromJson(e as Map<String, dynamic>)).toList(),
         payments: (json['payments'] as List<dynamic>).map((e) => PaymentPayload.fromJson(e as Map<String, dynamic>)).toList(),
         customerId: json['customerId'] == null ? null : json['customerId'] as String,
+        priceTier: json['priceTier'] == null ? null : json['priceTier'] as String,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -183,9 +186,10 @@ class SalePayload {
         'lines': lines.map((e) => e.toJson()).toList(),
         'payments': payments.map((e) => e.toJson()).toList(),
         'customerId': customerId,
+        'priceTier': priceTier,
       };
 
-  List<Object?> get _props => <Object?>[shiftId, cashierId, soldAt, totalSantim, lines, payments, customerId];
+  List<Object?> get _props => <Object?>[shiftId, cashierId, soldAt, totalSantim, lines, payments, customerId, priceTier];
 
   @override
   bool operator ==(Object other) =>
@@ -1551,6 +1555,7 @@ class ProductRef {
     required this.isControlled,
     this.psychotropicClass,
     required this.currentPriceSantim,
+    this.wholesalePriceSantim,
     this.packs,
     this.barcodes,
     required this.changeSeq,
@@ -1564,6 +1569,8 @@ class ProductRef {
   final String? psychotropicClass;
   /// Money in santim (1 ETB = 100 santim)
   final int currentPriceSantim;
+  /// Money in santim (1 ETB = 100 santim)
+  final int? wholesalePriceSantim;
   final List<ProductPack>? packs;
   final List<String>? barcodes;
   final int changeSeq;
@@ -1577,6 +1584,7 @@ class ProductRef {
         isControlled: json['isControlled'] as bool,
         psychotropicClass: json['psychotropicClass'] == null ? null : json['psychotropicClass'] as String,
         currentPriceSantim: json['currentPriceSantim'] as int,
+        wholesalePriceSantim: json['wholesalePriceSantim'] == null ? null : json['wholesalePriceSantim'] as int,
         packs: json['packs'] == null ? null : (json['packs'] as List<dynamic>).map((e) => ProductPack.fromJson(e as Map<String, dynamic>)).toList(),
         barcodes: json['barcodes'] == null ? null : (json['barcodes'] as List<dynamic>).map((e) => e as String).toList(),
         changeSeq: json['changeSeq'] as int,
@@ -1590,13 +1598,14 @@ class ProductRef {
         'isControlled': isControlled,
         'psychotropicClass': psychotropicClass,
         'currentPriceSantim': currentPriceSantim,
+        'wholesalePriceSantim': wholesalePriceSantim,
         'packs': packs?.map((e) => e.toJson()).toList(),
         'barcodes': barcodes,
         'changeSeq': changeSeq,
         'deletedAt': deletedAt,
       };
 
-  List<Object?> get _props => <Object?>[id, name, unit, isControlled, psychotropicClass, currentPriceSantim, packs, barcodes, changeSeq, deletedAt];
+  List<Object?> get _props => <Object?>[id, name, unit, isControlled, psychotropicClass, currentPriceSantim, wholesalePriceSantim, packs, barcodes, changeSeq, deletedAt];
 
   @override
   bool operator ==(Object other) =>
@@ -1614,26 +1623,31 @@ class ProductPack {
     required this.name,
     required this.size,
     required this.priceSantim,
+    this.wholesalePriceSantim,
   });
 
   final String name;
   final int size;
   /// Money in santim (1 ETB = 100 santim)
   final int priceSantim;
+  /// Money in santim (1 ETB = 100 santim)
+  final int? wholesalePriceSantim;
 
   factory ProductPack.fromJson(Map<String, dynamic> json) => ProductPack(
         name: json['name'] as String,
         size: json['size'] as int,
         priceSantim: json['priceSantim'] as int,
+        wholesalePriceSantim: json['wholesalePriceSantim'] == null ? null : json['wholesalePriceSantim'] as int,
       );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'name': name,
         'size': size,
         'priceSantim': priceSantim,
+        'wholesalePriceSantim': wholesalePriceSantim,
       };
 
-  List<Object?> get _props => <Object?>[name, size, priceSantim];
+  List<Object?> get _props => <Object?>[name, size, priceSantim, wholesalePriceSantim];
 
   @override
   bool operator ==(Object other) =>

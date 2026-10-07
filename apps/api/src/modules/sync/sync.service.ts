@@ -269,6 +269,10 @@ export class SyncService {
       totalSantim: payload.totalSantim,
       soldAt: new Date(payload.soldAt),
       customerId: payload.customerId ?? null,
+      // Recorded as the terminal sent it. The prices on the lines are what was charged;
+      // the tier says which list they came from, and neither is checked against the other
+      // — a till offline for days holds yesterday's price list (ADR-030 §4, ADR-037).
+      priceTier: payload.priceTier === 'wholesale' ? 'wholesale' : null,
       changeSeq: 0,
       deletedAt: null,
     });
@@ -707,6 +711,7 @@ export class SyncService {
           psychotropicClass: p.psychotropicClass,
           currentPriceSantim: p.currentPriceSantim,
           // Always present from this server; a 1.4.0 terminal ignores it (ADR-012 §1).
+          wholesalePriceSantim: p.wholesalePriceSantim ?? null,
           packs: p.packs ?? [],
           barcodes: p.barcodes ?? [],
           changeSeq: p.changeSeq,

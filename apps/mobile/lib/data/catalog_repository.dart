@@ -15,6 +15,7 @@ class LocalProduct {
     required this.priceSantim,
     this.packs = const [],
     this.barcodes = const [],
+    this.wholesalePriceSantim,
   });
 
   final String id;
@@ -33,6 +34,16 @@ class LocalProduct {
   /// compared with. Empty for a product that has never been linked to one.
   final List<String> barcodes;
 
+  /// What one base unit sells for to a wholesale customer (FR-19), or null when the
+  /// product has only the one price.
+  final int? wholesalePriceSantim;
+
+  /// Whether anything about this product is priced differently for a wholesale customer:
+  /// the base unit, or any of its packs.
+  bool get hasWholesalePrice =>
+      wholesalePriceSantim != null ||
+      packs.any((p) => p.wholesalePriceSantim != null);
+
   /// Builds a product from a `product` row.
   factory LocalProduct.fromRow(Map<String, Object?> r) => LocalProduct(
         id: r['id'] as String,
@@ -42,6 +53,7 @@ class LocalProduct {
         priceSantim: r['price_santim'] as int,
         packs: decodePacks(r['packs_json'] as String?),
         barcodes: decodeBarcodes(r['barcodes_json'] as String?),
+        wholesalePriceSantim: r['wholesale_price_santim'] as int?,
       );
 }
 
@@ -286,7 +298,7 @@ class CatalogRepository {
   Future<List<ProductStock>> stockByProduct(String branchId) async {
     final rows = await _db.db.rawQuery('''
       SELECT p.id, p.name, p.unit, p.is_controlled, p.price_santim, p.packs_json,
-             p.barcodes_json,
+             p.barcodes_json, p.wholesale_price_santim,
              COALESCE(SUM(b.qty_on_hand), 0)                        AS on_hand,
              COUNT(b.id)                                             AS batches,
              MIN(CASE WHEN b.qty_on_hand > 0 THEN b.expiry_date END) AS nearest,
@@ -391,6 +403,7 @@ class CatalogRepository {
                 : jsonEncode(product.packs!.map((p) => p.toJson()).toList()),
             'barcodes_json':
                 product.barcodes == null ? null : jsonEncode(product.barcodes),
+            'wholesale_price_santim': product.wholesalePriceSantim,
             'change_seq': product.changeSeq,
             'deleted': product.deletedAt == null ? 0 : 1,
           },

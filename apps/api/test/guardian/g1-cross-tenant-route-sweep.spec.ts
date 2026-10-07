@@ -137,6 +137,10 @@ const ROUTES: Record<string, RouteSpec> = {
   'GET /api/products': { cls: 'tenant', why: 'the pharmacy’s own catalogue and prices' },
   'POST /api/products': { cls: 'tenant', why: 'creates under the caller’s tenant' },
   'POST /api/products/:id/price': { cls: 'tenant', why: 'reprices a product the caller must own' },
+  'POST /api/products/:id/wholesale-price': {
+    cls: 'tenant',
+    why: 'reprices a product the caller must own',
+  },
   'POST /api/products/:id/barcodes': {
     cls: 'tenant',
     why: 'relinks barcodes of a product the caller must own',
@@ -266,6 +270,7 @@ describe('G1 — every route, attempted across the tenant boundary', () => {
       ['DELETE /api/users/:id', () => b.users.cashier.id],
       ['POST /api/products/:id/price', () => b.productId],
       ['POST /api/products/:id/packs', () => b.productId],
+      ['POST /api/products/:id/wholesale-price', () => b.productId],
       ['POST /api/products/:id/barcodes', () => b.productId],
       ['GET /api/reports/cash-up/:shiftId', () => b.branchIds[0]],
     ];

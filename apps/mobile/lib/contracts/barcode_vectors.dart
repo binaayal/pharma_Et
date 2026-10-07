@@ -4,7 +4,7 @@
 // `pnpm gen:contracts`. `canonicalBarcode` is implemented separately in each language;
 // this table is what proves the two agree.
 //
-// Contract version: 1.7.0
+// Contract version: 1.8.0
 
 /// (as scanned, as stored and compared)
 const List<(String, String)> kBarcodeVectors = [

@@ -116,7 +116,11 @@ abstract final class ReceiptOutput {
               style: const pw.TextStyle(
                   fontSize: 13, fontWeight: pw.FontWeight.bold)),
           pw.SizedBox(height: 2),
-          pw.Text('${s.get('receipt.sale')} #${doc.number}', style: body),
+          pw.Text(
+              doc.wholesale
+                  ? '${s.get('receipt.sale')} #${doc.number} · ${s.get('tier.wholesale')}'
+                  : '${s.get('receipt.sale')} #${doc.number}',
+              style: body),
           pw.Text(doc.when(s), style: small),
           rule(),
           for (final line in doc.lines) ...[

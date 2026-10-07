@@ -13,6 +13,7 @@ class CartLine {
     required this.batchId,
     this.pack,
     this.expiryOverrideBy,
+    this.wholesale = false,
   });
 
   final LocalProduct product;
@@ -24,9 +25,23 @@ class CartLine {
   /// The pack this line is rung up in, or null for the base unit (FR-11, ADR-030).
   final ProductPack? pack;
 
+  /// Whether this line is priced from the wholesale list (FR-19, ADR-037).
+  final bool wholesale;
+
   /// The price of one unit of [qty]. A pack has its own price; it is never the base price
   /// multiplied up, and the base price is never a pack price divided down.
-  int get unitPriceSantim => pack?.priceSantim ?? product.priceSantim;
+  ///
+  /// On a wholesale sale it is the wholesale price **of the unit being sold**, where the
+  /// owner has set one. Where they have not, it is the ordinary price: a product with no
+  /// wholesale price is sold to a clinic at what everyone pays, never at a guess.
+  int get unitPriceSantim {
+    final p = pack;
+    if (p != null) {
+      return (wholesale ? p.wholesalePriceSantim : null) ?? p.priceSantim;
+    }
+    return (wholesale ? product.wholesalePriceSantim : null) ??
+        product.priceSantim;
+  }
 
   /// What the line takes off the shelf, in base units — the only figure stock is ever
   /// moved or compared by.
@@ -91,6 +106,10 @@ class SaleRepository {
     /// more than zero.
     String? customerId,
 
+    /// The price list the cart was rung up on (FR-19). Recorded on the sale so a report
+    /// can say how much went out at wholesale; the prices themselves are on the lines.
+    bool wholesale = false,
+
     /// How much of the total is **not paid now** and is owed by [customerId]. The rest —
     /// possibly nothing — is settled by [paymentMethod]. Zero for an ordinary sale.
     int creditSantim = 0,
@@ -143,6 +162,7 @@ class SaleRepository {
         // Named only when something is owed: a cash sale to a known customer is still
         // just a cash sale, and the debt book is not a purchase history (docs/01 §2.3).
         'customer_id': creditSantim > 0 ? customerId : null,
+        'price_tier': wholesale ? 'wholesale' : null,
       });
 
       for (final line in lines) {
@@ -218,6 +238,8 @@ class SaleRepository {
           // Contract 1.7.0 (FR-16). Omitted without credit, so an ordinary sale is still
           // byte-identical to what a 1.6.0 terminal sends.
           if (creditSantim > 0) 'customerId': customerId,
+          // Contract 1.8.0 (FR-19). Omitted for retail, for the same reason.
+          if (wholesale) 'priceTier': 'wholesale',
         },
       );
     });

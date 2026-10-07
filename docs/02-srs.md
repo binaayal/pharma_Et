@@ -561,6 +561,48 @@ Priority: **M** = must (V1), **S** = should (V1 if capacity allows), **D** = def
 
 ---
 
+### FR-19 — Retail and wholesale prices · Priority: S · V2
+**Actors:** Owner, Branch Manager (set prices); anyone who may sell (choose the tier).
+**Preconditions:** authenticated. Design: ADR-037.
+
+**Main flow (setting):**
+1. The Owner opens a product's price and enters a wholesale price beside the ordinary one; a pack may be given its own wholesale price.
+2. Terminals learn the price on their next sync.
+
+**Main flow (selling):**
+1. Where the pharmacy has set any wholesale price, the Sell screen offers Retail or Wholesale.
+2. The cashier chooses Wholesale; every line in the basket is priced from the wholesale list.
+3. The sale is committed and recorded as a wholesale sale; the receipt says so.
+
+**Exception flows:**
+- E-19.1 A unit with no wholesale price on a wholesale sale is charged its ordinary price.
+- E-19.2 Offline: the tier and prices last synced are used; the sale is queued as any other (FR-9).
+
+**Business rules:**
+- BR-19.1 A product has at most one wholesale price, and each pack at most one; all are whole numbers of santim, set by a user with `catalog.manage`.
+- BR-19.2 **A wholesale price is never calculated** — not from the retail price, and not for a pack from the base unit's wholesale price.
+- BR-19.3 The tier applies to the whole sale; a sale is either retail or wholesale.
+- BR-19.4 On a wholesale sale each line is charged the wholesale price **of the unit sold**, or that unit's ordinary price where none is set (E-19.1).
+- BR-19.5 The till returns to retail after each sale.
+- BR-19.6 The choice is not offered where no wholesale price exists.
+- BR-19.7 Setting, changing or removing a wholesale price is recorded in the audit trail with the price before and after (FR-6, FR-17).
+- BR-19.8 A controlled substance has no wholesale price.
+- BR-19.9 The sales summary reports the value sold at wholesale as a part of the total, not as a tender.
+- BR-19.10 A sale from a terminal that predates price tiers is a retail sale.
+- BR-19.11 *(Scope.)* Anyone who may sell may sell at wholesale; the control is the record (ADR-037, Consequences). Per-customer price lists and percentage discounts are not part of this requirement.
+
+**Acceptance criteria:**
+- AC-19.1 *Given* a product at 4.00 retail and 3.30 wholesale, *when* ten are sold at wholesale, *then* the sale totals 33.00 and is recorded as wholesale.
+- AC-19.2 *Given* a box at 100.00 retail and 85.00 wholesale holding thirty, *when* two boxes are sold at wholesale, *then* the sale totals 170.00 and sixty base units leave stock.
+- AC-19.3 *Given* a strip with no wholesale price, *when* it is sold on a wholesale sale, *then* it is charged the strip's ordinary price.
+- AC-19.4 *Given* a basket rung up at retail, *when* the cashier switches to Wholesale, *then* every line is re-priced and nothing else about the basket changes.
+- AC-19.5 *Given* no product has a wholesale price, *when* the Sell screen is opened, *then* no tier choice is shown.
+- AC-19.6 *Given* a wholesale sale was just completed, *when* the next sale is started, *then* it is retail.
+- AC-19.7 *Given* an Owner changes a wholesale price, *when* the Activity log is read, *then* it names the product, the old price and the new, and who did it; *given* a Cashier, *then* the change is refused.
+- AC-19.8 *Given* a retail sale, *when* it is synced, *then* its payload is identical to one from before price tiers existed.
+- AC-19.9 *Given* wholesale and retail sales in a day, *when* the sales summary is requested, *then* it reports the wholesale value separately and the total includes it once.
+- AC-19.10 *Given* two pharmacies, *when* one syncs, *then* it receives none of the other's wholesale prices.
+
 ### FR-7a — Reorder suggestions · Priority: S · V2
 **Actors:** Owner, Branch Manager. **Design:** ADR-036.
 
@@ -670,6 +712,7 @@ tested · **Open** — not yet built · **Gated** — blocked on a stated gate.
 | FR-16 customer credit ledger — **V2** | §5.4; ADR-034 | contract: `packages/contracts/src/entities.ts` (`customerPayload`, `creditPaymentPayload`, `creditPortion`), `packages/contracts/src/sync.ts` (`customerRef`) · server: `api/src/migrations/CreditLedger`, `api/src/modules/credit/`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/cashup/cash-up.service.ts` · till: `mobile/lib/data/customer_repository.dart`, `mobile/lib/data/sale_repository.dart`, `mobile/lib/ui/customers_screen.dart`, `mobile/lib/ui/payment_screen.dart` | `g4-credit-ledger.spec.ts` (31), `g4_credit_ledger_test.dart` (22), `credit_screens_test.dart` (16), `receipt_test.dart`, `packages/contracts/test/contract.test.ts` | **Done** — AC-16.1 to AC-16.10 on both sides: balance equals rows after mixed, replayed and concurrent sequences; cash-up agrees on terminal and server; tenant isolation; N-1. The concurrency test found, and this change fixed, a deadlock that would have parked a legitimate sale (ADR-034 §10). **Not built:** editing or merging customers, a statement across phones, ageing of debts. |
 | FR-17 audit trail and daily summary on the phone — **V2** | ADR-035 (read-only; no schema or contract change) | server: `api/src/modules/reporting/daily-summary.service.ts`, `api/src/modules/audit/` · phone: `mobile/lib/core/owner_reports.dart`, `mobile/lib/ui/owner_screens.dart`, `mobile/lib/ui/reports_screen.dart` | `g4-daily-summary.spec.ts` (17), `owner_reports_test.dart` (25), `owner_screens_test.dart` (15) | **Built as scoped.** AC-17.1 to AC-17.8: each summary figure held to the report it restates, shortage never netted, branch and tenant scoping, every audit sentence in both languages. **Not built: unprompted delivery** (BR-17.10) — no push, SMS or bot; that needs accounts and a sender the project does not have (ADR-035 §3). |
 | FR-7a reorder suggestions · FR-8a profit, best sellers, dead stock · FR-18 return list — **V2** | ADR-036 (read-only, on the device) | `mobile/lib/data/insights_repository.dart`, `mobile/lib/ui/insights_screen.dart` | `g4_insights_test.dart` (22), `insights_screen_test.dart` (12) | **Done as scoped** — every figure held to the sales and receipts it is made from, with packs. Computed from **this terminal's** records and labelled so; no consolidated figure across terminals. **Not built:** the rest of FR-18 — a supplier entity, payables, purchase orders. |
+| FR-19 retail and wholesale prices — **V2** | ADR-037; contract 1.8.0 (ADR-012 §4) | contract: `packages/contracts/src/entities.ts` (`priceTier`, `wholesalePriceSantim`), `packages/contracts/src/sync.ts` · server: `api/src/migrations/PriceTiers`, `api/src/modules/admin/management.service.ts`, `api/src/modules/sync/sync.service.ts`, `api/src/modules/reporting/sales-summary.service.ts` · till: `mobile/lib/data/sale_repository.dart`, `mobile/lib/data/catalog_repository.dart`, `mobile/lib/ui/sell_screen.dart`, `mobile/lib/ui/catalog_sheets.dart`, `mobile/lib/core/receipt.dart` | `g4-price-tiers.spec.ts` (24), `g4_price_tiers_test.dart` (16), `sell_screen_test.dart`, `inventory_screens_test.dart`, `receipt_test.dart`, `owner_reports_test.dart` | **Built as scoped.** AC-19.1 to AC-19.10. The tier is a record, not a control: the server stores the price charged and does not re-price a line (ADR-037 §5). **Not built:** per-customer price lists, a capability restricting who may sell at wholesale. **Not shown by any test:** the widened pack editor on a real 720-pixel phone. |
 | FR-7 goods receipt (base) | §5.5 | `api/src/modules/sync/sync.service.ts` (`applyGoodsReceipt`), `inventory.service.ts` (`applyReceipt`), **`mobile/lib/ui/receive_screen.dart`** | `g7-offline-resilience.spec.ts`, `g5_reconciliation_test.dart` | **Done** — the counter can now record a delivery offline, and the shelf is credited immediately. |
 | FR-8 reporting + cash-up | §5.4, §9 | cash-up: `api/src/modules/cashup/`, `mobile/lib/{data/shift_repository.dart,ui/cash_up_screen.dart}` · reports: `api/src/modules/reporting/{sales-summary,stock-report}.service.ts`, `mobile/lib/ui/{home_screen,reports_screen}.dart` | `g4-cash-up.spec.ts` (12), `g4_cash_up_test.dart` (10), `g1-report-scoping.spec.ts` (17) | **Done** — AC-8.1 cash-up, AC-8.2 consolidated + per-branch summary, BR-3.4 expiry alerting. Controlled-substance ledger report awaits Phase 2. |
 | Platform console client (T2/T3) | `05-qa` §3 | `dashboard/src/lib/{api,format}.ts`, `dashboard/src/console/` | `dashboard/test/` — 38 tests: request headers and the contract version, `ApiError` status preservation, `isSessionExpired` against anything throwable, session storage under private browsing | **Done** — the console renews its session rather than signing the owner out every fifteen minutes (ADR-019), and identifies its browser with a real per-device UUIDv7 instead of one constant shared by every install. §3 puts the dashboard API at T2 (≥80% line) and it had **no tests at all**; the two that existed covered pure formatting helpers. Since 2026-09-24 the web app is the platform console only, as the prototype draws it (screens 20–26); the tenant pages it once had were never in the design and moved to the phone. `test/console.spec.tsx` pins its navigation, and the proof screenshot is fetched with the platform token rather than followed as a bare link the guard refused. |

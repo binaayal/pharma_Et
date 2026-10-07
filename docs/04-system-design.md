@@ -90,7 +90,7 @@ erDiagram
 ### 5.2 Catalog & pricing
 | Table | Key columns | Notes |
 |---|---|---|
-| `product` | `id`, `tenant_id`, `name`, `unit`, `is_controlled`, `psychotropic_class`, `packs`, `barcodes` | `is_controlled=true` routes stock through the event store (§6). `unit` is the base unit. `packs` is a JSON list of `{name, size, priceSantim}` — at most four, each with its own price (FR-11, ADR-030); empty for a product sold only loose, and always empty for a controlled one. `barcodes` is a JSON list of the codes a scan recognises as this product, each in canonical form (a GTIN as 14 digits); no barcode is on two live products of one tenant (FR-13, ADR-031). |
+| `product` | `id`, `tenant_id`, `name`, `unit`, `is_controlled`, `psychotropic_class`, `packs`, `barcodes`, `wholesale_price_santim?` | `is_controlled=true` routes stock through the event store (§6). `unit` is the base unit. `packs` is a JSON list of `{name, size, priceSantim}` — at most four, each with its own price (FR-11, ADR-030); empty for a product sold only loose, and always empty for a controlled one. `barcodes` is a JSON list of the codes a scan recognises as this product, each in canonical form (a GTIN as 14 digits); no barcode is on two live products of one tenant (FR-13, ADR-031). `wholesale_price_santim` is the price of one base unit to a wholesale customer, null when the product has one price; a pack may carry its own `wholesalePriceSantim`. Never derived, and never set on a controlled product (FR-19, ADR-037). |
 | `product_price` | `id`, `tenant_id`, `product_id`, `price_santim`, `effective_from` | Price history retained; current price = latest effective. Price changes also emit an audit event (§6). |
 
 ### 5.3 Inventory — standard drugs (mutable)
@@ -104,7 +104,7 @@ erDiagram
 ### 5.4 Sales & cash
 | Table | Key columns | Notes |
 |---|---|---|
-| `sale` | `id`, `tenant_id`, `branch_id`, `shift_id`, `cashier_id`, `total_santim`, `sold_at`, `customer_id?` | Created locally, offline-first. `customer_id` only when part of the sale is on credit. |
+| `sale` | `id`, `tenant_id`, `branch_id`, `shift_id`, `cashier_id`, `total_santim`, `sold_at`, `customer_id?`, `price_tier?` | Created locally, offline-first. `customer_id` only when part of the sale is on credit. `price_tier` is `wholesale` or null; null is retail, which is every sale from before FR-19. It labels the list the sale was rung up on — the price charged is on the lines (ADR-037). |
 | `sale_line` | `id`, `sale_id`, `product_id`, `batch_id?`, `qty`, `unit_price_santim`, `line_total_santim`, `pack_size?`, `pack_name?` | `batch_id` for standard drugs (FEFO-selected). `qty` and `unit_price_santim` are in the unit sold, so `line_total = qty × unit_price` holds exactly; `pack_size` null = base unit (FR-11). |
 | `payment` | `id`, `sale_id`, `method`, `amount_santim` | `method ∈ {cash, other_recorded, credit}`; no gateway (Vision §4). `credit` is the part of the sale not paid yet, owed by `sale.customer_id`; with credit, a sale's payments add up to its total (FR-16, ADR-034). |
 | `customer` | `id`, `tenant_id`, `name`, `phone?`, `note?`, `balance_santim` | Who owes the pharmacy money — **not** a patient record. Tenant-wide. `balance_santim` is a running figure, recomputable from the rows; positive = owes, negative = paid ahead. |

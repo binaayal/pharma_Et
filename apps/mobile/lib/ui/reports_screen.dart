@@ -279,6 +279,13 @@ class _SalesSummaryScreen extends StatelessWidget {
                         value: formatBirr(summary.total.creditSantim),
                         unit: 'ETB',
                         valueColor: PharmaColors.amber),
+                  // How much of the total went to clinics and organisations (FR-19).
+                  // Only where there was some — most pharmacies have one price list.
+                  if (summary.total.wholesaleSantim > 0)
+                    PTile(
+                        label: context.t('reports.wholesale'),
+                        value: formatBirr(summary.total.wholesaleSantim),
+                        unit: 'ETB'),
                 ],
               ),
               PSection(context.t('reports.byBranch')),

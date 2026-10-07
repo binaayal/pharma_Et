@@ -10,6 +10,8 @@ export interface BranchSalesRow {
   otherTenderSantim: number;
   /** Sold on credit in the window: revenue, not yet money (FR-16). */
   creditSantim: number;
+  /** The part of gross rung up on the wholesale price list (FR-19). */
+  wholesaleSantim: number;
   itemsSold: number;
 }
 
@@ -25,6 +27,8 @@ export interface SalesSummary {
     otherTenderSantim: number;
     /** Sold on credit in the window: revenue, not yet money (FR-16). */
     creditSantim: number;
+    /** The part of gross rung up on the wholesale price list (FR-19). */
+    wholesaleSantim: number;
     itemsSold: number;
   };
   /**
@@ -66,6 +70,8 @@ export class SalesSummaryService {
              b.name                                          AS "branchName",
              count(DISTINCT s.id)::int                        AS "saleCount",
              coalesce(sum(s.total_santim), 0)::bigint         AS "grossSantim",
+             coalesce(sum(s.total_santim) FILTER (WHERE s.price_tier = 'wholesale'), 0)::bigint
+                                                              AS "wholesaleSantim",
              coalesce(sum(pay.cash), 0)::bigint               AS "cashSantim",
              coalesce(sum(pay.other), 0)::bigint              AS "otherTenderSantim",
              coalesce(sum(pay.credit), 0)::bigint             AS "creditSantim",
@@ -104,6 +110,7 @@ export class SalesSummaryService {
       cashSantim: Number(r.cashSantim),
       otherTenderSantim: Number(r.otherTenderSantim),
       creditSantim: Number(r.creditSantim),
+      wholesaleSantim: Number(r.wholesaleSantim),
       itemsSold: Number(r.itemsSold),
     }));
 
@@ -123,6 +130,7 @@ export class SalesSummaryService {
         cashSantim: branches.reduce((n, b) => n + b.cashSantim, 0),
         otherTenderSantim: branches.reduce((n, b) => n + b.otherTenderSantim, 0),
         creditSantim: branches.reduce((n, b) => n + b.creditSantim, 0),
+        wholesaleSantim: branches.reduce((n, b) => n + b.wholesaleSantim, 0),
         itemsSold: branches.reduce((n, b) => n + b.itemsSold, 0),
       },
       lastSyncedAt: lastSyncedAt ? new Date(lastSyncedAt).toISOString() : null,
