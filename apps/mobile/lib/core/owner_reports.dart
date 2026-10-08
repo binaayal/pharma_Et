@@ -75,6 +75,9 @@ class DailySummary {
     required this.priceChanges,
     required this.stockWriteOffs,
     required this.expiredDispenses,
+    this.payableSantim = 0,
+    this.suppliersOwed = 0,
+    this.paidToSuppliersSantim = 0,
     this.lastSyncedAt,
   });
 
@@ -84,7 +87,14 @@ class DailySummary {
     final credit = j['credit'] as Map<String, dynamic>;
     final stock = j['stock'] as Map<String, dynamic>;
     final attention = j['attention'] as Map<String, dynamic>;
+    // Absent from a server that predates suppliers in the summary — which reads as
+    // nothing owed, and the lines are simply not shown.
+    final payables =
+        (j['payables'] as Map<String, dynamic>?) ?? const <String, dynamic>{};
     return DailySummary(
+      payableSantim: _int(payables['owedSantim']),
+      suppliersOwed: _int(payables['suppliersOwed']),
+      paidToSuppliersSantim: _int(payables['paidSantim']),
       saleCount: _int(sales['saleCount']),
       grossSantim: _int(sales['grossSantim']),
       cashSantim: _int(sales['cashSantim']),
@@ -133,6 +143,12 @@ class DailySummary {
   final int repaidSantim;
   final int owedSantim;
   final int customersOwing;
+
+  /// What the pharmacy owes its suppliers right now (FR-18), how many of them, and what
+  /// was paid to suppliers in the day.
+  final int payableSantim;
+  final int suppliersOwed;
+  final int paidToSuppliersSantim;
   final int lowCount;
   final List<LowStockItem> low;
   final int expiringBatches;
@@ -194,6 +210,12 @@ class DailySummary {
         'n': customersOwing,
         'repaid': formatMoney(repaidSantim),
       }),
+      if (payableSantim > 0 || paidToSuppliersSantim > 0)
+        f('day.text.payable', {
+          'owed': formatMoney(payableSantim),
+          'n': suppliersOwed,
+          'paid': formatMoney(paidToSuppliersSantim),
+        }),
       if (lowCount > 0)
         f('day.text.low', {
           'n': lowCount,

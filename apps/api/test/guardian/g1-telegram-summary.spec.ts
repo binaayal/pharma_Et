@@ -456,6 +456,7 @@ describe('G1 — daily summary on Telegram', () => {
           },
           shifts: [],
           credit: { repaidSantim: 0, owedSantim: 0, customersOwing: 0 },
+          payables: { paidSantim: 5000, owedSantim: 123400, suppliersOwed: 2 },
           stock: { lowCount: 0, low: [], expiringBatches: 0, oversoldBatches: 0 },
           attention: { priceChanges: 0, stockWriteOffs: 0, expiredDispenses: 0 },
           lastSyncedAt: null,
@@ -468,6 +469,7 @@ describe('G1 — daily summary on Telegram', () => {
       expect(text).toContain('Cash is over by 3.00.');
       expect(text).not.toContain('2.00');
       expect(text).toContain('Tills still open and not counted: 1.');
+      expect(text).toContain('You owe suppliers: 1,234.00 (suppliers: 2) · paid 50.00');
     });
 
     it('takes the shop’s day in Addis Ababa, not the server’s', () => {

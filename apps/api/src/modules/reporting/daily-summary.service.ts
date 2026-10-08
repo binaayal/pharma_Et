@@ -57,6 +57,14 @@ export interface DailySummary {
     owedSantim: number;
     customersOwing: number;
   };
+  /** What the pharmacy owes its suppliers (FR-18, ADR-038). */
+  payables: {
+    /** Paid to suppliers in the window, by any tender. */
+    paidSantim: number;
+    /** Everything owed to suppliers right now. Not windowed: a debt is a balance. */
+    owedSantim: number;
+    suppliersOwed: number;
+  };
   stock: {
     lowCount: number;
     /** The lowest few, for the line an owner actually reads. */
@@ -119,6 +127,15 @@ export class DailySummaryService {
          FROM customer WHERE deleted_at IS NULL`,
     );
 
+    // Tenant-wide, like what customers owe: a supplier is owed by the pharmacy, not a
+    // branch. A supplier paid ahead does not reduce what is owed to the others.
+    const [payable] = await em.query(
+      `SELECT coalesce(sum(balance_santim) FILTER (WHERE balance_santim > 0), 0)::bigint AS total,
+              count(*) FILTER (WHERE balance_santim > 0)::int AS suppliers
+         FROM supplier WHERE deleted_at IS NULL`,
+    );
+    const paidToSuppliers = await this.paidToSuppliers(em, from, to, branchIds);
+
     const low = await this.lowStock(em, branchIds);
     const batches = await this.batchCounts(em, branchIds);
     const audit = await this.attention(em, from, to, branchIds);
@@ -148,6 +165,11 @@ export class DailySummaryService {
         repaidSantim,
         owedSantim: Number(owed.total),
         customersOwing: Number(owed.customers),
+      },
+      payables: {
+        paidSantim: paidToSuppliers,
+        owedSantim: Number(payable.total),
+        suppliersOwed: Number(payable.suppliers),
       },
       stock: {
         lowCount: low.length,
@@ -234,6 +256,28 @@ export class DailySummaryService {
     const [row] = await em.query(
       `SELECT coalesce(sum(amount_santim), 0)::bigint AS total
          FROM credit_payment
+        WHERE deleted_at IS NULL AND paid_at >= $1 AND paid_at < $2
+          ${branchFilter}`,
+      params,
+    );
+    return Number(row.total);
+  }
+
+  private async paidToSuppliers(
+    em: EntityManager,
+    from: Date,
+    to: Date,
+    branchIds: string[] | null,
+  ): Promise<number> {
+    const params: unknown[] = [from.toISOString(), to.toISOString()];
+    let branchFilter = '';
+    if (branchIds !== null) {
+      params.push(branchIds);
+      branchFilter = 'AND branch_id = ANY($3::uuid[])';
+    }
+    const [row] = await em.query(
+      `SELECT coalesce(sum(amount_santim), 0)::bigint AS total
+         FROM supplier_payment
         WHERE deleted_at IS NULL AND paid_at >= $1 AND paid_at < $2
           ${branchFilter}`,
       params,

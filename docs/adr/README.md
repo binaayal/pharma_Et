@@ -47,5 +47,6 @@ quietly work around an accepted ADR in code.
 | [ADR-037](ADR-037-price-tiers.md) | Price tiers: a second price on the product, a tier on the sale | Accepted |
 | [ADR-038](ADR-038-suppliers-and-payables.md) | Suppliers and what is owed to them: the credit ledger, turned round | Accepted |
 | [ADR-039](ADR-039-daily-summary-on-telegram.md) | The daily summary arrives on the owner's Telegram | Accepted |
+| [ADR-040](ADR-040-sync-authorises-by-operation-type.md) | Sync checks the permission matrix for each kind of operation | Accepted |
 
 Status values: Proposed · Accepted · Superseded (by ADR-nnn) · Deprecated

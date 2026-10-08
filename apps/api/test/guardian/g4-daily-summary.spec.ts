@@ -12,6 +12,8 @@ import {
   saleInShift,
   saleOp,
   shiftOp,
+  supplierOp,
+  supplierPaymentOp,
 } from '../helpers/build-ops';
 
 /**
@@ -178,6 +180,62 @@ describe('G4 — daily summary', () => {
       const s = await summary(a, 'from=2026-09-24&to=2026-09-25');
       expect(s.shifts).toEqual([]);
       expect(s.cash.shortageSantim).toBe(0);
+    });
+  });
+
+  describe('money the pharmacy owes (FR-18)', () => {
+    it('shows what is owed to suppliers and what was paid to them today', async () => {
+      const epss = uuidv7();
+      const addis = uuidv7();
+      const onAccount = (seq: number, supplierId: string, owedSantim: number) => {
+        const op = receiptOp(a, {
+          terminalSeq: seq,
+          qty: 10,
+          lotNo: `L${seq}`,
+          expiryDate: '2028-12-31',
+        });
+        return { ...op, payload: { ...op.payload, supplierId, owedSantim } };
+      };
+      const first = await push(
+        a,
+        [
+          supplierOp(a, { terminalSeq: 1, supplierId: epss, name: 'EPSS' }),
+          supplierOp(a, { terminalSeq: 2, supplierId: addis, name: 'Addis Pharma' }),
+          onAccount(3, epss, 8000), // owed 80.00
+          supplierPaymentOp(a, { terminalSeq: 4, supplierId: epss, amountSantim: 3000 }),
+          // Paid 20.00 to a supplier owed nothing: 20.00 ahead.
+          supplierPaymentOp(a, { terminalSeq: 5, supplierId: addis, amountSantim: 2000 }),
+        ],
+        'manager',
+      );
+      expect(first.body.acks.filter((k: { status: string }) => k.status !== 'applied')).toEqual([]);
+
+      // Supplier payments in the fixtures are dated 8 October.
+      const s = await summary(a, 'from=2026-10-08&to=2026-10-09');
+      expect(s.payables.paidSantim).toBe(5000);
+      // EPSS's 50.00. The 20.00 Addis Pharma holds does not reduce it.
+      expect(s.payables.owedSantim).toBe(5000);
+      expect(s.payables.suppliersOwed).toBe(1);
+    });
+
+    it('is zero, not missing, for a pharmacy with no suppliers', async () => {
+      const s = await summary();
+      expect(s.payables).toEqual({ paidSantim: 0, owedSantim: 0, suppliersOwed: 0 });
+    });
+
+    it('never includes what another pharmacy owes', async () => {
+      const id = uuidv7();
+      const op = receiptOp(b, { terminalSeq: 2, qty: 10, lotNo: 'L', expiryDate: '2028-12-31' });
+      await push(
+        b,
+        [
+          supplierOp(b, { terminalSeq: 1, supplierId: id }),
+          { ...op, payload: { ...op.payload, supplierId: id, owedSantim: 8000 } },
+        ],
+        'manager',
+      );
+      expect((await summary(a)).payables.owedSantim).toBe(0);
+      expect((await summary(b)).payables.owedSantim).toBe(8000);
     });
   });
 

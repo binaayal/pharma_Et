@@ -104,16 +104,19 @@ the same gates as V1 (`06` §4, §7).
 | # | Item | State |
 |---|---|---|
 | 1 | **FR-11 sell units** — it was unverified; it was verified missing, so it went first | **Built** — ADR-030, contract 1.5.0 |
-| 2 | **FR-12 pre-loaded catalogue** | **Built** — the 2024 Essential Medicines List as suggestions in the product form. The drug-shop and OTC lists are not in it yet |
-| 3 | **FR-13 barcode scan** | **Built; needs a real phone and real boxes** — ADR-031, contract 1.6.0 |
+| 2 | **FR-12 pre-loaded catalogue** | **Built** — the 2024 Essential Medicines List: a screen to tick from and price in one go, and suggestions in the product form. The drug-shop and OTC lists are not in it yet |
+| 3 | **FR-13 barcode scan** | **Built** — ADR-031, contract 1.6.0. Decoding proven on a handset from pictures; **a box in front of the lens is still untested** |
 | 4 | **FR-14 receipts** — share first (a day's work), then Bluetooth printing | **Half built** — share, and print through the phone's print system (ADR-032). **Bluetooth thermal printing is not built**: it needs a printer in hand |
 | 5 | **FR-15 backup and restore**, and the hosting decision (§6) | **Built** — ADR-033. Hosting **decided 2026-10-07: stay on the free tiers** (§6) |
 | 6 | **FR-16 credit ledger** | **Built** — ADR-034, contract 1.7.0 |
-| 7 | **FR-17 audit trail and daily summary on the phone** | **Built** — ADR-035. The summary is opened and shared, **not pushed** (§6, decision 5) |
+| 7 | **FR-17 audit trail and daily summary on the phone** | **Built** — ADR-035; **delivered each evening on the owner's Telegram** — ADR-039, sent for real 2026-10-08 |
 | 8 | **FR-7a reorder, FR-8a profit and dead stock, and FR-18's return list** | **Built** — ADR-036, worked out on the phone |
 | 9 | **FR-19 price tiers** | **Built** — ADR-037, contract 1.8.0 |
 | 10 | **FR-18 suppliers and what is owed to them** | **Built** — ADR-038, contract 1.9.0. Purchase orders as stored records are not built; the reorder list is shared as text |
-| 11 | FR-20 CBHI export | **Blocked on the owner**: needs the claim form's actual fields (§6) |
+| 11 | FR-20 CBHI export | **Not in 2.0.** Blocked on the owner: needs the claim form's actual fields (§6) |
+
+**V2 is closed at this table.** What 2.0 is, what was verified where, and what to do before
+selling it: [`08-v2-release.md`](08-v2-release.md).
 
 **Why FR-11 is first and not merely important.** FR-12 loads a catalogue of products, FR-13
 attaches barcodes to them, FR-8a computes margin from their cost. All three are built on what

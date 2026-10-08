@@ -95,6 +95,9 @@ Anyone who may receive goods sees suppliers and what is owed: they took the deli
 **Paying a supplier is offered to the owner and a branch manager only** — the people who
 already manage the catalogue. No new capability, so the FR-2 matrix is unchanged.
 
+> **Closed by ADR-040 (2026-10-08).** The server now refuses a `supplier_payment` from a
+> role that may not make one. The paragraph below describes how it stood on the day.
+
 That gate is on the phone. The sync endpoint does not check a capability per operation type
 — it never has, for any operation — so the server accepts a `supplier_payment` from any
 authenticated member of the tenant. What the server guarantees is the record: who, when,
@@ -133,8 +136,9 @@ the previous release runs unchanged on the new schema. Local schema v9, additive
 - **Receipts before this have no supplier account.** The return list (ADR-036) still groups
   them by name; they are not retro-linked, because a guess at which "Epss" was meant would
   put a figure on the wrong account.
-- **The daily summary does not yet say what is owed to suppliers.** The Suppliers screen
-  does. Adding it to the summary is small and separate.
+- ~~The daily summary does not yet say what is owed to suppliers.~~ It does, from
+  2026-10-08: what is owed, to how many, and what was paid in the day — on the screen and
+  in the Telegram message.
 - **Sync does not authorise by operation type** (§7). True before this change and for every
   operation; this is the first where the phone-side gate guards money leaving the business.
 
