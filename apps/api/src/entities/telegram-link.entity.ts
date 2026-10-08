@@ -1,4 +1,12 @@
-import { Column, CreateDateColumn, Entity, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryColumn,
+  UpdateDateColumn,
+  VersionColumn,
+} from 'typeorm';
+import { bigintTransformer } from '../common/transformers/numeric.transformer';
 
 /**
  * Where one person's end-of-day summary is delivered on Telegram (FR-17, ADR-039).
@@ -47,4 +55,12 @@ export class TelegramLink {
 
   @Column('timestamptz', { name: 'deleted_at', nullable: true })
   deletedAt: Date | null;
+
+  /** Carried by every tenant table (docs/04 §2). */
+  @VersionColumn({ name: 'row_version' })
+  rowVersion: number;
+
+  /** Always 0: no terminal pulls this table. Present so the convention has no exceptions. */
+  @Column('bigint', { name: 'change_seq', default: 0, transformer: bigintTransformer })
+  changeSeq: number;
 }

@@ -39,6 +39,10 @@ export class TelegramSummary1760200000000 implements MigrationInterface {
         "created_at"      timestamptz NOT NULL DEFAULT now(),
         "updated_at"      timestamptz NOT NULL DEFAULT now(),
         "deleted_at"      timestamptz,
+        -- The columns every tenant table carries (docs/04 §2). No terminal syncs this
+        -- table, so change_seq stays 0; it is here so the convention has no exceptions.
+        "row_version"     integer NOT NULL DEFAULT 1,
+        "change_seq"      bigint NOT NULL DEFAULT 0,
         CONSTRAINT "telegram_link_language_known" CHECK ("message_language" IN ('en', 'am'))
       );
       -- One link per person. Asking again replaces the code; it does not add a row.

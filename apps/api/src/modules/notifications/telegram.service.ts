@@ -115,6 +115,7 @@ export class TelegramService {
           locale,
           linkedAt: null,
           lastSentFor: null,
+          changeSeq: 0,
           deletedAt: null,
         });
       }
