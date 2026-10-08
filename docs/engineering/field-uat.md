@@ -289,6 +289,20 @@ front of it remains the first row of §4.5.
     seen it. It is now a screen of its own, offered first.
 13. "1 sales or receipts" on the backup screen. Reworded so the count reads right for one.
 
+**Fifth pass, 2026-10-08: the daily summary on Telegram** (version 2.0.0, code 69, commit
+`be54fe2`; the owner had created a bot and put its token on the server that morning).
+
+| What was done | Result |
+|---|---|
+| The server, on restart with the token | **Pass.** It registered its own webhook with Telegram; Telegram reported the live URL and no delivery errors |
+| The two routes with no sign-in, called without their secret | **Pass.** Both answered 404 on the live server |
+| Connect Telegram | **Pass.** The app opened the bot's chat with a one-time link; the bot replied "Connected to ttt. You will get the day's summary here each evening." Back in the app, the screen had already changed to Connected, without a tap |
+| Send today's summary now | **Pass.** The message arrived within seconds, and its figures were the day's: 1 sale · ETB 80, cash 80.00, two tills still open, 300.00 owed by one customer, three products running low. The screen then read "Last sent for 2026-10-08" |
+| Build 68 fixes, same morning | **Pass.** The sale-complete screen says "Wholesale"; the backup notice reads "Sales and receipts not yet on the server: 1" |
+
+**Not shown:** the evening schedule sending by itself. The repository secret it needs was
+not yet set when this pass was run, and a day already sent is skipped by design.
+
 **Not done in any pass:** a barcode read through the lens; a restore onto a *second* phone
 (the merge onto a fresh database is held by `g7_backup_restore_test.dart`); a session as a
 cashier — signing out would have needed the owner's password to get back in.
