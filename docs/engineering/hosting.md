@@ -222,3 +222,39 @@ Migrations only move forward, so the previous image runs on the new schema (docs
 curl -X POST "$RENDER_DEPLOY_HOOK_URL&imgURL=ghcr.io%2Fbinaayal%2Fpharma_et%2Fapi%3Asha-1a2b3c4d5e6f"
 ./scripts/smoke-live.sh https://pharmaet-2yw8.onrender.com
 ```
+
+## 13. The daily summary on Telegram (5 min) — *optional*
+
+Each evening the owner of every pharmacy that asked for it gets the day's summary in
+Telegram (ADR-039). It is **off until you do this**, and nothing else depends on it.
+
+1. **Create the bot.** In Telegram, open **@BotFather** → `/newbot` → give it a name
+   (e.g. *PharmaEt*) and a username ending in `bot` (e.g. `pharmaet_summary_bot`). BotFather
+   replies with a **token** like `1234567890:AA…`. Treat it as a password.
+2. **Make a dispatch secret** on your machine: `openssl rand -hex 24`.
+3. **Render** → the `pharmaet` service → **Environment** → add, then save (it redeploys):
+
+   | Key | Value |
+   |---|---|
+   | `TELEGRAM_BOT_TOKEN` | the token from BotFather |
+   | `TELEGRAM_BOT_USERNAME` | the bot's username, without `@` |
+   | `SUMMARY_DISPATCH_SECRET` | the secret from step 2 |
+
+   On start the server tells Telegram where to deliver what people type to the bot; the log
+   says `telegram webhook registered`.
+4. **GitHub** → the repository → Settings → Secrets and variables → Actions → **New
+   repository secret** → `SUMMARY_DISPATCH_SECRET`, the *same* value as step 2.
+5. **Check it.** In the app as the owner: More → **Daily summary on Telegram** → Connect
+   Telegram → press **Start** in Telegram → back in the app, **Send today's summary now**.
+   Then GitHub → Actions → *daily summary* → **Run workflow**: the run's summary should say
+   `HTTP 200` and `"skipped": 1` (it was already sent for today).
+
+**What goes where.** The token is on Render only. The dispatch secret is on Render and in
+GitHub. Neither is in the repository, the app, or any log. If the token leaks: BotFather →
+`/revoke`, put the new one on Render — the webhook secret is derived from it and rotates
+with it.
+
+**When it does not arrive.** Actions → *daily summary* shows each evening's run. `HTTP 404`
+means the two copies of the dispatch secret differ. A run that is simply late is GitHub's
+scheduler under load. On a paid plan that stays awake, replace the workflow with any
+scheduler calling the same endpoint.

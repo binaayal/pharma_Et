@@ -200,6 +200,9 @@ class HelpGuide {
           '"Today\'s summary" puts the whole day on one screen: sales, whether each till '
               'balanced, what customers owe and what is running low. Tap "Share this '
               'summary" to send it to yourself.',
+          'To have that summary arrive by itself each evening: More → "Daily summary on '
+              'Telegram" → "Connect Telegram". Telegram opens — tap Start there and come '
+              'back. Only the owner can set this up, and can stop it at any time.',
           '"Where the money is" works without internet: what to buy before it runs out, '
               'what earned most in 30 days, what has not sold in 60 days, and what is close '
               'to expiry and could go back to its supplier. Each list can be shared.',
@@ -480,6 +483,9 @@ class HelpGuide {
           'የገንዘብ ቆጠራና ልዩነት እያንዳንዱን ፈረቃና ማንኛውንም ጉድለት ያሳያል።',
           '«የዛሬ ማጠቃለያ» ሙሉውን ቀን በአንድ ገጽ ያሳያል፦ ሽያጭ፣ እያንዳንዱ ካሻ መመጣጠኑን፣ የደንበኞች '
               'ዕዳ እና እያለቀ ያለ ክምችት። ለራስዎ ለመላክ «ይህን ማጠቃለያ አጋራ» ይንኩ።',
+          'ያ ማጠቃለያ በየምሽቱ በራሱ እንዲደርስዎ፦ ተጨማሪ → «የዕለቱ ማጠቃለያ በቴሌግራም» → «ቴሌግራምን አገናኝ»። '
+              'ቴሌግራም ይከፈታል — እዚያ Start ነክተው ይመለሱ። ይህን ማዘጋጀት የሚችለው ባለቤቱ ብቻ ነው፤ '
+              'በማንኛውም ጊዜ ማቆምም ይችላል።',
           '«ገንዘቡ የት እንዳለ» ያለ ኢንተርኔት ይሠራል፦ ከማለቁ በፊት የሚገዛ፣ በ30 ቀናት ብዙ ያተረፈ፣ በ60 ቀናት '
               'ያልተሸጠ፣ እና ጊዜው ሊያልፍ የተቃረበና ለአቅራቢው ሊመለስ የሚችል። እያንዳንዱ ዝርዝር ሊጋራ ይችላል።',
           'ባለቤቶች «የእንቅስቃሴ መዝገብ»ም አላቸው፦ ዋጋ የቀየረ፣ ክምችት የሰረዘ ወይም ሠራተኛ የጨመረ ማን '

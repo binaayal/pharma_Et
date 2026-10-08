@@ -1,0 +1,69 @@
+name: daily summary
+
+# The evening bell (ADR-039 §3).
+#
+# The server is on a free tier that sleeps when idle, so it cannot wake itself at closing
+# time. This does: once each evening it makes one request, which wakes the instance and
+# tells it to send every linked owner their day's summary on Telegram.
+#
+# It carries no data and gets none back — the response is three counts. Sending the same
+# evening twice is harmless: the server records the day it sent for.
+#
+# 17:30 UTC is 20:30 in Addis Ababa. GitHub may run a scheduled job late when it is busy;
+# for an end-of-day message, a quarter of an hour either way does not matter.
+
+on:
+  schedule:
+    - cron: '30 17 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: daily-summary
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: ask the server to send today's summaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Send
+        env:
+          API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
+          SUMMARY_DISPATCH_SECRET: ${{ secrets.SUMMARY_DISPATCH_SECRET }}
+        run: |
+          if [ -z "$API_BASE_URL" ] || [ -z "$SUMMARY_DISPATCH_SECRET" ]; then
+            echo "### Not sent — Telegram delivery is not set up" >> "$GITHUB_STEP_SUMMARY"
+            echo "Set the repository secret \`SUMMARY_DISPATCH_SECRET\` (docs/engineering/hosting.md §13)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # A sleeping instance takes up to a minute to answer its first request, so wake
+          # it on the health check before sending the one that matters.
+          for attempt in 1 2 3 4 5 6; do
+            if curl --silent --fail --max-time 60 "$API_BASE_URL/health" > /dev/null; then
+              break
+            fi
+            echo "server not awake yet (attempt $attempt)"
+            sleep 15
+          done
+
+          # The secret travels in a header, never in the URL, and curl is not asked to echo
+          # it. The body that comes back is counts only.
+          status=$(curl --silent --show-error --max-time 180 \
+            --output response.json --write-out '%{http_code}' \
+            --request POST \
+            --header "x-dispatch-secret: $SUMMARY_DISPATCH_SECRET" \
+            "$API_BASE_URL/internal/summary-dispatch")
+
+          echo "### Daily summary dispatch — HTTP $status" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != "200" ]; then
+            echo "The server did not accept the dispatch. A 404 means the secret here and the one on the server differ, or the server has none." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat response.json >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

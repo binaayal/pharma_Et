@@ -8,6 +8,7 @@ import 'backup_screen.dart';
 import 'cash_up_screen.dart';
 import 'customers_screen.dart';
 import 'suppliers_screen.dart';
+import 'summary_delivery_screen.dart';
 import 'delete_account_screen.dart';
 import 'help_screen.dart';
 import 'kit.dart';
@@ -113,6 +114,16 @@ class SettingsScreen extends StatelessWidget {
                 chevron: true,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => const StaffScreen())),
+              ),
+            if (t.can(Capability.settingsConfigure))
+              PRow(
+                title: context.t('tg.title'),
+                subtitle: context.t('tg.sub'),
+                avatarIcon: Icons.send_outlined,
+                avatarTone: Tone.blue,
+                chevron: true,
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const SummaryDeliveryScreen())),
               ),
             if (t.can(Capability.settingsConfigure))
               PRow(

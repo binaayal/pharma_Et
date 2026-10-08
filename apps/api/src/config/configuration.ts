@@ -47,6 +47,18 @@ const envSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   S3_REGION: z.string().default('auto'),
 
+  /**
+   * The end-of-day summary on Telegram (ADR-039). All optional: with no bot token the
+   * feature is off and says so, and nothing else changes. The token comes from @BotFather.
+   */
+  TELEGRAM_BOT_TOKEN: z.string().min(20).optional(),
+  TELEGRAM_BOT_USERNAME: z.string().min(3).optional(),
+  /** Shared with the evening schedule that asks for the summaries to be sent. */
+  SUMMARY_DISPATCH_SECRET: z.string().min(24).optional(),
+  /** This service's own address, for the Telegram webhook. Render supplies its own. */
+  PUBLIC_BASE_URL: z.string().url().optional(),
+  RENDER_EXTERNAL_URL: z.string().url().optional(),
+
   PROOF_ENCRYPTION_KEY: z
     .string()
     .optional()

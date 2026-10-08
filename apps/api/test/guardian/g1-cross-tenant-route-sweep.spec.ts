@@ -58,6 +58,35 @@ const ROUTES: Record<string, RouteSpec> = {
       'the person asking has no account yet. It can only create a request that a human ' +
       'reviews — never a tenant, user or subscription (ADR-022)',
   },
+  'POST /api/telegram/webhook': {
+    cls: 'unauthenticated',
+    why:
+      'Telegram calling, with no session. Authenticated by a secret header compared in ' +
+      'constant time, and 404 without it. What it can do is redeem a one-time code that ' +
+      'only a signed-in owner can mint (ADR-039)',
+  },
+  'POST /api/internal/summary-dispatch': {
+    cls: 'unauthenticated',
+    why:
+      'the evening schedule, with no session. A secret header, 404 without it. It returns ' +
+      'counts only; each summary is computed inside its own tenant scope (ADR-039)',
+  },
+  'GET /api/notifications/telegram': {
+    cls: 'tenant',
+    why: 'whether the caller has a chat linked; owner only',
+  },
+  'POST /api/notifications/telegram/link': {
+    cls: 'tenant',
+    why: 'mints a one-time linking code for the caller; owner only',
+  },
+  'DELETE /api/notifications/telegram/link': {
+    cls: 'tenant',
+    why: 'unlinks the caller’s own chat; owner only',
+  },
+  'POST /api/notifications/telegram/test': {
+    cls: 'tenant',
+    why: 'sends the caller’s own pharmacy’s summary to the caller’s own chat; owner only',
+  },
   'POST /api/auth/refresh': {
     cls: 'unauthenticated',
     why:

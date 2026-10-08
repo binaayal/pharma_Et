@@ -94,6 +94,7 @@ answer, permanently.
 | [ADR-036](adr/ADR-036-insights-on-the-phone.md) | Reorder, profit, dead stock and returns are worked out on the phone | Accepted |
 | [ADR-037](adr/ADR-037-price-tiers.md) | Price tiers: a second price on the product, a tier on the sale | Accepted |
 | [ADR-038](adr/ADR-038-suppliers-and-payables.md) | Suppliers and what is owed to them: the credit ledger, turned round | Accepted |
+| [ADR-039](adr/ADR-039-daily-summary-on-telegram.md) | The daily summary arrives on the owner's Telegram | Accepted |
 
 ---
 
