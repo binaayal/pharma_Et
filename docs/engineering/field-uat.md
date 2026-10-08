@@ -300,6 +300,14 @@ front of it remains the first row of §4.5.
 | Send today's summary now | **Pass.** The message arrived within seconds, and its figures were the day's: 1 sale · ETB 80, cash 80.00, two tills still open, 300.00 owed by one customer, three products running low. The screen then read "Last sent for 2026-10-08" |
 | Build 68 fixes, same morning | **Pass.** The sale-complete screen says "Wholesale"; the backup notice reads "Sales and receipts not yet on the server: 1" |
 
+**Sixth pass, same day: the 2.0 release build** (code 71, commit `e13c918`, server on the
+same commit). Today's summary shows "You owe suppliers 150.00 · Suppliers owed: 1" beside
+what customers owe, and "Send today's summary now" delivered the same line to Telegram:
+"You owe suppliers: 150.00 (suppliers: 1) · paid 0.00". A `/start` carrying an
+already-used code reached the bot and was refused with directions; the link stayed
+connected. The evening schedule, run by hand once its secret was set, succeeded. This is
+the build attached to the draft release `v2.0.0`.
+
 **Not shown:** the evening schedule sending by itself. The repository secret it needs was
 not yet set when this pass was run, and a day already sent is skipped by design.
 
