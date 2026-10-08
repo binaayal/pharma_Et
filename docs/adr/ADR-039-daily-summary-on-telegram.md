@@ -136,5 +136,7 @@ and creating one is the service owner's act (`hosting.md` §13) — it cannot be
 - Route classification: both unauthenticated routes are in `g1-cross-tenant-route-sweep`.
 - Phone: `apps/mobile/test/widget/summary_delivery_screen_test.dart` (13) — never says
   Connected before the server does; says plainly when there is no bot, and when offline.
-- **Not shown by any test: a message actually arriving.** That needs a real bot, which did
-  not exist when this was written (`hosting.md` §13, `engineering/field-uat.md` §4.5).
+- **A message arriving: shown on a real phone, 2026-10-08**, once the owner had created a
+  bot (`engineering/field-uat.md` §7.1, fifth pass) — the webhook registering itself on
+  start, the link, the confirmation and "send it now". **Still not shown: the scheduled
+  evening run**, which had not yet fired with its secret set.
