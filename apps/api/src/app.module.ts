@@ -21,6 +21,7 @@ import { HealthController } from './modules/health/health.controller';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { LedgerModule } from './modules/ledger/ledger.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SyncModule } from './modules/sync/sync.module';
 
 /**
@@ -87,6 +88,7 @@ function appConnectionUrl(config: ConfigService): string {
     InventoryModule,
     SyncModule,
     ReportingModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [

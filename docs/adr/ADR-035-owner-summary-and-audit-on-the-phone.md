@@ -47,6 +47,10 @@ A till opened and never counted is reported as open, not left out.
 
 ### 3. The summary is opened, and shared; it is not pushed
 
+> **Superseded by ADR-039 (2026-10-07).** The owner chose Telegram, and the objection
+> below — nothing runs at closing time on a sleeping server — is met by a scheduled job
+> that wakes it. The rest of this section is kept as the reasoning of its day.
+
 The owner opens "Today's summary" under Reports, and can share it as a short text message
 to their own chat. **It does not arrive by itself**, and that is a decision, not an
 omission:

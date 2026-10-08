@@ -165,12 +165,10 @@ Engineering can settle everything else from the documents. These it cannot:
    claim form asks for, and that form is not in this repository. Supplying it — or one
    filled-in example — turns FR-20 from a guess into an afternoon. It also decides how much
    about the patient the app would hold, which `01` §2.3 has so far kept at nothing.
-5. **Whether the daily summary should arrive by itself.** FR-17 gives the owner a summary
-   they open and can share. Having it *arrive* each evening needs one of: Firebase push (a
-   Google project and credentials — your account to create), SMS (a gateway and a cost per
-   message), or a Telegram bot (free, but needs a server that is awake at closing time,
-   which the free tier in decision 1 is not). The endpoint that any of them would send is
-   built; choosing and paying for the channel is yours (ADR-035 §3).
+5. ~~Whether the daily summary should arrive by itself.~~ **Decided 2026-10-07: Telegram**
+   (ADR-039). Built: the owner connects their own Telegram from the app, and a scheduled job
+   wakes the free-tier server each evening to send. It stays off until you create the bot
+   and set three values — `engineering/hosting.md` §13, about five minutes.
 4. **What the receipt is, legally.** FR-14 prints a slip that states the sale. Whether that
    slip can replace the receipt a registered sales machine produces — and so whether a shop
    may actually retire its till — is the Ministry of Revenue's rule to state, not ours.

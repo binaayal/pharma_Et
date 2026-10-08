@@ -42,6 +42,13 @@ class TenantApi {
     return _decode(response);
   }
 
+  Future<dynamic> _delete(String path, String token) async {
+    final response = await _client
+        .delete(Uri.parse('$baseUrl$path'), headers: _headers(token))
+        .timeout(_timeout);
+    return _decode(response);
+  }
+
   dynamic _decode(http.Response response) {
     if (response.statusCode >= 400) {
       throw ApiException(_messageOf(response.body), response.statusCode);
@@ -81,6 +88,31 @@ class TenantApi {
         '&to=${to.toUtc().toIso8601String()}',
         token) as Map<String, dynamic>;
     return DailySummary.fromJson(json);
+  }
+
+  // ------------------------------------------------ the summary on Telegram (ADR-039)
+
+  /// Whether this service has a bot, and whether the caller has linked a chat to it.
+  Future<TelegramStatus> telegramStatus(String token) async =>
+      TelegramStatus.fromJson(
+          await _get('/notifications/telegram', token) as Map<String, dynamic>);
+
+  /// A one-time link into the bot. Opening it and pressing Start is what links the chat.
+  Future<Uri> telegramLink(String token, {required String locale}) async {
+    final json = await _post('/notifications/telegram/link', {'locale': locale},
+        token: token) as Map<String, dynamic>;
+    return Uri.parse(json['url'] as String);
+  }
+
+  Future<void> telegramUnlink(String token) =>
+      _delete('/notifications/telegram/link', token);
+
+  /// Sends today's summary to the caller's own chat now. False when no chat is linked.
+  Future<bool> telegramSendNow(String token) async {
+    final json =
+        await _post('/notifications/telegram/test', const {}, token: token)
+            as Map<String, dynamic>;
+    return json['sent'] == true;
   }
 
   /// The audit trail, newest first (FR-17). Owner only; the server refuses anyone else.
@@ -328,6 +360,35 @@ class ApiException implements Exception {
 }
 
 // ------------------------------------------------------------------- read models
+
+/// Where the owner's end-of-day summary is delivered (ADR-039).
+class TelegramStatus {
+  const TelegramStatus({
+    required this.available,
+    required this.linked,
+    this.botUsername,
+    this.linkedAt,
+    this.lastSentFor,
+  });
+  factory TelegramStatus.fromJson(Map<String, dynamic> j) => TelegramStatus(
+        available: j['available'] == true,
+        linked: j['linked'] == true,
+        botUsername: j['botUsername'] as String?,
+        linkedAt: j['linkedAt'] == null
+            ? null
+            : DateTime.tryParse(j['linkedAt'] as String),
+        lastSentFor: j['lastSentFor'] as String?,
+      );
+
+  /// Whether the service has a bot at all. False on a server where nobody has set one up.
+  final bool available;
+  final bool linked;
+  final String? botUsername;
+  final DateTime? linkedAt;
+
+  /// The day (`YYYY-MM-DD`) the last summary was sent for, if any has been.
+  final String? lastSentFor;
+}
 
 int _int(Object? v) => v == null ? 0 : (v as num).toInt();
 

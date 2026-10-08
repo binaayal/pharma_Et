@@ -48,3 +48,12 @@ services:
         sync: false
       - key: PROOF_ENCRYPTION_KEY
         sync: false
+      # The end-of-day summary on Telegram (ADR-039, hosting.md §13). All three optional:
+      # left unset, the feature is off and says so, and nothing else changes.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      # The same value as the GitHub repository secret of the same name.
+      - key: SUMMARY_DISPATCH_SECRET
+        sync: false
