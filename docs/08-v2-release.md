@@ -40,7 +40,7 @@ isolation, sync integrity, money, stock, the ledger, offline) and the phone's ow
 merges without them. Money is exact to the santim; one pharmacy never sees another's rows; a
 replayed sync counts once; an offline sale is never lost.
 
-**Done on a real phone against the live server** — a Samsung Galaxy A10, Android 9, five
+**Done on a real phone against the live server** — a Samsung Galaxy A10, Android 9, six
 passes on 7–8 October 2026 (`engineering/field-uat.md` §7.1). Upgrade in place from 1.0;
 packs; the medicines list; credit sale and repayment; price tiers; a delivery on account and
 a supplier paid from the till, with the cash-up agreeing; backup to a file and restore;
@@ -109,7 +109,13 @@ And what cannot yet: that it replaces a fiscal receipt machine, that it handles 
 medicines, that it files insurance claims, or that it has run for a month in a shop like
 theirs. The first three are answers we are waiting on. The last is what the pilot is for.
 
-## 6. Where everything is
+## 6. The build
+
+Version 2.0.0, build 71, commit `e13c918`. It is attached to the draft GitHub release
+`v2.0.0` as a signed APK and is the build the last device pass ran on. Publishing that
+release is the owner's act; nothing is public until then.
+
+## 7. Where everything is
 
 | For | Read |
 |---|---|
