@@ -58,6 +58,9 @@ jobs:
             --header "x-dispatch-secret: $SUMMARY_DISPATCH_SECRET" \
             "$API_BASE_URL/internal/summary-dispatch")
 
+          # Counts only, so it is safe in a log — and a log is where a failed evening is
+          # looked for first.
+          echo "dispatch answered HTTP $status: $(cat response.json 2>/dev/null)"
           echo "### Daily summary dispatch — HTTP $status" >> "$GITHUB_STEP_SUMMARY"
           if [ "$status" != "200" ]; then
             echo "The server did not accept the dispatch. A 404 means the secret here and the one on the server differ, or the server has none." >> "$GITHUB_STEP_SUMMARY"

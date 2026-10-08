@@ -37,6 +37,7 @@ the SRS is settled.
 | 05 | `05-qa-and-test-strategy.md` | ✅ Draft | Test pyramid, coverage targets that mean something, compliance test cases |
 | 06 | `06-delivery-plan.md` | ✅ Draft | SDLC model, phases, sprint plan, definition of done |
 | 07 | `07-v2-sellability-plan.md` | ✅ Draft | V2: what makes the app replace a tool the owner uses today — requirements FR-11…FR-20 and their order |
+| 08 | `08-v2-release.md` | ✅ Release candidate | PharmaEt 2.0 on one page: what a pharmacy gets, what was proven and how, what it does not do, and what to do before selling it |
 | — | `v2-sellability-backlog.md` | ✅ Input | The review of the shipped v1.0.0 app that `07` is derived from, kept verbatim |
 | — | `adr/` | ✅ Draft | Architecture Decision Records (binding decisions + rationale) |
 | — | `engineering/` | ✅ Draft | How to build it: repo layout, local setup, workflow, CI/CD, staging |
@@ -95,6 +96,7 @@ answer, permanently.
 | [ADR-037](adr/ADR-037-price-tiers.md) | Price tiers: a second price on the product, a tier on the sale | Accepted |
 | [ADR-038](adr/ADR-038-suppliers-and-payables.md) | Suppliers and what is owed to them: the credit ledger, turned round | Accepted |
 | [ADR-039](adr/ADR-039-daily-summary-on-telegram.md) | The daily summary arrives on the owner's Telegram | Accepted |
+| [ADR-040](adr/ADR-040-sync-authorises-by-operation-type.md) | Sync checks the permission matrix for each kind of operation | Accepted |
 
 ---
 

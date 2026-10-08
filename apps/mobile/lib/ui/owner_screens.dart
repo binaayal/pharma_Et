@@ -241,6 +241,22 @@ class _DailySummaryScreenState extends State<DailySummaryScreen> {
             title: context.t('day.repaid'),
             value: formatMoney(s.repaidSantim),
           ),
+          // The other direction (FR-18): shown only when there is something owed or
+          // something was paid — most small shops pay on delivery.
+          if (s.payableSantim > 0 || s.paidToSuppliersSantim > 0) ...[
+            PRow(
+              avatarIcon: Icons.local_shipping_outlined,
+              avatarTone: s.payableSantim > 0 ? Tone.amber : Tone.green,
+              title: context.t('day.payable'),
+              subtitle: context.tf('day.suppliersOwed', {'n': s.suppliersOwed}),
+              value: formatMoney(s.payableSantim),
+            ),
+            PRow(
+              avatarIcon: Icons.north_east,
+              title: context.t('day.paidSuppliers'),
+              value: formatMoney(s.paidToSuppliersSantim),
+            ),
+          ],
         ]),
 
         // ----------------------------------------------------------------- stock

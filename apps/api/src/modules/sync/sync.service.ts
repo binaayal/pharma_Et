@@ -7,7 +7,13 @@ import type {
   PushRequest,
   PushResponse,
 } from '@pharmaet/contracts';
-import { CONTRACT_VERSION, baseQuantity, creditPortion } from '@pharmaet/contracts';
+import {
+  CONTRACT_VERSION,
+  baseQuantity,
+  creditPortion,
+  isAllowed,
+  type Capability,
+} from '@pharmaet/contracts';
 import type { EntityManager } from 'typeorm';
 import { ScopedDbService } from '../../common/db/scoped-db.service';
 import type { TenantScope } from '../../common/db/tenant-scope';
@@ -59,6 +65,37 @@ import { LedgerService } from '../ledger/ledger.service';
  * conflicts cannot arise, and speculative conflict code would be untested code sitting in
  * the most dangerous path in the system.
  */
+/**
+ * What a person must be allowed to do for each kind of operation to be accepted from them
+ * (ADR-040). The FR-2 matrix, applied to the one write path that used to bypass it.
+ *
+ * Keyed by every entity type — the `Record` makes a new operation fail to compile until
+ * somebody has decided who may send it.
+ *
+ * Mostly this changes nothing: every role may sell, receive and cash up. It exists for the
+ * rows where roles differ — today, paying a supplier — because "the phone hides the
+ * button" stops being a control the moment somebody writes their own client.
+ */
+export const OPERATION_CAPABILITY: Record<Operation['entityType'], Capability> = {
+  sale: 'sale.create',
+  // A debt book entry is part of selling (ADR-034 §1): anyone who may sell may open an
+  // account and take a repayment.
+  customer: 'sale.create',
+  credit_payment: 'sale.create',
+  shift: 'cashup.perform',
+  cash_up: 'cashup.perform',
+  goods_receipt: 'goods.receive',
+  // A count correction is offered wherever receiving is: the person who shelves the
+  // delivery is the one who finds the miscount.
+  stock_adjustment: 'goods.receive',
+  // A supplier is opened by receiving from them (ADR-038 §1).
+  supplier: 'goods.receive',
+  // Money leaving the business. The owner and a branch manager — never a cashier.
+  supplier_payment: 'catalog.manage',
+  controlled_dispense: 'controlled.dispense',
+  controlled_adjustment: 'controlled.dispense',
+};
+
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
@@ -108,6 +145,20 @@ export class SyncService {
     // would refuse the write anyway — the two layers are independent on purpose (ADR-003).
     if (operation.tenantId !== scope.tenantId) {
       return this.reject(operation, 'operation tenant does not match the authenticated tenant');
+    }
+
+    // Who is sending it (ADR-040). Decided on the role in the token, before anything is
+    // read or written. A refusal is a rejected ack, like any other: the operation is parked
+    // on the terminal for a person to look at, never dropped.
+    const needed = OPERATION_CAPABILITY[operation.entityType];
+    if (!isAllowed(scope.role, needed)) {
+      this.logger.warn(
+        `op ${operation.opId} refused: role ${scope.role} lacks ${needed} for ${operation.entityType}`,
+      );
+      return this.reject(
+        operation,
+        `your role may not record a ${operation.entityType.replace(/_/g, ' ')}`,
+      );
     }
 
     try {

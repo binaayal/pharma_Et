@@ -74,6 +74,36 @@ void main() {
       DailySummary.fromJson(json)
           .toText(s, shop: 'Bole Pharmacy', day: '7 Oct');
 
+  group('what the pharmacy owes its suppliers (FR-18)', () {
+    Map<String, dynamic> withPayables(int owed, int n, int paid) => {
+          ...day(),
+          'payables': {
+            'owedSantim': owed,
+            'suppliersOwed': n,
+            'paidSantim': paid
+          },
+        };
+
+    test('is said in the message, in the server\'s own words', () {
+      final t = text(withPayables(123400, 2, 5000));
+      // The same line the Telegram message carries (summary-text.ts).
+      expect(t,
+          contains('You owe suppliers: 1,234.00 (suppliers: 2) · paid 50.00'));
+      expect(text(withPayables(123400, 2, 5000), Strings.am),
+          contains('ለአቅራቢዎች ያለብዎት፦ 1,234.00'));
+    });
+
+    test('is left out when nothing is owed and nothing was paid', () {
+      expect(text(withPayables(0, 0, 0)), isNot(contains('suppliers')));
+    });
+
+    test('a server that predates it reads as nothing owed', () {
+      final s = DailySummary.fromJson(day());
+      expect(s.payableSantim, 0);
+      expect(text(day()), isNot(contains('suppliers')));
+    });
+  });
+
   group('the summary as a message', () {
     test('leads with whose day it is and what was sold', () {
       final t = text(day());

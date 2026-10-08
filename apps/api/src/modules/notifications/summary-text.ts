@@ -24,6 +24,7 @@ const TEXT: Record<SummaryLocale, Record<string, string>> = {
     open: 'Tills still open and not counted: {n}.',
     onShift: 'On shift: {names}',
     owed: 'Owed to you: {owed} (customers: {n}) · repaid {repaid}',
+    payable: 'You owe suppliers: {owed} (suppliers: {n}) · paid {paid}',
     low: 'Running low: {n} — {names}',
     expiring: 'Batches expiring within 60 days: {n}',
     oversold: 'Batches sold below zero, needing a count: {n}',
@@ -42,6 +43,7 @@ const TEXT: Record<SummaryLocale, Record<string, string>> = {
     open: 'አሁንም ክፍት የሆኑና ያልተቆጠሩ ካሻዎች፦ {n}።',
     onShift: 'በሥራ ላይ የነበሩ፦ {names}',
     owed: 'የሚከፈልዎ፦ {owed} (ደንበኞች፦ {n}) · የተከፈለ {repaid}',
+    payable: 'ለአቅራቢዎች ያለብዎት፦ {owed} (አቅራቢዎች፦ {n}) · የተከፈለ {paid}',
     low: 'እያለቁ ያሉ፦ {n} — {names}',
     expiring: 'በ60 ቀናት ውስጥ ጊዜያቸው የሚያልፍ ባቾች፦ {n}',
     oversold: 'ከዜሮ በታች የተሸጡ፣ ቆጠራ የሚያስፈልጋቸው ባቾች፦ {n}',
@@ -112,6 +114,18 @@ export function summaryText(
       repaid: formatMoney(credit.repaidSantim),
     }),
   );
+
+  // Said only when there is something to say: most small shops pay on delivery.
+  const payables = summary.payables;
+  if (payables && (payables.owedSantim > 0 || payables.paidSantim > 0)) {
+    lines.push(
+      f('payable', {
+        owed: formatMoney(payables.owedSantim),
+        n: payables.suppliersOwed,
+        paid: formatMoney(payables.paidSantim),
+      }),
+    );
+  }
 
   if (stock.lowCount > 0) {
     lines.push(

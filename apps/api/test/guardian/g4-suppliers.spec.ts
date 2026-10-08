@@ -1,5 +1,6 @@
 import request from 'supertest';
-import { pullResponse } from '@pharmaet/contracts';
+import { isAllowed, pullResponse } from '@pharmaet/contracts';
+import { OPERATION_CAPABILITY } from '../../src/modules/sync/sync.service';
 import { uuidv7 } from 'uuidv7';
 import { TestHarness, type SeededTenant } from '../harness';
 import {
@@ -323,6 +324,121 @@ describe('G4 — suppliers and payables', () => {
       ]).expect(201);
       expect(response.body.acks[0].status).toBe('rejected');
       expect(await query(`SELECT 1 FROM supplier_payment`)).toHaveLength(0);
+    });
+  });
+
+  describe('who may pay a supplier (ADR-040)', () => {
+    const pushAs = (who: 'owner' | 'manager' | 'cashier', operations: unknown[]) =>
+      request(server())
+        .post('/api/sync/push')
+        .set('authorization', `Bearer ${a.users[who].token}`)
+        .send({ terminalId: TERMINAL, operations })
+        .expect(201);
+
+    it('a cashier is refused by the server, not only by the phone', async () => {
+      const id = await supplier();
+      await push(a, [delivery(2, id, 8000)]).expect(201);
+
+      const response = await pushAs('cashier', [
+        supplierPaymentOp(a, { terminalSeq: 3, supplierId: id, amountSantim: 5000 }),
+      ]);
+
+      expect(response.body.acks[0].status).toBe('rejected');
+      expect(response.body.acks[0].reason).toMatch(/may not record a supplier payment/);
+      // Nothing was written: the debt stands and no payment exists.
+      expect(await balance(id)).toBe(8000);
+      expect(await query(`SELECT 1 FROM supplier_payment`)).toHaveLength(0);
+    });
+
+    it('a cashier cannot take cash out of a till this way either', async () => {
+      const id = await supplier();
+      const shiftId = uuidv7();
+      await push(a, [
+        shiftOp(a, { terminalSeq: 2, shiftId, openingFloatSantim: 20000 }),
+        saleInShift(a, { terminalSeq: 3, shiftId }),
+      ]).expect(201);
+
+      await pushAs('cashier', [
+        supplierPaymentOp(a, { terminalSeq: 4, supplierId: id, amountSantim: 5000, shiftId }),
+      ]);
+
+      const report = await request(server())
+        .get(`/api/reports/cash-up/${shiftId}`)
+        .set('authorization', `Bearer ${a.users.owner.token}`)
+        .expect(200);
+      // The drawer is still expected to hold every santim.
+      expect(report.body.paidOutSantim).toBe(0);
+      expect(report.body.serverExpectedSantim).toBe(21500);
+    });
+
+    it('the owner and a branch manager are accepted', async () => {
+      const id = await supplier();
+      await push(a, [delivery(2, id, 8000)]).expect(201);
+      const byManager = await pushAs('manager', [
+        supplierPaymentOp(a, { terminalSeq: 3, supplierId: id, amountSantim: 1000 }),
+      ]);
+      const byOwner = await pushAs('owner', [
+        supplierPaymentOp(a, { terminalSeq: 4, supplierId: id, amountSantim: 2000 }),
+      ]);
+
+      expect(byManager.body.acks[0].status).toBe('applied');
+      expect(byOwner.body.acks[0].status).toBe('applied');
+      expect(await balance(id)).toBe(5000);
+    });
+
+    it('the refusal stops that one operation, not the rest of the batch', async () => {
+      const id = await supplier();
+      const before = await onHand(a);
+      const response = await pushAs('cashier', [
+        supplierPaymentOp(a, { terminalSeq: 2, supplierId: id, amountSantim: 5000 }),
+        // A cashier may receive goods, and from a supplier.
+        delivery(3, id, 8000),
+      ]);
+
+      expect(response.body.acks.map((k: { status: string }) => k.status)).toEqual([
+        'rejected',
+        'applied',
+      ]);
+      expect(await onHand(a)).toBe(before + 10);
+      expect(await balance(id)).toBe(8000);
+    });
+
+    it('a cashier still does everything a cashier does', async () => {
+      // The rule must not have taken anything away: sell, open a customer, take a
+      // repayment, receive, open a supplier, open and count a till.
+      const id = uuidv7();
+      const response = await pushAs('cashier', [
+        supplierOp(a, { terminalSeq: 1, supplierId: id, name: 'New Supplier' }),
+        delivery(2, id, 0),
+      ]);
+      expect(response.body.acks.map((k: { status: string }) => k.status)).toEqual([
+        'applied',
+        'applied',
+      ]);
+    });
+
+    it('every kind of operation has had its sender decided', () => {
+      // A new entity type cannot be added without an entry: the map is typed by them.
+      expect(Object.keys(OPERATION_CAPABILITY).sort()).toEqual(
+        [
+          'cash_up',
+          'controlled_adjustment',
+          'controlled_dispense',
+          'credit_payment',
+          'customer',
+          'goods_receipt',
+          'sale',
+          'shift',
+          'stock_adjustment',
+          'supplier',
+          'supplier_payment',
+        ].sort(),
+      );
+      // And only one of them is closed to a cashier.
+      const closedToCashier = Object.entries(OPERATION_CAPABILITY)
+        .filter(([, capability]) => !isAllowed('cashier', capability))
+        .map(([type]) => type);
+      expect(closedToCashier).toEqual(['supplier_payment']);
     });
   });
 
