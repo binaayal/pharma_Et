@@ -27,7 +27,7 @@ dependencies:
 
   # Cached auth material lives in platform secure storage, never in shared preferences
   # (NFR-4.2).
-  flutter_secure_storage: ^9.2.2
+  flutter_secure_storage: ^10.3.4
 
   connectivity_plus: ^6.0.5
   intl: ^0.19.0
