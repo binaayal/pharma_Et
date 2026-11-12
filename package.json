@@ -25,7 +25,7 @@
     "format:dart:check": "./scripts/format-dart.sh --check"
   },
   "devDependencies": {
-    "prettier": "^3.3.3",
+    "prettier": "^3.9.10",
     "typescript": "^5.6.3"
   },
   "pnpm": {
